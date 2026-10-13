@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e3a3a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Platzverwaltung">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Platzverwaltung · Waldcamping Hesedorf</title>
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Permanent+Marker&display=swap">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/karte" aria-label="Zur Karte">
+      <svg class="tree" viewBox="0 0 26 34" aria-hidden="true"><path d="M13 0 8 8h3l-6 8h4l-7 9h9v9h4v-9h9l-7-9h4l-6-8h3z"/></svg>
+      <span class="brand-text">
+        <strong>Waldcamping Hesedorf</strong>
+        <small>Platzverwaltung</small>
+      </span>
+    </a>
+    <button type="button" id="sync-status" class="sync" hidden></button>
+    <nav class="tabbar" aria-label="Hauptnavigation">
+      <a href="#/karte" data-nav="karte">
+        <svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zm0 0v14m6-12v14"/></svg>
+        <span>Karte</span>
+      </a>
+      <a href="#/kartei" data-nav="kartei">
+        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg>
+        <span>Kartei</span>
+      </a>
+      <a href="#/technik" data-nav="technik">
+        <svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+        <span>Technik</span>
+      </a>
+      <a href="#/ablesung" data-nav="ablesung">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13l4-4M12 5V3M8 2h8"/></svg>
+        <span>Zähler</span>
+      </a>
+      <a href="#/daten" data-nav="daten">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
+        <span>Daten</span>
+      </a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <!-- Karte bleibt dauerhaft im DOM, damit Leaflet nicht neu initialisiert werden muss -->
+    <section id="view-karte" class="view view-map" hidden>
+      <div class="map-toolbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <input id="map-search" type="search" placeholder="Parzelle, Name oder Zähler suchen…" autocomplete="off" aria-label="Suchen">
+          <div id="map-search-results" class="search-results" hidden></div>
+        </div>
+        <div class="segmented" role="group" aria-label="Einfärbung">
+          <button type="button" data-color="status" class="is-active">Status</button>
+          <button type="button" data-color="supply">Versorgung</button>
+        </div>
+        <button type="button" id="btn-edit" class="btn btn-ghost btn-icon" aria-pressed="false" title="Karte bearbeiten">
+          <svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg>
+          <span>Bearbeiten</span>
+        </button>
+      </div>
+      <div id="map-modebar" class="map-modebar" hidden></div>
+      <div class="map-wrap">
+        <div id="map" aria-label="Lageplan"></div>
+        <div id="map-legend" class="legend"></div>
+        <aside id="map-panel" class="panel" hidden aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <section id="view-page" class="view view-page" hidden></section>
+  </main>
+
+  <div id="auth" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <svg class="tree" viewBox="0 0 26 34" aria-hidden="true"><path d="M13 0 8 8h3l-6 8h4l-7 9h9v9h4v-9h9l-7-9h4l-6-8h3z"/></svg>
+        <div><strong>Waldcamping Hesedorf</strong><small>Platzverwaltung</small></div>
+      </div>
+      <div id="auth-body"></div>
+    </div>
+  </div>
+
+  <dialog id="dialog" class="dialog"></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/supabase/supabase.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
