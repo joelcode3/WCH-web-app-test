@@ -26,7 +26,7 @@ window.APP_CONFIG = {
    * Leer lassen = lokaler Testmodus ohne Login (Daten nur im Browser).
    */
   supabase: {
-    url: '',
-    anonKey: '',
+    url: 'https://erobbkjhfauwvzfegeiw.supabase.co',
+    anonKey: 'sb_publishable_NQ2Q9efPtjrLHr6pEB4ygg_vE4Vnp-S',
   },
 };
