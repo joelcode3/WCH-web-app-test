@@ -35,23 +35,28 @@
         tenant_email: p.tenant.email || '', tenant_address: p.tenant.address || '',
         size: num(p.size), gas: p.gas || 'none', gas_tank_id: nz(p.gasTankId),
         heating: p.heating || 'keine', notes: p.notes || '', geometry: p.geometry || [],
+        object_type: p.objectType || 'pacht', rent: num(p.rent), winter_water: !!p.winterWater,
       }),
       fromRow: (r) => ({
         id: r.id, nr: r.nr, status: r.status,
         tenant: { name: r.tenant_name, phone: r.tenant_phone, email: r.tenant_email, address: r.tenant_address },
         size: r.size === null ? '' : Number(r.size), gas: r.gas, gasTankId: r.gas_tank_id || '',
         heating: r.heating, notes: r.notes, geometry: r.geometry || [],
+        objectType: r.object_type || 'pacht', rent: r.rent === null || r.rent === undefined ? '' : Number(r.rent),
+        winterWater: !!r.winter_water,
       }),
     },
     {
       key: 'meters',
       toRow: (m) => ({
-        id: m.id, type: m.type, number: m.number || '', parcel_id: m.parcelId,
+        id: m.id, type: m.type, number: m.number || '', parcel_id: nz(m.parcelId),
         box_id: nz(m.boxId), location: m.location || '', notes: m.notes || '',
+        in_house: !!m.inHouse, purpose: m.purpose || '', label: m.label || '',
       }),
       fromRow: (r) => ({
-        id: r.id, type: r.type, number: r.number, parcelId: r.parcel_id,
+        id: r.id, type: r.type, number: r.number, parcelId: r.parcel_id || '',
         boxId: r.box_id || '', location: r.location, notes: r.notes,
+        inHouse: !!r.in_house, purpose: r.purpose || '', label: r.label || '',
       }),
     },
     {

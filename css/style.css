@@ -304,6 +304,17 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--w
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
 .form-grid .full { grid-column: 1 / -1; }
 .meter-edit { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; padding: 10px; background: #fff; border: 1px solid var(--linie); border-radius: var(--radius-s); margin-bottom: 8px; }
+.meter-edit-box { grid-template-columns: 1fr 1.3fr 1fr auto; }
+.meter-edit .meter-remove { grid-column: -2 / -1; grid-row: 1; align-self: end; margin-bottom: 4px; }
+.meter-edit.has-warn { border-color: #e7b8ad; background: #fdf3f0; }
+.dup-warn { grid-column: 1 / -1; margin: 2px 0 0; color: var(--gefahr); font-weight: 600; font-size: .88rem; }
+.dup-warn::before { content: '⚠ '; }
+.check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; cursor: pointer; align-self: end; }
+.check input { width: 22px; height: 22px; accent-color: var(--wald); }
+.yes { color: var(--ok); font-weight: 700; }
+.no { color: var(--text-leise); }
+.nr-service { background: var(--rinde); }
+.badge-service { background: #f1e3d0; color: #6b4521; }
 .form-footer {
   position: sticky; bottom: 0; z-index: 5;
   display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
@@ -467,10 +478,15 @@ body.is-locked { padding-bottom: 0; }
   .card-row .side { grid-column: 2; flex-direction: row; align-items: center; justify-content: flex-start; text-align: left; margin-top: -4px; }
   .cards { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr; }
-  .meter-edit { grid-template-columns: 1fr auto; }
-  .meter-edit > :nth-child(2) { grid-column: 1; grid-row: 2; }
-  .meter-edit > :last-child { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+  .meter-edit, .meter-edit-box { grid-template-columns: 1fr auto; }
+  .meter-edit > .field { grid-column: 1; }
+  .meter-edit .meter-remove { grid-column: 2; grid-row: 1; }
   .filters select { flex: 1; min-width: 0; }
+  .toast { bottom: auto; top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 10px); }
+  .form-footer { flex-wrap: nowrap; gap: 8px; }
+  .form-footer .btn-danger { padding: 0 12px; }
+  .form-footer .btn-danger .btn-text { display: none; }
+  .form-footer .btn[type=submit] { flex: 1; }
   .detail-head .actions { width: 100%; }
   .detail-head .actions .btn { flex: 1; }
 

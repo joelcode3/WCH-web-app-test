@@ -18,14 +18,20 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
   - Suche nach Parzellen-Nr., Name oder Zählernummer
   - **Bearbeiten-Modus**: Kästen/Tanks verschieben, neue Parzellen einzeichnen
     (Ecken antippen), Umrisse neu zeichnen
-- **Kartei** – alle Parzellen mit Suche und Filtern; Karteikarte mit Mieter, Grundstück,
-  Strom, Gas & Heizung, Notizen und Ablesehistorie; Formular zum Bearbeiten
-  (beliebig viele Strom-/Gaszähler je Parzelle)
-- **Technik** – Übersicht und Pflege der Stromkästen und Gastanks
+- **Kartei** – alle Parzellen mit Suche und Filtern (Status, Versorgung, Objektart, Winterwasser);
+  Karteikarte mit Mieter, Objektart (Pachtgrundstück / Mietobjekt), monatlicher Pacht/Miete,
+  Winterwasser, Strom, Gas & Heizung, Notizen und Ablesehistorie; Formular zum Bearbeiten
+  (beliebig viele Strom-/Gaszähler je Parzelle, Zähler im Kasten oder im Haus) mit Warnung bei
+  doppelter Parzellen- oder Zählernummer
+- **Status**: Festwohnsitz, Wochenende, Frei (mit Altbestand), Frei
+- **Technik** – Stromkästen und Gastanks; pro Kasten alle Zähler verwalten und entweder einer
+  Parzelle zuordnen oder als **Betriebsstrom** kennzeichnen (Platzbeleuchtung, Sanitär, Camperstrom …)
 - **Zähler**
   - *Ablesen*: Zählerstände je Kasten/Tank eintippen, sofortiger Abgleich mit dem
     letzten Stand, Warnung bei Rückgang (Zählertausch/Tippfehler)
-  - *Verbrauch*: Verbrauch zwischen zwei Ablesungen je Zähler, Summe, CSV-Export (Excel)
+  - *Verbrauch*: letzte zwei Ablesungen je Zähler oder frei wählbarer Zeitraum; Summen getrennt
+    nach Parzellen und Betrieb; CSV-Liste (Parzelle, Name, Zählernummer, Zählerschrank,
+    letzter Stand + Datum, aktueller Stand + Datum, Differenz)
 - **Daten** – Sicherung als JSON exportieren/importieren, Kartei als CSV,
   Demo-Daten oder leerer Bestand
 
@@ -76,7 +82,8 @@ js/auth.js            Anmeldebildschirm
 js/map.js             Interaktive Karte (Leaflet)
 js/app.js             Ansichten: Karte, Kartei, Technik, Zähler, Daten
 assets/               Lageplan (Platzhalter) & Icon
-supabase/schema.sql   Datenbankschema inkl. Zugriffsregeln
+supabase/schema.sql   Datenbankschema inkl. Zugriffsregeln (enthält alle Updates)
+supabase/update-2.sql Update für bestehende Datenbanken (neue Felder)
 vendor/leaflet/       Leaflet 1.9.4 (BSD-2-Clause)
 vendor/supabase/      supabase-js 2.116.0 (MIT)
 ```

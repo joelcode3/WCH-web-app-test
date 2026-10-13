@@ -51,6 +51,13 @@ Wichtig für die Links in Einladungs- und „Passwort vergessen“-Mails.
 Für dich selbst genauso – oder unter „Add user“ → „Create new user“ direkt ein Passwort
 vergeben (Haken bei „Auto Confirm User“ setzen).
 
+### Spätere Datenbank-Updates
+
+Wenn neue Felder dazukommen, liegt im Ordner `supabase/` ein Update-Skript (z. B. `update-2.sql`).
+Es wird genauso wie oben im **SQL Editor** eingefügt und mit **Run** ausgeführt. Die Skripte
+lassen sich gefahrlos mehrfach ausführen. Wer neu einrichtet, braucht nur `schema.sql`
+(enthält alle Updates).
+
 ## 6. Zugangsdaten in die App eintragen
 
 **Project Settings → API Keys** (oder oben der Button **„Connect“**):
