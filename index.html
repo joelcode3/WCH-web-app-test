@@ -27,6 +27,7 @@
         <small>Platzverwaltung</small>
       </span>
     </a>
+    <button type="button" id="sync-status" class="sync" hidden></button>
     <nav class="tabbar" aria-label="Hauptnavigation">
       <a href="#/karte" data-nav="karte">
         <svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zm0 0v14m6-12v14"/></svg>
@@ -80,11 +81,24 @@
     <section id="view-page" class="view view-page" hidden></section>
   </main>
 
+  <div id="auth" class="auth" hidden>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <svg class="tree" viewBox="0 0 26 34" aria-hidden="true"><path d="M13 0 8 8h3l-6 8h4l-7 9h9v9h4v-9h9l-7-9h4l-6-8h3z"/></svg>
+        <div><strong>Waldcamping Hesedorf</strong><small>Platzverwaltung</small></div>
+      </div>
+      <div id="auth-body"></div>
+    </div>
+  </div>
+
   <dialog id="dialog" class="dialog"></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/supabase/supabase.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/data.js"></script>
   <script src="js/map.js"></script>
   <script src="js/app.js"></script>

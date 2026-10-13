@@ -166,7 +166,25 @@
     data: null,
     listeners: [],
 
-    load() {
+    mode: 'local',          // 'local' (Browser-Speicher) | 'cloud' (Supabase)
+    sync: { state: 'idle', error: '' },
+    syncListeners: [],
+    _dirty: false,
+    _flushing: false,
+    _snapshot: null,
+    lastFetch: 0,
+
+    async init() {
+      if (window.Cloud && Cloud.enabled) {
+        this.mode = 'cloud';
+        await this.refresh();
+      } else {
+        this.mode = 'local';
+        this._loadLocal();
+      }
+    },
+
+    _loadLocal() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
@@ -181,6 +199,18 @@
       this.save();
     },
 
+    // Cloud: kompletten Stand neu vom Server holen
+    async refresh() {
+      const data = await Cloud.fetchAll();
+      // Während des Ladens lokal geändert? Dann nicht überschreiben (wird gerade gespeichert)
+      if (this.data && this.hasPending) return false;
+      this.data = data;
+      this._normalize();
+      this._snapshot = Cloud.snapshot(this.data);
+      this.lastFetch = Date.now();
+      return true;
+    },
+
     _normalize() {
       const d = this.data;
       ['parcels', 'boxes', 'tanks', 'meters', 'readings'].forEach((k) => { if (!Array.isArray(d[k])) d[k] = []; });
@@ -188,13 +218,51 @@
     },
 
     save() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
-      } catch (e) {
-        alert('Speichern fehlgeschlagen: ' + e.message);
+      if (this.mode === 'cloud') {
+        this._dirty = true;
+        if (!this._flushing) this._flush();
+      } else {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+        } catch (e) {
+          alert('Speichern fehlgeschlagen: ' + e.message);
+        }
       }
       this.listeners.forEach((fn) => fn());
     },
+
+    // Cloud: Änderungen nacheinander hochladen, bis nichts mehr offen ist
+    async _flush() {
+      this._flushing = true;
+      this._setSync('saving');
+      try {
+        while (this._dirty) {
+          this._dirty = false;
+          const cur = JSON.parse(JSON.stringify(this.data));
+          await Cloud.push(cur, this._snapshot);
+          this._snapshot = Cloud.snapshot(cur);
+        }
+        this._setSync('saved');
+      } catch (e) {
+        console.error('Speichern fehlgeschlagen', e);
+        this._dirty = true;
+        this._setSync('error', e.message || String(e));
+      } finally {
+        this._flushing = false;
+      }
+    },
+
+    retry() {
+      if (this.mode === 'cloud' && this._dirty && !this._flushing) this._flush();
+    },
+
+    get hasPending() { return this._dirty || this._flushing; },
+
+    _setSync(state, error = '') {
+      this.sync = { state, error };
+      this.syncListeners.forEach((fn) => fn(this.sync));
+    },
+    onSync(fn) { this.syncListeners.push(fn); },
 
     onChange(fn) { this.listeners.push(fn); },
 

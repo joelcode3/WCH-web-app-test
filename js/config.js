@@ -17,4 +17,16 @@ window.APP_CONFIG = {
     isPlaceholder: true,
   },
   units: { strom: 'kWh', gas: 'm³' },
+
+  /*
+   * Datenbank & Login (Supabase). Werte stehen im Supabase-Dashboard unter
+   * "Project Settings → API Keys" bzw. "Connect": Project URL und der
+   * "Publishable key" (ältere Projekte: "anon public" Key).
+   * Der anon-Key ist öffentlich unbedenklich – geschützt wird über Login + Zugriffsregeln.
+   * Leer lassen = lokaler Testmodus ohne Login (Daten nur im Browser).
+   */
+  supabase: {
+    url: '',
+    anonKey: '',
+  },
 };

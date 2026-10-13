@@ -1179,13 +1179,26 @@
             <div class="stat"><div class="v">${d.meters.length}</div><div class="l">Zähler</div></div>
             <div class="stat"><div class="v">${d.readings.length}</div><div class="l">Ablesungen</div></div>
           </div>
-          ${d.demo ? '<p class="notice"><strong>Demo-Daten:</strong> Alle Namen, Nummern und Zählerstände sind erfunden und dienen nur zum Ausprobieren. Über „Leeren Bestand anlegen“ geht es mit echten Daten los.</p>' : ''}
+          ${d.demo && S.mode === 'local' ? '<p class="notice"><strong>Demo-Daten:</strong> Alle Namen, Nummern und Zählerstände sind erfunden und dienen nur zum Ausprobieren.</p>' : ''}
           <div class="cards">
+            ${S.mode === 'cloud' ? `
             <section class="card">
-              <h2>Speicherort</h2>
-              <p class="small">Die Daten liegen derzeit <strong>nur in diesem Browser auf diesem Gerät</strong>. PC und iPhone sehen also (noch) nicht automatisch denselben Stand. Für den Austausch: Sicherung exportieren und auf dem anderen Gerät importieren.</p>
-              <p class="small muted">Geplanter nächster Schritt: zentrale Datenbank mit Login, damit alle Geräte synchron sind.</p>
-            </section>
+              <h2>Konto</h2>
+              <dl class="facts">
+                <dt>Angemeldet als</dt><dd>${h(Cloud.user && Cloud.user.email)}</dd>
+                <dt>Speicherort</dt><dd>Zentrale Datenbank</dd>
+                <dt>Stand geladen</dt><dd>${new Date(S.lastFetch).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</dd>
+              </dl>
+              <div class="card-actions">
+                <button class="btn btn-ghost" id="d-refresh">Neu laden</button>
+                <button class="btn btn-dark" id="d-logout">Abmelden</button>
+              </div>
+            </section>` : `
+            <section class="card">
+              <h2>Lokaler Testmodus</h2>
+              <p class="small">Es ist noch keine Datenbank verbunden. Die Daten liegen <strong>nur in diesem Browser auf diesem Gerät</strong> – ideal zum Ausprobieren.</p>
+              <p class="small muted">Sobald in <code>js/config.js</code> die Supabase-Zugangsdaten eingetragen sind, erscheint eine Anmeldung und alle Geräte arbeiten mit demselben Datenbestand (siehe SETUP.md).</p>
+            </section>`}
             <section class="card">
               <h2>Sicherung</h2>
               <div class="card-actions" style="margin-top:0">
@@ -1206,7 +1219,7 @@
                 <button class="btn btn-ghost" id="d-demo">Demo-Daten laden</button>
                 <button class="btn btn-danger" id="d-clear">Leeren Bestand anlegen</button>
               </div>
-              <p class="small muted">Beides überschreibt den aktuellen Stand – vorher eine Sicherung exportieren!</p>
+              <p class="small muted">${S.mode === 'cloud' ? '<strong>Achtung:</strong> Beides überschreibt die zentrale Datenbank für alle Benutzer' : 'Beides überschreibt den aktuellen Stand'} – vorher eine Sicherung exportieren!</p>
             </section>
           </div>
         </div>`;
@@ -1219,7 +1232,7 @@
         reader.onload = () => {
           try {
             const obj = JSON.parse(reader.result);
-            if (!confirm(`Sicherung mit ${obj.parcels?.length ?? 0} Parzellen importieren? Der aktuelle Stand wird ersetzt.`)) return;
+            if (!reallyOverwrite(`Sicherung mit ${obj.parcels?.length ?? 0} Parzellen importieren und den aktuellen Stand ersetzen`)) return;
             S.importJSON(obj); toast('Sicherung importiert'); this.render(root);
           } catch (err) { alert('Import fehlgeschlagen: ' + err.message); }
         };
@@ -1238,9 +1251,24 @@
         });
         download(`kartei-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
       };
-      $('#d-demo', root).onclick = () => { if (confirm('Aktuellen Stand durch Demo-Daten ersetzen?')) { S.reset(); toast('Demo-Daten geladen'); this.render(root); } };
+      // In der Datenbank nur nach ausdrücklicher Bestätigung überschreiben
+      const reallyOverwrite = (what) => S.mode !== 'cloud'
+        ? confirm(`${what}?`)
+        : (prompt(`${what}?\n\nDas betrifft die zentrale Datenbank für alle Benutzer. Zum Bestätigen LÖSCHEN eingeben:`) || '').trim().toUpperCase() === 'LÖSCHEN';
+      $('#d-demo', root).onclick = () => { if (reallyOverwrite('Aktuellen Stand durch Demo-Daten ersetzen')) { S.reset(); toast('Demo-Daten geladen'); this.render(root); } };
+      const refresh = $('#d-refresh', root);
+      if (refresh) refresh.onclick = async () => {
+        if (S.hasPending) { toast('Bitte warten, bis alles gespeichert ist'); return; }
+        try { await S.refresh(); MapView.render(); toast('Neuester Stand geladen'); this.render(root); } catch (e) { alert('Laden fehlgeschlagen: ' + e.message); }
+      };
+      const logout = $('#d-logout', root);
+      if (logout) logout.onclick = async () => {
+        if (S.hasPending && !confirm('Es werden noch Änderungen gespeichert. Trotzdem abmelden?')) return;
+        await Cloud.signOut();
+        location.reload();
+      };
       $('#d-clear', root).onclick = () => {
-        if (!confirm('Wirklich ALLE Daten löschen und mit einem leeren Bestand starten?')) return;
+        if (!reallyOverwrite('Wirklich ALLE Daten löschen und mit einem leeren Bestand starten')) return;
         S.clearAll(); toast('Leerer Bestand angelegt'); this.render(root);
       };
     },
@@ -1305,23 +1333,79 @@
     if (location.hash === hash) route(); else location.hash = hash;
   }
 
+  /* ---------- Speicherstatus ---------- */
+
+  function renderSync() {
+    const el = $('#sync-status');
+    el.hidden = false;
+    el.onclick = null;
+    if (S.mode === 'local') {
+      el.className = 'sync is-local is-ok';
+      el.innerHTML = '<span>Testmodus</span>';
+      el.title = 'Lokaler Testmodus: Daten nur in diesem Browser';
+      return;
+    }
+    const st = S.sync.state;
+    el.className = 'sync' + (st === 'saving' ? ' is-saving' : st === 'error' ? ' is-error' : ' is-ok');
+    el.innerHTML = `<span>${st === 'saving' ? 'Speichert …' : st === 'error' ? 'Nicht gespeichert' : 'Gespeichert'}</span>`;
+    el.setAttribute('aria-label', el.textContent);
+    el.title = st === 'error' ? `Fehler: ${S.sync.error} – antippen zum erneuten Versuch` : 'Alle Änderungen sind in der Datenbank gespeichert';
+    if (st === 'error') el.onclick = () => S.retry();
+  }
+
+  // Cloud: beim Zurückkehren zur App den neuesten Stand holen (z. B. Änderungen vom anderen Gerät)
+  async function refreshIfIdle() {
+    if (S.mode !== 'cloud' || S.hasPending || S.sync.state === 'error') return;
+    if (Date.now() - S.lastFetch < 30000) return;
+    if (/^#\/(neu|parzelle\/[^/]+\/bearbeiten)/.test(location.hash)) return;
+    if (Object.keys(Ablesung.draft).length || MapView.mode || $('#dialog').open) return;
+    try {
+      if (!(await S.refresh())) return;
+      MapView.render();
+      route();
+    } catch (e) {
+      console.warn('Aktualisieren fehlgeschlagen', e);
+    }
+  }
+
   /* ---------- Start ---------- */
 
-  S.load();
-  MapUI.init();
+  async function start() {
+    if (window.Cloud && Cloud.enabled) {
+      await Auth.ensure();
+      Auth.loading('Daten werden geladen …');
+      for (;;) {
+        try { await S.init(); break; } catch (e) {
+          console.error(e);
+          if (!confirm(`Daten konnten nicht geladen werden:\n${e.message || e}\n\nErneut versuchen?`)) return;
+        }
+      }
+      Auth.hide();
+    } else {
+      await S.init();
+    }
 
-  // Änderungen an den Daten → sichtbare Ansicht aktualisieren
-  S.onChange(() => {
-    MapView.render();
-    const sel = MapView.selected;
-    if (!$('#view-karte').hidden && sel) MapUI.showPanel(sel.type, sel.id);
-    if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'));
-  });
+    MapUI.init();
+    S.onSync(renderSync);
+    renderSync();
 
-  window.addEventListener('hashchange', route);
-  window.addEventListener('resize', () => MapView.invalidate());
-  window.addEventListener('beforeunload', (e) => {
-    if (Object.keys(Ablesung.draft).length) { e.preventDefault(); e.returnValue = ''; }
-  });
-  route();
+    // Änderungen an den Daten → sichtbare Ansicht aktualisieren
+    S.onChange(() => {
+      MapView.render();
+      const sel = MapView.selected;
+      if (!$('#view-karte').hidden && sel) MapUI.showPanel(sel.type, sel.id);
+      if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'));
+    });
+
+    window.addEventListener('hashchange', route);
+    window.addEventListener('resize', () => MapView.invalidate());
+    window.addEventListener('online', () => S.retry());
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshIfIdle(); });
+    window.addEventListener('beforeunload', (e) => {
+      if (Object.keys(Ablesung.draft).length || S.hasPending) { e.preventDefault(); e.returnValue = ''; }
+    });
+    route();
+  }
+
+  start();
 })();

@@ -366,6 +366,47 @@ tfoot td { font-weight: 700; background: #f8f4ea; }
   max-width: calc(100vw - 32px);
 }
 
+/* Speicherstatus in der Kopfzeile */
+.sync {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff;
+  border-radius: 999px; padding: 4px 12px; font-size: .82rem; font-weight: 600; cursor: default; white-space: nowrap;
+}
+.sync::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #9bd18b; flex: none; }
+.sync.is-saving::before { background: var(--sonne); animation: pulse 1s infinite alternate; }
+.sync.is-error { background: var(--rot); border-color: var(--rot); cursor: pointer; }
+.sync.is-error::before { background: #fff; }
+.sync.is-local::before { background: var(--sonne); }
+@keyframes pulse { from { opacity: .3; } to { opacity: 1; } }
+
+/* Login */
+body.is-locked > .topbar, body.is-locked > main, body.is-locked > .toast { display: none; }
+body.is-locked { padding-bottom: 0; }
+.auth {
+  position: fixed; inset: 0; z-index: 4000; overflow-y: auto;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  background: var(--wald);
+  background-image: radial-gradient(circle at 20% 10%, rgba(127,174,95,.18), transparent 50%), radial-gradient(circle at 90% 90%, rgba(255,255,255,.06), transparent 40%);
+}
+.auth-card {
+  width: min(400px, 100%); background: var(--papier); border-radius: 18px; padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+}
+.auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; color: var(--wald); }
+.auth-brand .tree { width: 30px; height: 40px; fill: var(--wald); stroke: none; }
+.auth-brand strong { display: block; font-family: var(--font-brand); font-weight: 400; font-size: 1.3rem; text-transform: uppercase; line-height: 1; }
+.auth-brand small { display: block; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-leise); margin-top: 4px; }
+#auth-body form { display: grid; gap: 14px; }
+#auth-body h2 { margin-bottom: 4px; }
+.auth-submit { width: 100%; min-height: 48px; font-size: 1.05rem; margin-top: 4px; }
+.auth-link { justify-self: center; margin-top: 4px; }
+#auth-body > .auth-link { display: block; margin: 14px auto 0; }
+.auth-error { margin: 0; padding: 10px 12px; border-radius: var(--radius-s); background: #fbecea; color: var(--gefahr); font-weight: 600; font-size: .92rem; }
+.auth-loading { display: flex; align-items: center; gap: 10px; margin: 8px 0; color: var(--text-leise); font-weight: 600; }
+.spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--linie); border-top-color: var(--wald); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ==========================================================================
    Mobil (iPhone hochkant)
    ========================================================================== */
@@ -373,6 +414,15 @@ tfoot td { font-weight: 700; background: #f8f4ea; }
   :root { --topbar-h: 52px; --tabbar-h: 62px; }
   body { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
   .brand-text strong { font-size: 1rem; }
+  .sync { margin-left: auto; padding: 4px 10px; }
+  .sync.is-ok { padding: 9px; }
+  .sync.is-ok span { display: none; }
+  .brand { flex: 1; }
+  .brand-text strong { overflow: hidden; text-overflow: ellipsis; }
+  .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .stat { padding: 10px; }
+  .stat .v { font-size: 1.15rem; }
+  .stat .l { font-size: .78rem; }
   .tabbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500; margin: 0;
     height: calc(var(--tabbar-h) + var(--safe-b)); padding: 4px 4px var(--safe-b);
@@ -455,3 +505,8 @@ tfoot td { font-weight: 700; background: #f8f4ea; }
 .labels-tiny .pin-tank { transform: translateX(calc(-50% + 25px)) scale(.6); }
 .labels-small .pin-box.is-selected, .labels-tiny .pin-box.is-selected { transform: translateX(calc(-50% + 22px)) scale(.95); }
 .labels-small .pin-tank.is-selected, .labels-tiny .pin-tank.is-selected { transform: translateX(calc(-50% + 25px)) scale(.95); }
+
+@media (min-width: 861px) {
+  .sync { margin-left: auto; }
+  .sync:not([hidden]) + .tabbar { margin-left: 8px; }
+}

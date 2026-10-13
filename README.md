@@ -38,8 +38,8 @@ python3 -m http.server 8000
 # dann http://localhost:8000 öffnen
 ```
 
-Alternativ kann `index.html` direkt geöffnet oder der Ordner auf einen beliebigen
-Webspace (z. B. GitHub Pages) gelegt werden. Auf dem iPhone in Safari über
+Alternativ kann der Ordner auf einen beliebigen Webspace gelegt werden, z. B. GitHub Pages
+(siehe [SETUP.md](SETUP.md), Schritt 7). Auf dem iPhone in Safari über
 „Teilen → Zum Home-Bildschirm“ wie eine App ablegen.
 
 ## Echten Lageplan einsetzen
@@ -50,24 +50,33 @@ Webspace (z. B. GitHub Pages) gelegt werden. Auf dem iPhone in Safari über
 3. In der App unter **Daten → Leeren Bestand anlegen** (oder Demo-Parzellen behalten)
 4. **Karte → Bearbeiten**: Parzellen einzeichnen, Stromkästen und Gastanks platzieren
 
-## Wichtig: Datenspeicherung
+## Datenbank & Login
 
-Die Daten liegen aktuell im **lokalen Speicher des jeweiligen Browsers**. PC und iPhone
-haben daher getrennte Bestände – Austausch über Export/Import. Die enthaltenen Demo-Daten
-(Namen, Nummern, Stände) sind frei erfunden.
+Die App arbeitet mit **Supabase** (gehostete Postgres-Datenbank mit Login, Region Frankfurt):
 
-Nächster sinnvoller Schritt: zentrale Datenbank mit Login, damit alle Geräte denselben
-Stand sehen und die personenbezogenen Mieterdaten geschützt sind.
+- Anmeldung mit E-Mail und Passwort, „Passwort vergessen“, Einladung per E-Mail
+- Zugriff nur für freigeschaltete E-Mail-Adressen (Tabelle `team`, Row Level Security)
+- Alle Geräte (PC, iPhone, mehrere Personen) sehen denselben Stand;
+  beim Zurückkehren in die App wird automatisch aktualisiert
+- Änderungen werden sofort gespeichert (Anzeige oben rechts: Gespeichert / Speichert … /
+  Nicht gespeichert – antippen zum erneuten Versuch)
+
+**Einrichtung:** siehe [SETUP.md](SETUP.md). Ohne Supabase-Zugangsdaten in `js/config.js`
+läuft die App im **lokalen Testmodus** (keine Anmeldung, Daten nur im Browser, Demo-Daten).
 
 ## Aufbau
 
 ```
 index.html            Grundgerüst, Navigation
 css/style.css         Gestaltung (Farben/Schriften oben als Variablen)
-js/config.js          Lageplan & Einheiten
+js/config.js          Lageplan, Einheiten, Supabase-Zugang
 js/data.js            Datenmodell, Speicherung, Demo-Daten
+js/cloud.js           Supabase: Laden, Speichern (nur Änderungen), Login
+js/auth.js            Anmeldebildschirm
 js/map.js             Interaktive Karte (Leaflet)
 js/app.js             Ansichten: Karte, Kartei, Technik, Zähler, Daten
 assets/               Lageplan (Platzhalter) & Icon
+supabase/schema.sql   Datenbankschema inkl. Zugriffsregeln
 vendor/leaflet/       Leaflet 1.9.4 (BSD-2-Clause)
+vendor/supabase/      supabase-js 2.116.0 (MIT)
 ```
