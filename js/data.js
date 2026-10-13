@@ -12,9 +12,25 @@
   const STORAGE_KEY = 'wch-platzverwaltung-v1';
 
   const STATUS = {
-    fest:       { label: 'Festwohnsitz',        short: 'Fest',       color: '#3f7d3a' },
-    wochenende: { label: 'Wochenendgrundstück', short: 'Wochenende', color: '#2f6fa3' },
-    leer:       { label: 'Leerstehend',         short: 'Leer',       color: '#a39d8f' },
+    fest:       { label: 'Festwohnsitz',          short: 'Fest',              color: '#3f7d3a' },
+    wochenende: { label: 'Wochenendgrundstück',   short: 'Wochenende',        color: '#2f6fa3' },
+    altbestand: { label: 'Frei (mit Altbestand)', short: 'Frei (Altbestand)', color: '#b9874a', free: true },
+    leer:       { label: 'Frei',                  short: 'Frei',              color: '#a39d8f', free: true },
+  };
+
+  // Wem gehört das Haus auf der Parzelle?
+  const OBJECT_TYPES = {
+    pacht: { label: 'Pachtgrundstück', hint: 'eigenes Mobilheim / Tiny House des Mieters', rentLabel: 'Monatliche Pacht' },
+    miet:  { label: 'Mietobjekt',      hint: 'Haus gehört dem Platz und ist vermietet',     rentLabel: 'Monatliche Miete' },
+  };
+
+  // Zähler ohne Parzelle = Betriebsstrom
+  const PURPOSES = {
+    licht:     'Platzbeleuchtung',
+    sanitaer:  'Sanitäranlagen',
+    camper:    'Camperstrom',
+    rezeption: 'Rezeption / Gebäude',
+    sonstiges: 'Sonstiger Betrieb',
   };
 
   const GAS = {
@@ -97,7 +113,8 @@
       const geometry = [[x, y], [x + b.w, y], [x + b.w, y + rowH], [x, y + rowH]];
       const cx = x + b.w / 2, cy = y + rowH / 2;
       const r = rnd();
-      const status = r < 0.15 ? 'leer' : r < 0.55 ? 'wochenende' : 'fest';
+      const status = r < 0.09 ? 'leer' : r < 0.15 ? 'altbestand' : r < 0.55 ? 'wochenende' : 'fest';
+      const free = STATUS[status].free;
 
       // Gasversorgung: Tank nur in der Nähe eines Tanks
       const nearTank = tanks.find((t) => Math.hypot(t.pos[0] - cx, t.pos[1] - cy) < 150);
@@ -108,7 +125,7 @@
       if (gas === 'tank') heating = 'gas';
       else if (gas === 'bottle') heating = rnd() < 0.6 ? 'gas' : 'holz';
       else heating = rnd() < 0.7 ? 'strom' : 'holz';
-      if (status === 'leer') heating = 'keine';
+      if (free) heating = 'keine';
 
       const p = {
         id: uid('p'),
@@ -119,10 +136,13 @@
         gas,
         gasTankId: gas === 'tank' ? nearTank.id : '',
         heating,
+        objectType: rnd() < 0.15 ? 'miet' : 'pacht',
+        rent: free ? '' : Math.round((status === 'fest' ? 180 : 120) + rnd() * 80),
+        winterWater: status === 'fest' ? rnd() < 0.85 : status === 'wochenende' ? rnd() < 0.3 : false,
         notes: '',
         geometry,
       };
-      if (status !== 'leer') {
+      if (!free) {
         const fn = pick(first), ln = pick(last);
         p.tenant = {
           name: `${fn} ${ln}`,
@@ -136,17 +156,18 @@
       // Stromzähler im nächstgelegenen Kasten
       const box = boxes.reduce((best, bx) =>
         Math.hypot(bx.pos[0] - cx, bx.pos[1] - cy) < Math.hypot(best.pos[0] - cx, best.pos[1] - cy) ? bx : best);
+      const inHouse = rnd() < 0.12;
       const sm = { id: uid('m'), type: 'strom', number: `1ESY${Math.floor(10000000 + rnd() * 89999999)}`,
-        parcelId: p.id, boxId: box.id, location: '', notes: '' };
+        parcelId: p.id, boxId: inHouse ? '' : box.id, inHouse, purpose: '', label: '', location: '', notes: '' };
       meters.push(sm);
       const s1 = Math.round(5000 + rnd() * 30000);
-      const use = status === 'leer' ? Math.round(rnd() * 40) : Math.round((heating === 'strom' ? 3500 : 1200) + rnd() * 2500);
+      const use = free ? Math.round(rnd() * 40) : Math.round((heating === 'strom' ? 3500 : 1200) + rnd() * 2500);
       readings.push({ id: uid('r'), meterId: sm.id, date: '2024-10-01', value: s1 });
       readings.push({ id: uid('r'), meterId: sm.id, date: '2025-10-01', value: s1 + use });
 
       if (gas === 'tank') {
         const gm = { id: uid('m'), type: 'gas', number: `G${Math.floor(100000 + rnd() * 899999)}`,
-          parcelId: p.id, boxId: '', location: 'Hauswand, Eingangsseite', notes: '' };
+          parcelId: p.id, boxId: '', inHouse: false, purpose: '', label: '', location: 'Hauswand, Eingangsseite', notes: '' };
         meters.push(gm);
         const g1 = Math.round(800 + rnd() * 4000);
         readings.push({ id: uid('r'), meterId: gm.id, date: '2024-10-01', value: g1 });
@@ -156,13 +177,25 @@
 
     parcels[2].notes = 'Schlüssel für Stromkasten beim Mieter hinterlegt.';
 
+    // Betriebszähler (ohne Parzelle)
+    [[9, 'sanitaer', 'Sanitärgebäude'], [10, 'licht', 'Wegbeleuchtung Ost'], [11, 'camper', 'Säulen Wiese B'], [1, 'rezeption', 'Rezeption']]
+      .forEach(([boxNr, purpose, label]) => {
+        const m = { id: uid('m'), type: 'strom', number: `1ESY${Math.floor(10000000 + rnd() * 89999999)}`,
+          parcelId: '', boxId: boxes[boxNr - 1].id, inHouse: false, purpose, label, location: '', notes: '' };
+        meters.push(m);
+        const v = Math.round(20000 + rnd() * 40000);
+        readings.push({ id: uid('r'), meterId: m.id, date: '2024-10-01', value: v });
+        readings.push({ id: uid('r'), meterId: m.id, date: '2025-10-01', value: v + Math.round(2000 + rnd() * 9000) });
+      });
+
     return { version: 1, parcels, boxes, tanks, meters, readings, demo: true };
   }
 
   /* ---------- Store ---------- */
 
   const Store = {
-    STATUS, GAS, HEATING, SUPPLY, supplyOf, uid, compareNr,
+    STATUS, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, supplyOf, uid, compareNr,
+    isFree: (p) => !!(STATUS[p.status] || STATUS.leer).free,
     data: null,
     listeners: [],
 
@@ -214,7 +247,20 @@
     _normalize() {
       const d = this.data;
       ['parcels', 'boxes', 'tanks', 'meters', 'readings'].forEach((k) => { if (!Array.isArray(d[k])) d[k] = []; });
-      d.parcels.forEach((p) => { p.tenant = Object.assign({ name: '', phone: '', email: '', address: '' }, p.tenant); });
+      d.parcels.forEach((p) => {
+        p.tenant = Object.assign({ name: '', phone: '', email: '', address: '' }, p.tenant);
+        if (!OBJECT_TYPES[p.objectType]) p.objectType = 'pacht';
+        if (p.rent === undefined || p.rent === null) p.rent = '';
+        p.winterWater = !!p.winterWater;
+        if (!STATUS[p.status]) p.status = 'leer';
+      });
+      d.meters.forEach((m) => {
+        m.parcelId = m.parcelId || '';
+        m.boxId = m.boxId || '';
+        m.inHouse = !!m.inHouse;
+        m.purpose = m.purpose || '';
+        m.label = m.label || '';
+      });
     },
 
     save() {
@@ -290,10 +336,38 @@
     boxesSorted() { return [...this.data.boxes].sort((a, b) => compareNr(a.nr, b.nr)); },
     tanksSorted() { return [...this.data.tanks].sort((a, b) => compareNr(a.nr, b.nr)); },
 
-    metersOf(parcelId) { return this.data.meters.filter((m) => m.parcelId === parcelId); },
+    metersOf(parcelId) { return parcelId ? this.data.meters.filter((m) => m.parcelId === parcelId) : []; },
+    // Sortierung: erst Parzellen nach Nummer, dann Betriebszähler
+    sortMeters(list) {
+      const key = (m) => { const p = this.parcel(m.parcelId); return p ? '0 ' + p.nr : '1 ' + (PURPOSES[m.purpose] || '') + m.label; };
+      return [...list].sort((a, b) => compareNr(key(a), key(b)));
+    },
     metersInBox(boxId) {
-      return this.data.meters.filter((m) => m.boxId === boxId)
-        .sort((a, b) => compareNr(this.parcel(a.parcelId)?.nr ?? '', this.parcel(b.parcelId)?.nr ?? ''));
+      return this.sortMeters(this.data.meters.filter((m) => m.boxId === boxId && !m.inHouse));
+    },
+    serviceMeters() { return this.sortMeters(this.data.meters.filter((m) => !this.parcel(m.parcelId))); },
+    isService(m) { return !this.parcel(m.parcelId); },
+    // "Betrieb: Sanitäranlagen – Sanitärgebäude"
+    purposeText(m) {
+      const base = PURPOSES[m.purpose] || 'Betrieb';
+      return m.label ? `${base} – ${m.label}` : base;
+    },
+    // Wo hängt der Zähler?
+    meterPlace(m) {
+      if (m.type === 'gas') return m.location || '';
+      if (m.inHouse) return 'im Haus';
+      const b = this.box(m.boxId);
+      return b ? `Kasten ${b.nr}` : '';
+    },
+    // Gleiche Zählernummer schon vergeben? (Leerzeichen/Groß-Klein egal)
+    findMeterByNumber(number, exceptIds = []) {
+      const n = String(number || '').replace(/\s/g, '').toLowerCase();
+      if (!n) return null;
+      return this.data.meters.find((m) => !exceptIds.includes(m.id) && String(m.number).replace(/\s/g, '').toLowerCase() === n) || null;
+    },
+    findParcelByNr(nr, exceptId) {
+      const n = String(nr || '').trim().toLowerCase();
+      return this.data.parcels.find((p) => p.id !== exceptId && String(p.nr).trim().toLowerCase() === n) || null;
     },
     parcelsOnTank(tankId) {
       return this.data.parcels.filter((p) => p.gas === 'tank' && p.gasTankId === tankId).sort((a, b) => compareNr(a.nr, b.nr));

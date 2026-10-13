@@ -111,8 +111,8 @@
           color: isSel || isLinked ? '#1b2a1e' : '#ffffff',
           weight: isSel ? 4 : isLinked ? 3 : 1.5,
           fillColor: color,
-          fillOpacity: dimOthers && !isLinked ? 0.25 : (p.status === 'leer' && this.colorMode === 'status' ? 0.45 : 0.75),
-          dashArray: p.status === 'leer' ? '5 4' : null,
+          fillOpacity: dimOthers && !isLinked ? 0.25 : (Store.isFree(p) && this.colorMode === 'status' ? 0.45 : 0.75),
+          dashArray: Store.isFree(p) ? '5 4' : null,
         });
         poly.bindTooltip(String(p.nr), { permanent: true, direction: 'center', className: 'parcel-label', interactive: false });
         poly.on('click', (e) => {
