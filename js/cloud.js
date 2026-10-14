@@ -37,6 +37,7 @@
         heating: p.heating || 'keine', notes: p.notes || '', geometry: p.geometry || [],
         object_type: p.objectType || 'pacht', rent: num(p.rent), winter_water: !!p.winterWater,
         dogs: Math.max(0, parseInt(p.dogs, 10) || 0), lease_start: nz(p.leaseStart), free_from: nz(p.freeFrom),
+        residents: Math.max(0, parseInt(p.residents, 10) || 0),
       }),
       fromRow: (r) => ({
         id: r.id, nr: r.nr, status: r.status,
@@ -45,7 +46,7 @@
         heating: r.heating, notes: r.notes, geometry: r.geometry || [],
         objectType: r.object_type || 'pacht', rent: r.rent === null || r.rent === undefined ? '' : Number(r.rent),
         winterWater: !!r.winter_water,
-        dogs: r.dogs || 0, leaseStart: r.lease_start || '', freeFrom: r.free_from || '',
+        dogs: r.dogs || 0, leaseStart: r.lease_start || '', freeFrom: r.free_from || '', residents: r.residents || 0,
       }),
     },
     {

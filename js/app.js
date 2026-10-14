@@ -51,7 +51,8 @@
   const serviceBadge = () => '<span class="nr nr-sm nr-service" title="Betriebszähler">B</span>';
   const objectOf = (p) => S.OBJECT_TYPES[p.objectType] || S.OBJECT_TYPES.pacht;
   const yesNo = (v) => v ? '<span class="yes">✓ ja</span>' : '<span class="no">✗ nein</span>';
-  const dogsText = (p) => (p.dogs > 0 ? `🐾 ${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}` : 'keine');
+  const dogsText = (p) => (p.dogs > 0 ? `${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}` : 'keine');
+  const residentsText = (p) => (p.residents > 0 ? `${p.residents} Person${p.residents > 1 ? 'en' : ''}` : '–');
   const fmtEuro = (v) => (v === '' || v === null || v === undefined || isNaN(v)) ? '–'
     : Number(v).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
   const hasShape = (p) => p.geometry && p.geometry.length >= 3;
@@ -134,6 +135,97 @@
 
   const nextNr = (list) => String(list.reduce((m, x) => Math.max(m, parseInt(x.nr, 10) || 0), 0) + 1);
 
+  /* ---------- Geometrie für Teilen / Verbinden (Kartenpixel) ---------- */
+
+  const Geo = {
+    GAP: 9, // Lücke zwischen Parzellen wie im Lageplan
+    ring: (g) => [[...g.map((c) => [c[0], c[1]]), [g[0][0], g[0][1]]]],
+    area(r) {
+      let a = 0;
+      for (let i = 0; i < r.length; i++) { const [x1, y1] = r[i], [x2, y2] = r[(i + 1) % r.length]; a += x1 * y2 - x2 * y1; }
+      return Math.abs(a / 2);
+    },
+    // größtes Teilstück einer MultiPolygon-Antwort als offener Ring, ohne überflüssige Punkte
+    biggest(mp) {
+      let best = null, bestA = 0;
+      (mp || []).forEach((poly) => {
+        const r = poly[0].slice(0, -1);
+        const a = Geo.area(r);
+        if (a > bestA) { bestA = a; best = r; }
+      });
+      return best ? Geo.clean(best) : null;
+    },
+    clean(r) {
+      let pts = r.map(([x, y]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10]);
+      let changed = true;
+      while (changed && pts.length > 3) {
+        changed = false;
+        for (let i = 0; i < pts.length; i++) {
+          const a = pts[(i - 1 + pts.length) % pts.length], b = pts[i], c = pts[(i + 1) % pts.length];
+          const cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+          if (Math.abs(cross) < 0.5 || Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.3) { pts.splice(i, 1); changed = true; break; }
+        }
+      }
+      return pts;
+    },
+    // Halbebene links/rechts der Linie a→b, um "offset" von der Linie weggerückt
+    halfPlane(a, b, side, offset) {
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const d = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+      const n = [-d[1] * side, d[0] * side];
+      const p = [a[0] + n[0] * offset, a[1] + n[1] * offset];
+      const F = 1e5;
+      return [[[p[0] - d[0] * F, p[1] - d[1] * F], [p[0] + d[0] * F, p[1] + d[1] * F],
+        [p[0] + d[0] * F + n[0] * F, p[1] + d[1] * F + n[1] * F], [p[0] - d[0] * F + n[0] * F, p[1] - d[1] * F + n[1] * F],
+        [p[0] - d[0] * F, p[1] - d[1] * F]]];
+    },
+    split(g, a, b) {
+      const pa = Geo.biggest(polygonClipping.intersection(Geo.ring(g), Geo.halfPlane(a, b, 1, Geo.GAP / 2)));
+      const pb = Geo.biggest(polygonClipping.intersection(Geo.ring(g), Geo.halfPlane(a, b, -1, Geo.GAP / 2)));
+      if (!pa || !pb || Geo.area(pa) < 40 || Geo.area(pb) < 40) return null;
+      return [pa, pb];
+    },
+    distToRing(pt, r) {
+      let best = Infinity;
+      for (let i = 0; i < r.length; i++) {
+        const a = r[i], b = r[(i + 1) % r.length];
+        const dx = b[0] - a[0], dy = b[1] - a[1];
+        const t = Math.max(0, Math.min(1, ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+        best = Math.min(best, Math.hypot(pt[0] - a[0] - t * dx, pt[1] - a[1] - t * dy));
+      }
+      return best;
+    },
+    hull(points) {
+      const p = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+      const lower = [], upper = [];
+      p.forEach((pt) => { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], pt) <= 0) lower.pop(); lower.push(pt); });
+      p.reverse().forEach((pt) => { while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pt) <= 0) upper.pop(); upper.push(pt); });
+      return lower.slice(0, -1).concat(upper.slice(0, -1));
+    },
+    // zwei benachbarte Parzellen zu einer verbinden (Lücke dazwischen schließen)
+    merge(g1, g2) {
+      const reach = Geo.GAP + 6;
+      const near = [...g1.filter((pt) => Geo.distToRing(pt, g2) <= reach), ...g2.filter((pt) => Geo.distToRing(pt, g1) <= reach)];
+      if (near.length < 3) return null;
+      const bridge = Geo.hull(near);
+      if (bridge.length < 3) return null;
+      const res = polygonClipping.union(Geo.ring(g1), Geo.ring(g2), Geo.ring(bridge));
+      if (!res || res.length !== 1) return null;
+      return Geo.clean(res[0][0].slice(0, -1));
+    },
+    // Richtung der längsten Kante (zum Ausrichten der Trennlinie)
+    mainDir(g) {
+      let best = [1, 0], bestL = 0;
+      g.forEach((a, i) => {
+        const b = g[(i + 1) % g.length];
+        const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (l > bestL) { bestL = l; best = [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; }
+      });
+      return best;
+    },
+  };
+
   /* ======================================================================
      KARTE
      ====================================================================== */
@@ -166,6 +258,9 @@
       MapView.setEditMode(on);
       $('#btn-edit').setAttribute('aria-pressed', String(on));
       this.renderModebar();
+      // offenes Infofenster neu aufbauen (zeigt im Bearbeitungsmodus Teilen/Verbinden)
+      const sel = MapView.selected;
+      if (sel && !$('#map-panel').hidden) this.showPanel(sel.type, sel.id);
     },
 
     renderLegend() {
@@ -187,7 +282,8 @@
             ${cb('boxes', `${ICON.strom} Stromkästen`)}
             ${cb('tanks', `${ICON.gas} Gastanks`)}
             ${cb('ww', '<span class="pb pb-ww">WW</span> Winterwasser')}
-            ${cb('dogs', '<span class="pb pb-dog">🐾</span> Hunde')}
+            ${cb('persons', `<span class="pb pb-icons pb-person">${MapView.icons.person}</span> Bewohner`)}
+            ${cb('dogs', `<span class="pb pb-icons pb-dog">${MapView.icons.dog}</span> Hunde`)}
             ${cb('miet', '<span class="pb pb-miet">M</span> Mietobjekt')}
             ${cb('pacht', '<span class="pb pb-pacht">P</span> Pachtgrundstück')}
             ${CFG.map.aerial ? cb('aerial', 'Luftbild als Hintergrund') : ''}
@@ -204,10 +300,21 @@
     renderModebar() {
       const bar = $('#map-modebar');
       const mode = MapView.mode;
-      if (mode && mode.kind === 'draw') {
+      const snapToggle = `<label class="snap-toggle" title="Aus = Freiform (beliebige Winkel)"><input type="checkbox" data-snap ${MapView.snap ? 'checked' : ''}> Auf rechte Winkel einrasten</label>`;
+      if (mode && mode.kind === 'line') {
+        bar.innerHTML = `
+          <span class="grow">${h(mode.label || 'Teilen')}: Anfang und Ende der Trennlinie antippen</span>
+          ${snapToggle}
+          <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Abbrechen</button>`;
+      } else if (mode && mode.kind === 'pick') {
+        bar.innerHTML = `
+          <span class="grow">${h(mode.label || 'Parzelle wählen')}</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Abbrechen</button>`;
+      } else if (mode && mode.kind === 'draw') {
         const n = mode.points.length;
         bar.innerHTML = `
           <span class="grow">${h(mode.label || 'Umriss zeichnen')}: Ecken nacheinander antippen (${n} Punkt${n === 1 ? '' : 'e'})</span>
+          ${snapToggle}
           <button type="button" class="btn btn-ghost btn-sm" data-act="undo" ${n ? '' : 'disabled'}>Rückgängig</button>
           <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Abbrechen</button>
           <button type="button" class="btn btn-sm" data-act="finish" ${n >= 3 ? '' : 'disabled'}>Umriss speichern</button>`;
@@ -228,6 +335,8 @@
       }
       bar.hidden = false;
       $$('[data-act]', bar).forEach((b) => b.onclick = () => this.modeAction(b.dataset.act));
+      const snap = $('[data-snap]', bar);
+      if (snap) snap.onchange = () => MapView.setSnap(snap.checked);
       MapView.invalidate();
     },
 
@@ -321,6 +430,7 @@
             <dt>Objekt</dt><dd>${h(objectOf(p).label)}</dd>
             <dt>Größe</dt><dd>${p.size ? fmtNum(p.size) + ' m²' : '–'}</dd>
             <dt>Winterwasser</dt><dd>${yesNo(p.winterWater)}</dd>
+            <dt>Bewohner</dt><dd>${residentsText(p)}</dd>
             <dt>Hunde</dt><dd>${dogsText(p)}</dd>
             ${p.leaseStart ? `<dt>Mietbeginn</dt><dd>${fmtDate(p.leaseStart)}</dd>` : ''}
             ${p.freeFrom ? `<dt>Frei ab</dt><dd><strong>${fmtDate(p.freeFrom)}</strong></dd>` : ''}
@@ -331,7 +441,12 @@
           <div class="section-title">Zähler</div>
           ${meters.length ? `<ul class="meter-list">${meters.map((m) => this.meterItem(m, 'parcel')).join('')}</ul>` : '<p class="muted small">Keine Zähler hinterlegt.</p>'}
           ${p.notes ? `<div class="section-title">Notizen</div><p class="small" style="margin:0;white-space:pre-line">${h(p.notes)}</p>` : ''}
-          ${MapView.editMode ? `<div class="section-title">Karte</div><button class="btn btn-ghost btn-sm" data-action="drawParcel" data-id="${p.id}">${ICON.pen} Umriss neu zeichnen</button>` : ''}
+          ${MapView.editMode ? `<div class="section-title">Umriss bearbeiten</div>
+            <div class="card-actions" style="margin-top:0">
+              <button class="btn btn-ghost btn-sm" data-action="drawParcel" data-id="${p.id}">${ICON.pen} Neu zeichnen</button>
+              <button class="btn btn-ghost btn-sm" data-action="splitParcel" data-id="${p.id}">✂ Teilen</button>
+              <button class="btn btn-ghost btn-sm" data-action="mergeParcel" data-id="${p.id}">⊕ Mit Nachbar verbinden</button>
+            </div>` : ''}
         </div>
         <div class="panel-actions">
           <a class="btn" href="#/parzelle/${p.id}">Karteikarte öffnen</a>
@@ -521,6 +636,74 @@
       }, 50);
     },
 
+    splitParcel(id) {
+      const p = S.parcel(id);
+      if (!p || !hasShape(p)) return;
+      setTimeout(() => {
+        MapUI.hidePanel();
+        MapView.startLine((pts) => {
+          const res = Geo.split(p.geometry, pts[0], pts[1]);
+          if (!res) { toast('Die Trennlinie muss die Parzelle ganz durchqueren'); go(`#/karte/parcel/${p.id}`); return; }
+          let suffix = 'b';
+          while (S.findParcelByNr(p.nr + suffix)) suffix = String.fromCharCode(suffix.charCodeAt(0) + 1);
+          formDialog({
+            title: `Parzelle ${p.nr} teilen`,
+            fields: [
+              { name: 'nrA', label: 'Nummer Teil 1 (behält Mieter & Zähler)', value: p.nr, required: true },
+              { name: 'nrB', label: 'Nummer Teil 2 (neue, freie Parzelle)', value: p.nr + suffix, required: true },
+            ],
+            submitLabel: 'Teilen',
+            onSubmit: (v) => {
+              const nrA = v.nrA.trim(), nrB = v.nrB.trim();
+              if (nrA === nrB || S.findParcelByNr(nrA, p.id) || S.findParcelByNr(nrB)) { alert('Diese Parzellen-Nummer ist schon vergeben.'); return false; }
+              const [ga, gb] = res;
+              const aa = Geo.area(ga), ab = Geo.area(gb);
+              const total = Number(p.size) || S.polygonArea(p.geometry) || 0;
+              const nb = newParcel(nrB, 'leer');
+              nb.geometry = gb;
+              nb.size = total ? Math.round(total * ab / (aa + ab)) : S.polygonArea(gb);
+              Object.assign(p, { nr: nrA, geometry: ga, size: total ? Math.round(total * aa / (aa + ab)) : S.polygonArea(ga) });
+              S.data.parcels.push(nb);
+              S.save();
+              toast(`Parzelle geteilt: ${nrA} und ${nrB}`);
+              go(`#/karte/parcel/${p.id}`);
+            },
+          });
+          const cancel = $('#dialog [data-cancel]');
+          if (cancel) cancel.addEventListener('click', () => go(`#/karte/parcel/${p.id}`));
+        }, () => go(`#/karte/parcel/${p.id}`), Geo.mainDir(p.geometry));
+        MapView.mode.label = `Parzelle ${p.nr} teilen`;
+        MapUI.renderModebar();
+      }, 50);
+    },
+
+    mergeParcel(id) {
+      const p = S.parcel(id);
+      if (!p || !hasShape(p)) return;
+      setTimeout(() => {
+        MapUI.hidePanel();
+        MapView.startPick((otherId) => {
+          const o = S.parcel(otherId);
+          if (!o || o.id === p.id) { toast('Bitte eine andere Parzelle wählen'); go(`#/karte/parcel/${p.id}`); return; }
+          const g = hasShape(o) ? Geo.merge(p.geometry, o.geometry) : null;
+          if (!g) { toast(`Parzelle ${o.nr} grenzt nicht direkt an ${p.nr}`); go(`#/karte/parcel/${p.id}`); return; }
+          const hasData = o.tenant.name || S.metersOf(o.id).length;
+          if (!confirm(`Parzelle ${o.nr} mit ${p.nr} verbinden?\n\n${o.nr} wird aufgelöst${hasData ? `; ihre Zähler gehen auf ${p.nr} über, Mieterangaben von ${o.nr} entfallen` : ''}.`)) {
+            go(`#/karte/parcel/${p.id}`); return;
+          }
+          const size = (Number(p.size) && Number(o.size)) ? Number(p.size) + Number(o.size) : S.polygonArea(g);
+          Object.assign(p, { geometry: g, size });
+          S.data.meters.forEach((m) => { if (m.parcelId === o.id) m.parcelId = p.id; });
+          S.data.parcels = S.data.parcels.filter((x) => x.id !== o.id);
+          S.save();
+          toast(`${o.nr} mit ${p.nr} verbunden`);
+          go(`#/karte/parcel/${p.id}`);
+        }, () => go(`#/karte/parcel/${p.id}`));
+        MapView.mode.label = `Nachbarparzelle anklicken, die mit ${p.nr} verbunden werden soll`;
+        MapUI.renderModebar();
+      }, 50);
+    },
+
     newParcelOnMap() {
       formDialog({
         title: 'Neue Parzelle einzeichnen',
@@ -556,7 +739,7 @@
       id: S.uid('p'), nr, status: status || 'leer',
       tenant: { name: '', phone: '', email: '', address: '' },
       size: '', gas: 'none', gasTankId: '', heating: 'keine', objectType: 'pacht', rent: '', winterWater: false,
-      dogs: 0, leaseStart: '', freeFrom: '', notes: '', geometry: [],
+      dogs: 0, residents: 0, leaseStart: '', freeFrom: '', notes: '', geometry: [],
     };
   }
 
@@ -631,6 +814,7 @@
               ${strom.length ? `<span>${ICON.strom}${strom.join(', ')}</span>` : ''}
               ${p.gas !== 'none' ? `<span>${ICON.gas}${gasText(p)}</span>` : ''}
               ${p.winterWater ? '<span title="Winterwasser">❄ Winterwasser</span>' : ''}
+              ${p.residents > 0 ? `<span>${residentsText(p)}</span>` : ''}
               ${p.dogs > 0 ? `<span>${dogsText(p)}</span>` : ''}
               ${p.freeFrom ? `<span class="warn">frei ab ${fmtDate(p.freeFrom)}</span>` : ''}
               ${p.tenant.phone ? `<span>${ICON.phone}${h(p.tenant.phone)}</span>` : ''}
@@ -697,6 +881,7 @@
                 <dt>Anschrift</dt><dd style="white-space:pre-line">${h(p.tenant.address) || '–'}</dd>
                 <dt>Mietbeginn</dt><dd>${fmtDate(p.leaseStart)}</dd>
                 <dt>Frei ab</dt><dd>${p.freeFrom ? `<strong>${fmtDate(p.freeFrom)}</strong>` : '–'}</dd>
+                <dt>Bewohner</dt><dd>${residentsText(p)}</dd>
                 <dt>Hunde</dt><dd>${dogsText(p)}</dd>
               </dl>
             </section>
@@ -827,7 +1012,8 @@
                   ${fieldHtml({ name: 'address', label: 'Anschrift (falls abweichend)', type: 'textarea', value: p.tenant.address, full: true })}
                   ${fieldHtml({ name: 'leaseStart', label: 'Mietbeginn', type: 'date', value: p.leaseStart })}
                   ${fieldHtml({ name: 'freeFrom', label: 'Parzelle frei ab', type: 'date', value: p.freeFrom })}
-                  ${fieldHtml({ name: 'dogs', label: 'Hunde', type: 'select', value: String(p.dogs || 0), options: [['0', 'keine'], ['1', '1 Hund'], ['2', '2 Hunde'], ['3', '3 Hunde'], ['4', '4 oder mehr']], full: true })}
+                  ${fieldHtml({ name: 'residents', label: 'Bewohner (Personen)', type: 'select', value: String(p.residents || 0), options: [['0', 'keine Angabe'], ...[1, 2, 3, 4, 5].map((n) => [String(n), `${n} Person${n > 1 ? 'en' : ''}`]), ['6', '6 oder mehr']] })}
+                  ${fieldHtml({ name: 'dogs', label: 'Hunde', type: 'select', value: String(p.dogs || 0), options: [['0', 'keine'], ['1', '1 Hund'], ['2', '2 Hunde'], ['3', '3 Hunde'], ['4', '4 oder mehr']] })}
                 </div>
               </section>
               <section class="card">
@@ -963,6 +1149,7 @@
           rent: isNaN(rent) ? '' : rent,
           winterWater: f.winterWater.checked,
           dogs: parseInt(f.dogs.value, 10) || 0,
+          residents: parseInt(f.residents.value, 10) || 0,
           leaseStart: f.leaseStart.value || '',
           freeFrom: f.freeFrom.value || '',
           heating: f.heating.value,
@@ -1661,13 +1848,13 @@
       };
       $('#d-csv', root).onclick = () => {
         const rows = [['Parzelle', 'Status', 'Objektart', 'Mieter', 'Telefon', 'E-Mail', 'Anschrift', 'Größe (m²)', 'Pacht/Miete mtl. (€)',
-          'Winterwasser', 'Hunde', 'Mietbeginn', 'Frei ab', 'Heizung', 'Gas', 'Gastank', 'Stromzähler', 'Zählerort', 'Gaszähler', 'Notizen']];
+          'Winterwasser', 'Bewohner', 'Hunde', 'Mietbeginn', 'Frei ab', 'Heizung', 'Gas', 'Gastank', 'Stromzähler', 'Zählerort', 'Gaszähler', 'Notizen']];
         S.parcelsSorted().forEach((p) => {
           const ms = S.metersOf(p.id);
           const st = ms.filter((m) => m.type === 'strom');
           const gs = ms.filter((m) => m.type === 'gas');
           rows.push([p.nr, statusOf(p).label, objectOf(p).label, p.tenant.name, p.tenant.phone, p.tenant.email, p.tenant.address, p.size, p.rent,
-            p.winterWater ? 'ja' : 'nein', p.dogs || 0, p.leaseStart ? fmtDate(p.leaseStart) : '', p.freeFrom ? fmtDate(p.freeFrom) : '', S.HEATING[p.heating] || '', S.GAS[p.gas] || '', S.tank(p.gasTankId)?.nr ?? '',
+            p.winterWater ? 'ja' : 'nein', p.residents || 0, p.dogs || 0, p.leaseStart ? fmtDate(p.leaseStart) : '', p.freeFrom ? fmtDate(p.freeFrom) : '', S.HEATING[p.heating] || '', S.GAS[p.gas] || '', S.tank(p.gasTankId)?.nr ?? '',
             st.map((m) => m.number).join(', '), st.map((m) => S.meterPlace(m)).join(', '),
             gs.map((m) => m.number).join(', '), p.notes]);
         });

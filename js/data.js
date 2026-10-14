@@ -53,7 +53,7 @@
 
   // Farbschema "Versorgung" auf der Karte
   const SUPPLY = {
-    tank:   { label: 'Gastank',          color: '#d9822b' },
+    tank:   { label: 'Gastank',          color: '#5cc49a' },
     bottle: { label: 'Gasflaschen',      color: '#8a5aa8' },
     strom:  { label: 'Heizt mit Strom',  color: '#d4a90a' },
     other:  { label: 'Sonstiges / kein Gas', color: '#a39d8f' },
@@ -83,7 +83,7 @@
       id: uid('p'), nr: pp.nr, status: 'leer',
       tenant: { name: '', phone: '', email: '', address: '' },
       size: pp.area || '', gas: 'none', gasTankId: '', heating: 'keine',
-      objectType: 'pacht', rent: '', winterWater: false, dogs: 0, leaseStart: '', freeFrom: '',
+      objectType: 'pacht', rent: '', winterWater: false, dogs: 0, residents: 0, leaseStart: '', freeFrom: '',
       notes: '', geometry: pp.geometry.map((c) => [c[0], c[1]]),
     }));
   }
@@ -145,6 +145,7 @@
         rent: free ? '' : Math.round((status === 'fest' ? 180 : 120) + rnd() * 80),
         winterWater: status === 'fest' ? rnd() < 0.85 : status === 'wochenende' ? rnd() < 0.3 : false,
         dogs: free ? 0 : (rnd() < 0.3 ? (rnd() < 0.25 ? 2 : 1) : 0),
+        residents: free ? 0 : status === 'reserviert' ? 0 : 1 + Math.floor(rnd() * (status === 'fest' ? 3 : 4)),
         leaseStart: free ? '' : `${2005 + Math.floor(rnd() * 20)}-${pad(1 + Math.floor(rnd() * 12))}-01`,
         freeFrom: (status === 'fest' || status === 'wochenende') && rnd() < 0.07 ? `2027-${pad(3 + Math.floor(rnd() * 6))}-01` : '',
       });
@@ -262,6 +263,7 @@
         if (p.rent === undefined || p.rent === null) p.rent = '';
         p.winterWater = !!p.winterWater;
         p.dogs = Math.max(0, parseInt(p.dogs, 10) || 0);
+        p.residents = Math.max(0, parseInt(p.residents, 10) || 0);
         p.leaseStart = p.leaseStart || '';
         p.freeFrom = p.freeFrom || '';
         if (!STATUS[p.status]) p.status = 'leer';

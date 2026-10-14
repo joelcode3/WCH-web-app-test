@@ -26,7 +26,7 @@ from pathlib import Path
 
 from PIL import Image
 from shapely.geometry import LineString, Point, Polygon
-from shapely.ops import nearest_points, polygonize, unary_union
+from shapely.ops import nearest_points, polygonize, split, unary_union
 
 COLORS = {
     'rgb(100%, 0%, 0%)': 'red',
@@ -113,6 +113,66 @@ def polys_of(geom):
     return list(geom.geoms) if hasattr(geom, 'geoms') else [geom]
 
 
+def from_map(x, y):
+    minx, _, _, maxy = EXTENT
+    return (x / SCALE + minx, maxy - y / SCALE)
+
+
+# Manuelle Korrekturen nach Rückmeldung vom Platz (Koordinaten in Kartenpixeln).
+#   ('cut', Punkt in der Parzelle, Schnittlinie)  → Parzelle entlang der Linie teilen
+#   ('add', Rechteck x1, y1, x2, y2)              → neue Parzelle auf freier Wiese (ohne Wege/Nachbarn)
+#   ('clip', Punkt in der Parzelle, Rechteck)     → Parzelle auf das Rechteck zuschneiden
+EDITS = [
+    ('add', (303.5, 1104.5, 380.0, 1178.5)),                    # neu rechts neben 1.28 (bis zum Weg)
+    ('cut', (970, 425), [(975.6, 300), (975.6, 466)]),            # 2.30 senkrecht teilen
+    ('cut', (800, 430), [(700, 466.5), (900, 466.5)]),            # 2.44 waagerecht teilen
+    ('add', (824.9, 465.8, 879.0, 543.0)),                      # neu links neben 2.47
+    # 2.38 in 4 Parzellen; Grenzen treffen sich in der Mitte des Wendehammers (≈ 603.5 / 467.5)
+    ('cut', (520, 500), [(380, 462), (720, 462)]),
+    ('cut', (620, 510), [(603.5, 440), (603.5, 600)]),
+    ('cut', (450, 510), [(496, 440), (496, 600)]),
+    ('add', (590.0, 380.0, 676.0, 469.0)),                      # neu links neben 2.27 (oben rechts am Wendehammer)
+    ('clip', (290, 550), (0, 0, 302.0, 2000)),                 # 2.25 ohne Fortsatz oben, so schmal wie 2.24 unten
+]
+
+
+def apply_edits(raw, site, road_union):
+    for op, *args in EDITS:
+        if op == 'cut':
+            pt = Point(*from_map(*args[0]))
+            line = LineString([from_map(*c) for c in args[1]])
+            hit = next((p for p in raw if p.contains(pt)), None)
+            if hit is None:
+                print(f'Hinweis: keine Parzelle bei {args[0]} gefunden – Schnitt übersprungen')
+                continue
+            pieces = [g for g in polys_of(split(hit, line)) if g.area > 300]
+            raw = [p for p in raw if p is not hit] + pieces
+        elif op == 'clip':
+            pt = Point(*from_map(*args[0]))
+            hit = next((p for p in raw if p.contains(pt)), None)
+            if hit is None:
+                print(f'Hinweis: keine Parzelle bei {args[0]} gefunden – Zuschnitt übersprungen')
+                continue
+            x1, y1, x2, y2 = args[1]
+            (ax, ay), (bx, by) = from_map(x1, y1), from_map(x2, y2)
+            rect = Polygon([(ax, ay), (bx, ay), (bx, by), (ax, by)])
+            cut = max(polys_of(hit.intersection(rect)), key=lambda g: g.area, default=None)
+            raw = [p for p in raw if p is not hit] + ([cut] if cut is not None and cut.area > 1500 else [])
+        elif op == 'add':
+            x1, y1, x2, y2 = args[0]
+            (ax, ay), (bx, by) = from_map(x1, y1), from_map(x2, y2)
+            rect = Polygon([(ax, ay), (bx, ay), (bx, by), (ax, by)])
+            free = rect.intersection(site).difference(unary_union(raw))
+            if road_union is not None:
+                free = free.difference(road_union)
+            best = max(polys_of(free), key=lambda g: g.area, default=None)
+            if best is None or best.area < 1500:
+                print(f'Hinweis: zu wenig freie Fläche bei {args[0]}')
+                continue
+            raw.append(best)
+    return raw
+
+
 def cluster(values, tol):
     """Gruppiert sortierte Werte, deren Abstand < tol ist → Gruppenindex je Wert."""
     groups, last, gi = {}, None, -1
@@ -144,38 +204,76 @@ def main():
              if 2 * f.area / f.length < 50 and f.area > ROAD_MIN_AREA]
     road_union = unary_union(roads) if roads else None
     # Parzellen: nur geschlossene orange Flächen
-    raw = [p for p in polygonize(unary_union(L['orange'])) if p.area > 1500]
-    parcels = []
-    for p in raw:
+    raw = []
+    for p in polygonize(unary_union(L['orange'])):
+        if p.area <= 1500:
+            continue
         # Parzellen liegen nie auf Wegen: Wegfläche abziehen (z. B. Wendekreis)
         if road_union is not None:
             p = max(polys_of(p.difference(road_union)), key=lambda g: g.area, default=Polygon())
-            if p.is_empty or p.area < 1500:
-                continue
+        if not p.is_empty and p.area >= 1500:
+            raw.append(p)
+    raw = apply_edits(raw, site_, road_union)
+
+    parcels = []
+    for p in raw:
         q = p.simplify(4).buffer(-INSET, join_style=2, mitre_limit=3).simplify(2)
         q = max(polys_of(q), key=lambda g: g.area) if not q.is_empty else None
         if q is None or q.area < 800:
             continue
-        parcels.append({'poly': q, 'area_m2': round(p.area * 0.01), 'c': p.representative_point()})
+        parcels.append({'poly': q, 'raw': p, 'area_m2': round(p.area * 0.01), 'c': p.representative_point()})
 
-    # Nummerierung: Platz 1 (unten) spaltenweise, Platz 2 (oben) zeilenweise
-    def numbered(group, by_columns):
+    # Nummerierung: blockweise. Aneinandergrenzende Parzellen bilden einen Block; Blöcke von
+    # oben links nach unten rechts, innerhalb eines Blocks reihenweise (breiter Block) bzw.
+    # spaltenweise (hoher Block). Reihen/Spalten über die Kante zum Weg (Ober- bzw. linke Kante).
+    def numbered(group, by_columns=None):
         if not group:
             return []
-        keys = [round(g['c'].x if by_columns else -g['c'].y) for g in group]
-        cl = cluster(keys, 60)
-        def sort_key(g):
-            k = round(g['c'].x if by_columns else -g['c'].y)
-            return (cl[k], -g['c'].y if by_columns else g['c'].x)
-        return sorted(group, key=sort_key)
+        n = len(group)
+        parent = list(range(n))
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+        for i in range(n):
+            for j in range(i + 1, n):
+                if group[i]['raw'].buffer(2).intersects(group[j]['raw']):
+                    parent[find(i)] = find(j)
+        blocks = {}
+        for i in range(n):
+            blocks.setdefault(find(i), []).append(group[i])
+        blocks = list(blocks.values())
+        def bbox(items):
+            b = [g['raw'].bounds for g in items]
+            return (min(x[0] for x in b), min(x[1] for x in b), max(x[2] for x in b), max(x[3] for x in b))
+        tops = cluster([round(-bbox(b)[3]) for b in blocks], 120)
+        blocks.sort(key=lambda b: (tops[round(-bbox(b)[3])], bbox(b)[0]))
+        out = []
+        for b in blocks:
+            x0, y0, x1, y1 = bbox(b)
+            cols = (y1 - y0) > (x1 - x0)
+            edge = (lambda g: round(g['raw'].bounds[0])) if cols else (lambda g: round(-g['raw'].bounds[3]))
+            cl = cluster([edge(g) for g in b], 40)
+            out += sorted(b, key=lambda g: (cl[edge(g)], -g['raw'].bounds[3] if cols else g['raw'].bounds[0]))
+        return out
 
-    lower = numbered([g for g in parcels if g['c'].y < SPLIT_Y], by_columns=True)
-    upper = numbered([g for g in parcels if g['c'].y >= SPLIT_Y], by_columns=False)
+    lower = numbered([g for g in parcels if g['c'].y < SPLIT_Y])
+    upper = numbered([g for g in parcels if g['c'].y >= SPLIT_Y])
     for platz, group in ((1, lower), (2, upper)):
         for i, g in enumerate(group, 1):
             g['nr'] = f'{platz}.{i:02d}'
 
-    buildings = [p for p in polygonize(unary_union(L['green'])) if p.area > 200]
+    # Gebäude: fast geschlossene Umrisse schließen (im CAD fehlt teils ein kurzes Kantenstück)
+    green = []
+    for l in L['green']:
+        c = list(l.coords)
+        if not l.is_closed and len(c) >= 4 and Point(c[0]).distance(Point(c[-1])) < 0.25 * l.length:
+            l = LineString(c + [c[0]])
+        green.append(l)
+    buildings = [p for p in polygonize(unary_union(green)) if p.area > 200]
+    # von unten nach oben zeichnen: bei Überschneidung liegt das obere Gebäude oben
+    buildings.sort(key=lambda b: b.centroid.y)
     boundary_lines = unary_union(L['red'])
     site = max(polygonize(boundary_lines), key=lambda p: p.area)
 
