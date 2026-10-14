@@ -20,7 +20,8 @@
     map: null,
     colorMode: 'status',   // 'status' | 'supply'
     // Ebenen & Symbole zum An-/Abwählen
-    show: { boxes: true, tanks: true, aerial: false, ww: false, dogs: false, miet: false, pacht: false },
+    show: { boxes: true, tanks: true, aerial: false, ww: false, dogs: false, persons: false, miet: false, pacht: false },
+    snap: true,            // beim Zeichnen auf rechte Winkel einrasten
     editMode: false,
     selected: null,        // { type: 'parcel'|'box'|'tank', id }
     mode: null,            // null | { kind: 'draw', points, onDone, onCancel } | { kind: 'place', onDone, onCancel }
@@ -33,9 +34,9 @@
         crs: L.CRS.Simple,
         minZoom: -3,
         maxZoom: 2,
-        zoomSnap: 0.25,
-        zoomDelta: 0.5,
-        wheelPxPerZoomLevel: 120,
+        zoomSnap: 0,
+        zoomDelta: 1,
+        scrollWheelZoom: false,   // eigene Steuerung: Mausrad zoomt, Trackpad verschiebt (s. _initWheel)
         attributionControl: false,
         maxBounds: bounds.pad(0.25),
         maxBoundsViscosity: 0.8,
@@ -57,6 +58,8 @@
       };
 
       this.map.on('click', (e) => this._onMapClick(e));
+      this.map.on('mousemove', (e) => this._onMouseMove(e));
+      this._initWheel(el);
       this.map.on('zoomend', () => this._updateLabelClass());
       this._updateLabelClass();
       this.render();
@@ -123,6 +126,13 @@
         });
         poly.bindTooltip(this.labelHtml(p), { permanent: true, direction: 'center', className: 'parcel-label', interactive: false });
         poly.on('click', (e) => {
+          if (this.mode && this.mode.kind === 'pick') {
+            L.DomEvent.stopPropagation(e);
+            const done = this.mode.onDone;
+            this._endMode();
+            done(p.id);
+            return;
+          }
           if (this.mode) return; // Klick geht an die Karte (Zeichnen/Platzieren)
           L.DomEvent.stopPropagation(e);
           this.handlers.onSelect('parcel', p.id);
@@ -172,7 +182,7 @@
           m.on('click', (e) => { if (this.mode) return; L.DomEvent.stopPropagation(e); this.handlers.onSelect('tank', t.id); });
           m.on('dragend', () => { t.pos = fromLL(m.getLatLng()); Store.save(); });
           m.addTo(L_.tanks);
-          if (isSel) this._drawLinks(t.pos, Store.parcelsOnTank(t.id), '#d9822b');
+          if (isSel) this._drawLinks(t.pos, Store.parcelsOnTank(t.id), '#2f9e74');
         });
       }
     },
@@ -182,7 +192,8 @@
       const sh = this.show;
       const badges = [];
       if (sh.ww && p.winterWater) badges.push('<span class="pb pb-ww" title="Winterwasser">WW</span>');
-      if (sh.dogs && p.dogs > 0) badges.push(`<span class="pb pb-dog" title="${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}">🐾${p.dogs > 1 ? p.dogs : ''}</span>`);
+      if (sh.persons && p.residents > 0) badges.push(iconBadge('pb-person', ICON_PERSON, p.residents, `${p.residents} Bewohner`));
+      if (sh.dogs && p.dogs > 0) badges.push(iconBadge('pb-dog', ICON_DOG, p.dogs, `${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}`));
       if (sh.miet && p.objectType === 'miet') badges.push('<span class="pb pb-miet" title="Mietobjekt">M</span>');
       if (sh.pacht && p.objectType === 'pacht') badges.push('<span class="pb pb-pacht" title="Pachtgrundstück">P</span>');
       const free = Store.movingOut(p) ? `<span class="pl-free">frei ab ${escapeHtml(p.freeFrom.split('-').reverse().join('.'))}</span>` : '';
@@ -262,11 +273,24 @@
     _onMapClick(e) {
       const pt = fromLL(e.latlng);
       if (this.mode && this.mode.kind === 'draw') {
-        this.mode.points.push(pt);
+        this.mode.points.push(this._snapped(pt));
         this._renderDraw();
         this.handlers.onModeChange();
         return;
       }
+      if (this.mode && this.mode.kind === 'line') {
+        this.mode.points.push(this._snapped(pt));
+        if (this.mode.points.length === 2) {
+          const { points, onDone } = this.mode;
+          this._endMode();
+          onDone(points);
+        } else {
+          this._renderDraw();
+          this.handlers.onModeChange();
+        }
+        return;
+      }
+      if (this.mode && this.mode.kind === 'pick') return; // Parzelle anklicken
       if (this.mode && this.mode.kind === 'place') {
         const done = this.mode.onDone;
         this.mode = null;
@@ -293,9 +317,76 @@
     finishDraw() {
       if (!this.mode || this.mode.kind !== 'draw' || this.mode.points.length < 3) return;
       const { points, onDone } = this.mode;
+      if (this.snap) closeOrthogonal(points);
       this._endMode();
       onDone(points);
     },
+    // Schnittlinie (2 Punkte) zeichnen, z. B. zum Teilen; refDir = Ausrichtung der Parzelle
+    startLine(onDone, onCancel, refDir) {
+      this.mode = { kind: 'line', points: [], onDone, onCancel, refDir };
+      this.map.getContainer().classList.add('is-drawing');
+      this._renderDraw();
+      this.handlers.onModeChange();
+    },
+    // Eine Parzelle auf der Karte anklicken lassen (z. B. Nachbar zum Verbinden)
+    startPick(onDone, onCancel) {
+      this.mode = { kind: 'pick', onDone, onCancel };
+      this.handlers.onModeChange();
+    },
+    setSnap(on) {
+      this.snap = on;
+      if (this.mode) this._renderDraw();
+    },
+
+    // Neuen Punkt auf rechte Winkel ausrichten (relativ zur ersten Kante bzw. zur Parzelle)
+    _snapped(pt) {
+      const m = this.mode;
+      if (!this.snap || !m || !m.points || !m.points.length) return pt;
+      const prev = m.points[m.points.length - 1];
+      let ref = m.refDir;
+      if (!ref && m.points.length >= 2) ref = unit(sub(m.points[1], m.points[0]));
+      if (!ref) {
+        // erste Kante: nur einrasten, wenn fast waagerecht/senkrecht (< 8°)
+        const v = sub(pt, prev);
+        const ang = Math.abs(Math.atan2(v[1], v[0]) * 180 / Math.PI) % 90;
+        if (ang > 8 && ang < 82) return pt;
+        ref = [1, 0];
+      }
+      const perp = [-ref[1], ref[0]];
+      const v = sub(pt, prev);
+      const a = dot(v, ref), b = dot(v, perp);
+      const out = Math.abs(a) >= Math.abs(b) ? [prev[0] + ref[0] * a, prev[1] + ref[1] * a] : [prev[0] + perp[0] * b, prev[1] + perp[1] * b];
+      return [Math.round(out[0] * 10) / 10, Math.round(out[1] * 10) / 10];
+    },
+
+    _onMouseMove(e) {
+      const m = this.mode;
+      if (!m || (m.kind !== 'draw' && m.kind !== 'line') || !m.points.length) return;
+      this._preview = this._snapped(fromLL(e.latlng));
+      this._renderDraw();
+    },
+
+    // Mausrad = zoomen, Trackpad zwei Finger = verschieben, Kneifen (Strg) = zoomen
+    _initWheel(el) {
+      el.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const map = this.map;
+        const pt = map.mouseEventToContainerPoint(e);
+        if (e.ctrlKey) {
+          map.setZoomAround(pt, map.getZoom() - e.deltaY * 0.015, { animate: false });
+          return;
+        }
+        const lines = e.deltaMode !== 0;
+        const mouseWheel = lines || (e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 40);
+        if (mouseWheel) {
+          const step = Math.min(1, Math.abs(lines ? e.deltaY * 33 : e.deltaY) / 100) * 0.75;
+          map.setZoomAround(pt, map.getZoom() - Math.sign(e.deltaY) * step, { animate: false });
+        } else {
+          map.panBy([e.deltaX, e.deltaY], { animate: false });
+        }
+      }, { passive: false });
+    },
+
     startPlace(onDone, onCancel) {
       this.mode = { kind: 'place', onDone, onCancel };
       this.map.getContainer().classList.add('is-drawing');
@@ -309,6 +400,7 @@
     },
     _endMode() {
       this.mode = null;
+      this._preview = null;
       this.layers.draw.clearLayers();
       this.map.getContainer().classList.remove('is-drawing');
       this.handlers.onModeChange();
@@ -317,7 +409,15 @@
     _renderDraw() {
       const g = this.layers.draw;
       g.clearLayers();
+      if (!this.mode || !this.mode.points) return;
       const pts = this.mode.points.map(toLL);
+      if (this._preview && pts.length) {
+        L.polyline([pts[pts.length - 1], toLL(this._preview)], { color: '#1b2a1e', weight: 2, dashArray: '6 5', interactive: false }).addTo(g);
+      }
+      if (this.mode.kind === 'line') {
+        if (pts.length === 1) L.circleMarker(pts[0], { radius: 6, color: '#b3402e', weight: 2, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(g);
+        return;
+      }
       if (pts.length >= 3) L.polygon(pts, { color: '#1b2a1e', weight: 2, fillColor: '#e0a526', fillOpacity: 0.35, interactive: false }).addTo(g);
       else if (pts.length === 2) L.polyline(pts, { color: '#1b2a1e', weight: 2, interactive: false }).addTo(g);
       pts.forEach((ll, i) => L.circleMarker(ll, {
@@ -328,9 +428,37 @@
     mapCenter() { return fromLL(this.map.getCenter()); },
   };
 
+  // kleine Vektor-Helfer
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+  const unit = (v) => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+
+  // Letzten Punkt so verschieben, dass auch die Schlusskante rechtwinklig ist
+  function closeOrthogonal(pts) {
+    if (pts.length < 3) return;
+    const P = pts[pts.length - 2], Lp = pts[pts.length - 1], F = pts[0];
+    const d = unit(sub(Lp, P));
+    const n = [-d[1], d[0]];
+    // Schnittpunkt: P + s*d  =  F + t*n
+    const det = d[0] * (-n[1]) - d[1] * (-n[0]);
+    if (Math.abs(det) < 1e-9) return;
+    const rx = F[0] - P[0], ry = F[1] - P[1];
+    const sParam = (rx * (-n[1]) - ry * (-n[0])) / det;
+    pts[pts.length - 1] = [Math.round((P[0] + d[0] * sParam) * 10) / 10, Math.round((P[1] + d[1] * sParam) * 10) / 10];
+  }
+
+  const ICON_DOG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3l1.6 2.2 2.4.5-.5 2.6-2.4.4-1 2.3V15l-1.5 6h-2l-.6-4.5H9.5L8.5 21h-2l-.3-5.6C4.6 14.6 4 13.2 4 11.5V9.7L2.6 8.4 3.8 7 6 8.6c.7-.4 1.5-.6 2.3-.6H14l1.4-2.4z"/></svg>';
+  const ICON_PERSON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="3.6"/><path d="M5 22v-5.5C5 13.5 8 11 12 11s7 2.5 7 5.5V22z"/></svg>';
+  // n Symbole nebeneinander (ab 5: "4+")
+  function iconBadge(cls, icon, n, title) {
+    const k = Math.min(n, 4);
+    return `<span class="pb pb-icons ${cls}" title="${title}">${icon.repeat(k)}${n > 4 ? '<b>+</b>' : ''}</span>`;
+  }
+
   function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  MapView.icons = { dog: ICON_DOG, person: ICON_PERSON };
   window.MapView = MapView;
 })();

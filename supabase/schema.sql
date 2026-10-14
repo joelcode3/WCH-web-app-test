@@ -185,6 +185,14 @@ alter table public.boxes add column if not exists limit_kwh numeric;
 notify pgrst, 'reload schema';
 
 -- --------------------------------------------------------------------------
+-- Update 4 (Bewohneranzahl)
+-- --------------------------------------------------------------------------
+alter table public.parcels add column if not exists residents integer not null default 0;
+
+-- Supabase-Schnittstelle über die neuen Spalten informieren
+notify pgrst, 'reload schema';
+
+-- --------------------------------------------------------------------------
 -- WICHTIG: eigene E-Mail-Adresse(n) freischalten (Zeile anpassen & ausführen)
 -- --------------------------------------------------------------------------
 -- insert into public.team (email, name) values ('vorname@beispiel.de', 'Vorname Nachname')

@@ -17,7 +17,9 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
   - Klick auf einen Gastank → alle angeschlossenen Parzellen mit Gaszählern
   - Suche nach Parzellen-Nr., Name oder Zählernummer
   - **Bearbeiten-Modus**: Kästen/Tanks verschieben, neue Parzellen einzeichnen
-    (Ecken antippen), Umrisse neu zeichnen
+    (Ecken antippen, rastet auf rechte Winkel ein), Umrisse neu zeichnen,
+    Parzellen **teilen** (Trennlinie ziehen) und mit dem Nachbarn **verbinden**
+  - Bedienung: Mausrad zoomt, Trackpad mit zwei Fingern verschiebt, Kneifen zoomt
 - **Kartei** – alle Parzellen mit Suche und Filtern (Status, Versorgung, Objektart, Winterwasser);
   Karteikarte mit Mieter, Objektart (Pachtgrundstück / Mietobjekt), monatlicher Pacht/Miete,
   Winterwasser, Strom, Gas & Heizung, Notizen und Ablesehistorie; Formular zum Bearbeiten
@@ -26,8 +28,9 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
 - **Status**: Festwohnsitz (dunkelblau), Wochenendparzelle (hellblau), Reserviert (dunkelgrün),
   Frei – bezugsfertig (grün), Frei – noch zu räumen (orange); bewohnt mit Auszugstermin wird
   diagonal zweifarbig mit „frei ab …“ angezeigt
-- **Kartei** zusätzlich: Mietbeginn, Parzelle frei ab, Hunde
-- **Karte**: zuschaltbare Symbole (WW Winterwasser, 🐾 Hunde, M Mietobjekt, P Pachtgrundstück)
+- **Kartei** zusätzlich: Mietbeginn, Parzelle frei ab, Bewohneranzahl, Hunde
+- **Karte**: zuschaltbare Symbole (WW Winterwasser, Bewohner und Hunde je nach Anzahl,
+  M Mietobjekt, P Pachtgrundstück)
   und Luftbild als Hintergrund
 - **Technik** – Stromkästen und Gastanks; pro Kasten alle Zähler verwalten und entweder einer
   Parzelle zuordnen oder als **Betriebsstrom** kennzeichnen (Platzbeleuchtung, Sanitär, Camperstrom …)
@@ -74,6 +77,9 @@ pip install shapely pillow
 python3 tools/plan_import.py --lines plan2.svg --aerial luft-000.jpg
 ```
 
+Korrekturen gegenüber dem CAD-Plan (zusätzliche, geteilte Parzellen) stehen in `EDITS` in
+`tools/plan_import.py`. Die Nummerierung erfolgt blockweise (aneinandergrenzende Parzellen).
+
 In der App übernimmt **Daten → Parzellen aus Lageplan übernehmen** die Parzellen (leer, ohne
 Mieter). Einzelne Parzellen lassen sich jederzeit unter **Karte → Bearbeiten** neu einzeichnen,
 neue Parzellen anlegen und Nummern in der Kartei ändern.
@@ -107,8 +113,10 @@ assets/               Lageplan (Platzhalter) & Icon
 supabase/schema.sql   Datenbankschema inkl. Zugriffsregeln (enthält alle Updates)
 supabase/update-2.sql Update für bestehende Datenbanken (neue Felder)
 supabase/update-3.sql Update: Reserviert, Hunde, Mietbeginn, frei ab, Warnschwelle
+supabase/update-4.sql Update: Bewohneranzahl
 tools/plan_import.py  Umwandlung AutoCAD-Plan → Kartengrundlage
 js/plan-data.js       Parzellenumrisse aus dem Lageplan (erzeugt)
 vendor/leaflet/       Leaflet 1.9.4 (BSD-2-Clause)
 vendor/supabase/      supabase-js 2.116.0 (MIT)
+vendor/polygon-clipping/ polygon-clipping 0.15.7 (MIT) – Teilen/Verbinden von Parzellen
 ```
