@@ -51,6 +51,7 @@
   const serviceBadge = () => '<span class="nr nr-sm nr-service" title="Betriebszähler">B</span>';
   const objectOf = (p) => S.OBJECT_TYPES[p.objectType] || S.OBJECT_TYPES.pacht;
   const yesNo = (v) => v ? '<span class="yes">✓ ja</span>' : '<span class="no">✗ nein</span>';
+  const dogsText = (p) => (p.dogs > 0 ? `🐾 ${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}` : 'keine');
   const fmtEuro = (v) => (v === '' || v === null || v === undefined || isNaN(v)) ? '–'
     : Number(v).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
   const hasShape = (p) => p.geometry && p.geometry.length >= 3;
@@ -169,23 +170,35 @@
 
     renderLegend() {
       const el = $('#map-legend');
+      const sh = MapView.show;
       const items = MapView.colorMode === 'supply'
-        ? Object.values(S.SUPPLY).map((x) => [x.color, x.label])
-        : Object.values(S.STATUS).map((x) => [x.color, x.label]);
+        ? Object.values(S.SUPPLY).map((x) => [`background:${x.color}`, x.label])
+        : [...Object.values(S.STATUS).map((x) => [`background:${x.color}`, x.label]),
+          [`background:linear-gradient(135deg, ${S.STATUS.fest.color} 50%, ${S.MOVE_OUT_COLOR} 50%)`, 'Bewohnt, Auszug steht fest']];
+      const cb = (key, label) => `<label><input type="checkbox" data-layer="${key}" ${sh[key] ? 'checked' : ''}> ${label}</label>`;
       el.className = 'legend' + (this.legendCollapsed ? ' is-collapsed' : '');
       el.innerHTML = `
-        <button type="button" class="legend-toggle" aria-expanded="${!this.legendCollapsed}">Legende ${this.legendCollapsed ? '▴' : '▾'}</button>
+        <button type="button" class="legend-toggle" aria-expanded="${!this.legendCollapsed}">Legende &amp; Ebenen ${this.legendCollapsed ? '▴' : '▾'}</button>
         <div class="legend-body">
           <h4>${MapView.colorMode === 'supply' ? 'Versorgung / Heizung' : 'Status der Parzelle'}</h4>
-          <ul>${items.map(([c, l]) => `<li><span class="swatch" style="background:${c}"></span>${h(l)}</li>`).join('')}</ul>
+          <ul>${items.map(([st, l]) => `<li><span class="swatch" style="${st}"></span>${h(l)}</li>`).join('')}</ul>
           <div class="toggles">
-            <label><input type="checkbox" data-layer="boxes" ${MapView.show.boxes ? 'checked' : ''}> ${ICON.strom} Stromkästen</label>
-            <label><input type="checkbox" data-layer="tanks" ${MapView.show.tanks ? 'checked' : ''}> ${ICON.gas} Gastanks</label>
+            <h4>Auf der Karte zeigen</h4>
+            ${cb('boxes', `${ICON.strom} Stromkästen`)}
+            ${cb('tanks', `${ICON.gas} Gastanks`)}
+            ${cb('ww', '<span class="pb pb-ww">WW</span> Winterwasser')}
+            ${cb('dogs', '<span class="pb pb-dog">🐾</span> Hunde')}
+            ${cb('miet', '<span class="pb pb-miet">M</span> Mietobjekt')}
+            ${cb('pacht', '<span class="pb pb-pacht">P</span> Pachtgrundstück')}
+            ${CFG.map.aerial ? cb('aerial', 'Luftbild als Hintergrund') : ''}
           </div>
-          ${CFG.map.isPlaceholder ? '<div class="placeholder-note">Platzhalter-Karte – echter Lageplan folgt</div>' : ''}
         </div>`;
       $('.legend-toggle', el).onclick = () => { this.legendCollapsed = !this.legendCollapsed; this.renderLegend(); };
-      $$('[data-layer]', el).forEach((cb) => cb.onchange = () => { MapView.show[cb.dataset.layer] = cb.checked; MapView.render(); });
+      $$('[data-layer]', el).forEach((box) => box.onchange = () => {
+        if (box.dataset.layer === 'aerial') { MapView.setAerial(box.checked); return; }
+        sh[box.dataset.layer] = box.checked;
+        MapView.render();
+      });
     },
 
     renderModebar() {
@@ -308,6 +321,9 @@
             <dt>Objekt</dt><dd>${h(objectOf(p).label)}</dd>
             <dt>Größe</dt><dd>${p.size ? fmtNum(p.size) + ' m²' : '–'}</dd>
             <dt>Winterwasser</dt><dd>${yesNo(p.winterWater)}</dd>
+            <dt>Hunde</dt><dd>${dogsText(p)}</dd>
+            ${p.leaseStart ? `<dt>Mietbeginn</dt><dd>${fmtDate(p.leaseStart)}</dd>` : ''}
+            ${p.freeFrom ? `<dt>Frei ab</dt><dd><strong>${fmtDate(p.freeFrom)}</strong></dd>` : ''}
             <dt>Heizung</dt><dd>${h(S.HEATING[p.heating] || '–')}</dd>
             <dt>Gas</dt><dd>${p.gas === 'tank' && S.tank(p.gasTankId)
               ? `<button class="link-btn" data-goto="#/karte/tank/${p.gasTankId}">${gasText(p)}</button>` : gasText(p)}</dd>
@@ -539,7 +555,8 @@
     return {
       id: S.uid('p'), nr, status: status || 'leer',
       tenant: { name: '', phone: '', email: '', address: '' },
-      size: '', gas: 'none', gasTankId: '', heating: 'keine', notes: '', geometry: [],
+      size: '', gas: 'none', gasTankId: '', heating: 'keine', objectType: 'pacht', rent: '', winterWater: false,
+      dogs: 0, leaseStart: '', freeFrom: '', notes: '', geometry: [],
     };
   }
 
@@ -564,7 +581,7 @@
               ${Object.entries(S.SUPPLY).map(([k, v]) => `<option value="${k}"${this.supply === k ? ' selected' : ''}>${h(v.label)}</option>`).join('')}
             </select>
             <select id="k-extra" aria-label="Weitere Filter">
-              ${[['alle', 'Alle Objekte'], ['pacht', 'Nur Pachtgrundstücke'], ['miet', 'Nur Mietobjekte'], ['ww1', 'Mit Winterwasser'], ['ww0', 'Ohne Winterwasser']]
+              ${[['alle', 'Alle Objekte'], ['pacht', 'Nur Pachtgrundstücke'], ['miet', 'Nur Mietobjekte'], ['ww1', 'Mit Winterwasser'], ['ww0', 'Ohne Winterwasser'], ['dogs', 'Mit Hund(en)'], ['auszug', 'Auszug geplant (frei ab)']]
                 .map(([k, l]) => `<option value="${k}"${this.extra === k ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
           </div>
@@ -594,6 +611,8 @@
         if ((this.extra === 'pacht' || this.extra === 'miet') && p.objectType !== this.extra) return false;
         if (this.extra === 'ww1' && !p.winterWater) return false;
         if (this.extra === 'ww0' && p.winterWater) return false;
+        if (this.extra === 'dogs' && !(p.dogs > 0)) return false;
+        if (this.extra === 'auszug' && !p.freeFrom) return false;
         if (!q) return true;
         const hay = [p.nr, p.tenant.name, p.tenant.phone, p.tenant.email, p.notes,
           ...S.metersOf(p.id).map((m) => m.number)].join(' ').toLowerCase();
@@ -612,6 +631,8 @@
               ${strom.length ? `<span>${ICON.strom}${strom.join(', ')}</span>` : ''}
               ${p.gas !== 'none' ? `<span>${ICON.gas}${gasText(p)}</span>` : ''}
               ${p.winterWater ? '<span title="Winterwasser">❄ Winterwasser</span>' : ''}
+              ${p.dogs > 0 ? `<span>${dogsText(p)}</span>` : ''}
+              ${p.freeFrom ? `<span class="warn">frei ab ${fmtDate(p.freeFrom)}</span>` : ''}
               ${p.tenant.phone ? `<span>${ICON.phone}${h(p.tenant.phone)}</span>` : ''}
             </div>
           </div>
@@ -674,6 +695,9 @@
                 <dt>Telefon</dt><dd>${p.tenant.phone ? `<a href="tel:${h(p.tenant.phone.replace(/[^\d+]/g, ''))}">${h(p.tenant.phone)}</a>` : '–'}</dd>
                 <dt>E-Mail</dt><dd>${p.tenant.email ? `<a href="mailto:${h(p.tenant.email)}">${h(p.tenant.email)}</a>` : '–'}</dd>
                 <dt>Anschrift</dt><dd style="white-space:pre-line">${h(p.tenant.address) || '–'}</dd>
+                <dt>Mietbeginn</dt><dd>${fmtDate(p.leaseStart)}</dd>
+                <dt>Frei ab</dt><dd>${p.freeFrom ? `<strong>${fmtDate(p.freeFrom)}</strong>` : '–'}</dd>
+                <dt>Hunde</dt><dd>${dogsText(p)}</dd>
               </dl>
             </section>
             <section class="card">
@@ -801,6 +825,9 @@
                   ${fieldHtml({ name: 'phone', label: 'Telefon', type: 'tel', value: p.tenant.phone, autocomplete: 'off' })}
                   ${fieldHtml({ name: 'email', label: 'E-Mail', type: 'email', value: p.tenant.email, autocomplete: 'off' })}
                   ${fieldHtml({ name: 'address', label: 'Anschrift (falls abweichend)', type: 'textarea', value: p.tenant.address, full: true })}
+                  ${fieldHtml({ name: 'leaseStart', label: 'Mietbeginn', type: 'date', value: p.leaseStart })}
+                  ${fieldHtml({ name: 'freeFrom', label: 'Parzelle frei ab', type: 'date', value: p.freeFrom })}
+                  ${fieldHtml({ name: 'dogs', label: 'Hunde', type: 'select', value: String(p.dogs || 0), options: [['0', 'keine'], ['1', '1 Hund'], ['2', '2 Hunde'], ['3', '3 Hunde'], ['4', '4 oder mehr']], full: true })}
                 </div>
               </section>
               <section class="card">
@@ -935,6 +962,9 @@
           objectType: f.objectType.value,
           rent: isNaN(rent) ? '' : rent,
           winterWater: f.winterWater.checked,
+          dogs: parseInt(f.dogs.value, 10) || 0,
+          leaseStart: f.leaseStart.value || '',
+          freeFrom: f.freeFrom.value || '',
           heating: f.heating.value,
           gas: f.gas.value,
           gasTankId: f.gas.value === 'tank' ? f.gasTankId.value : '',
@@ -986,7 +1016,9 @@
                 <div class="form-grid">
                   ${fieldHtml({ name: 'nr', label: 'Kasten-Nr.', value: b.nr, required: true })}
                   ${fieldHtml({ name: 'location', label: 'Standort / Hinweis', value: b.location, placeholder: 'z. B. am Hauptweg, hinter Parzelle 12' })}
+                  ${fieldHtml({ name: 'limitKwh', label: 'Warnschwelle Ø Verbrauch (kWh/Monat, optional)', type: 'number', value: b.limitKwh, placeholder: 'z. B. 1500' })}
                 </div>
+                <p class="small muted" style="margin:8px 0 0">Wird der durchschnittliche Monatsverbrauch aller Zähler im Kasten überschritten, zeigt die Auslastungs-Übersicht eine Warnung.</p>
               </section>
               <section class="card span-all">
                 <h2>${ICON.strom} Zähler in diesem Kasten</h2>
@@ -1073,6 +1105,8 @@
 
         b.nr = nr;
         b.location = form.elements.location.value.trim();
+        const lim = parseNum(form.elements.limitKwh.value);
+        b.limitKwh = isNaN(lim) ? '' : lim;
         removed.forEach((mid) => S.deleteMeter(mid));
         meters.forEach((m) => {
           if (!m.id && !m.number.trim() && !assignOf(m)) return; // leere neue Zeile
@@ -1201,7 +1235,7 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head"><h1>Zähler</h1></div>
-          <div class="tabs"><a href="#/ablesung" class="is-active">Ablesen</a><a href="#/verbrauch">Verbrauch</a></div>
+          ${zaehlerTabs('ablesung')}
           <div class="controls">
             <div class="segmented" role="group" aria-label="Zählerart">
               <button type="button" data-type="strom" class="${this.type === 'strom' ? 'is-active' : ''}">Strom</button>
@@ -1392,7 +1426,7 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head"><h1>Zähler</h1></div>
-          <div class="tabs"><a href="#/ablesung">Ablesen</a><a href="#/verbrauch" class="is-active">Verbrauch</a></div>
+          ${zaehlerTabs('verbrauch')}
           <div class="controls">
             <div class="segmented" role="group" aria-label="Zählerart">
               <button type="button" data-type="strom" class="${this.type === 'strom' ? 'is-active' : ''}">Strom</button>
@@ -1451,6 +1485,103 @@
     },
   };
 
+  /* Ø Monatsverbrauch je Zähler aus den letzten beiden Ablesungen (null = zu wenig Daten) */
+  function monthlyAverage(m) {
+    const rs = S.readingsOf(m.id);
+    if (rs.length < 2) return null;
+    const a = rs[rs.length - 2], b = rs[rs.length - 1];
+    const days = (new Date(b.date) - new Date(a.date)) / 86400000;
+    if (days < 28) return null;
+    return Math.max(0, (b.value - a.value) / days * 30.44);
+  }
+
+  const zaehlerTabs = (active) => `<div class="tabs">
+    <a href="#/ablesung"${active === 'ablesung' ? ' class="is-active"' : ''}>Ablesen</a>
+    <a href="#/verbrauch"${active === 'verbrauch' ? ' class="is-active"' : ''}>Verbrauch</a>
+    <a href="#/auslastung"${active === 'auslastung' ? ' class="is-active"' : ''}>Auslastung</a></div>`;
+
+  const Auslastung = {
+    sort: 'value',
+
+    render(root) {
+      const strom = S.data.meters.filter((m) => m.type === 'strom');
+      const avg = new Map(strom.map((m) => [m.id, monthlyAverage(m)]));
+      const boxes = S.boxesSorted().map((b) => {
+        const ms = S.metersInBox(b.id).filter((m) => m.type === 'strom');
+        const vals = ms.map((m) => avg.get(m.id));
+        const known = vals.filter((v) => v !== null);
+        const total = known.reduce((s, v) => s + v, 0);
+        const limit = b.limitKwh === '' ? null : Number(b.limitKwh);
+        const ratio = limit ? total / limit : null;
+        const state = ratio === null ? '' : ratio > 1 ? 'over' : ratio > 0.8 ? 'near' : 'ok';
+        return { b, ms, total, missing: vals.length - known.length, limit, ratio, state };
+      });
+      const maxBox = Math.max(1, ...boxes.map((x) => Math.max(x.total, x.limit || 0)));
+      const parcels = strom.filter((m) => S.parcel(m.parcelId)).map((m) => ({ m, p: S.parcel(m.parcelId), v: avg.get(m.id) }));
+      // je Parzelle zusammenfassen (mehrere Zähler möglich)
+      const perParcel = new Map();
+      parcels.forEach(({ m, p, v }) => {
+        const e = perParcel.get(p.id) || { p, v: null, places: [] };
+        if (v !== null) e.v = (e.v || 0) + v;
+        e.places.push(S.meterPlace(m) || 'ohne Kasten');
+        perParcel.set(p.id, e);
+      });
+      let rows = [...perParcel.values()];
+      rows.sort(this.sort === 'nr' ? (x, y) => S.compareNr(x.p.nr, y.p.nr) : (x, y) => (y.v ?? -1) - (x.v ?? -1));
+      const maxParcel = Math.max(1, ...rows.map((r) => r.v || 0));
+      const over = boxes.filter((x) => x.state === 'over').length;
+      const near = boxes.filter((x) => x.state === 'near').length;
+      const kw = (v) => (v / 730).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+      const stateBadge = (x) => x.state === 'over' ? '<span class="state state-over">⚠ über Warnschwelle</span>'
+        : x.state === 'near' ? '<span class="state state-near">▲ über 80 %</span>'
+        : x.state === 'ok' ? '<span class="state state-ok">✓ im Rahmen</span>' : '';
+
+      root.innerHTML = `
+        <div class="page">
+          <div class="page-head"><h1>Zähler</h1></div>
+          ${zaehlerTabs('auslastung')}
+          <p class="small muted" style="margin-top:-4px">Ø Stromverbrauch pro Monat, berechnet aus den letzten beiden Ablesungen je Zähler. „Ø kW“ ist die daraus abgeleitete mittlere Dauerlast – kurze Spitzen sind höher.</p>
+          <div class="summary">
+            <div class="stat"><div class="v">${fmtNum(Math.round(boxes.reduce((s, x) => s + x.total, 0)))} kWh</div><div class="l">Ø pro Monat, alle Kästen</div></div>
+            <div class="stat"><div class="v" style="${over ? 'color:var(--gefahr)' : ''}">${over}</div><div class="l">Kästen über Warnschwelle</div></div>
+            <div class="stat"><div class="v">${near}</div><div class="l">Kästen über 80 %</div></div>
+          </div>
+
+          <h2 style="margin:18px 0 10px">Pro Stromkasten</h2>
+          <div class="bars">
+            ${boxes.map((x) => `
+              <a class="bar-row${x.state ? ' is-' + x.state : ''}" href="#/kasten/${x.b.id}" title="Kasten ${h(x.b.nr)}: ${fmtNum(Math.round(x.total))} kWh/Monat${x.limit ? ` von ${fmtNum(x.limit)} kWh Warnschwelle` : ''}">
+                <span class="bar-label"><span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(x.b.nr)}</span></span>
+                  <span><strong>Kasten ${h(x.b.nr)}</strong><span class="muted small"> · ${x.ms.length} Zähler${x.missing ? `, ${x.missing} ohne Werte` : ''}</span></span></span>
+                <span class="bar-track">
+                  <span class="bar-fill" style="width:${(x.total / maxBox) * 100}%"></span>
+                  ${x.limit ? `<span class="bar-limit" style="left:${(x.limit / maxBox) * 100}%" title="Warnschwelle ${fmtNum(x.limit)} kWh"></span>` : ''}
+                </span>
+                <span class="bar-value"><strong>${fmtNum(Math.round(x.total))}</strong> kWh <span class="muted small">· Ø ${kw(x.total)} kW</span></span>
+                <span class="bar-state">${stateBadge(x) || '<span class="muted small">keine Schwelle</span>'}</span>
+              </a>`).join('') || '<p class="muted">Noch keine Stromkästen.</p>'}
+          </div>
+
+          <div class="page-head" style="margin:26px 0 10px">
+            <h2 style="flex:1">Pro Parzelle</h2>
+            <div class="segmented" role="group" aria-label="Sortierung">
+              <button type="button" data-sort="value" class="${this.sort === 'value' ? 'is-active' : ''}">Höchster zuerst</button>
+              <button type="button" data-sort="nr" class="${this.sort === 'nr' ? 'is-active' : ''}">Nach Nummer</button>
+            </div>
+          </div>
+          <div class="bars">
+            ${rows.map((r) => `
+              <a class="bar-row" href="#/parzelle/${r.p.id}" title="Parzelle ${h(r.p.nr)}: ${r.v === null ? 'zu wenig Ablesungen' : fmtNum(Math.round(r.v)) + ' kWh/Monat'}">
+                <span class="bar-label">${nrBadge(r.p, 'nr-sm')}<span><strong>${h(tenantName(r.p))}</strong><span class="muted small"> · ${h(r.places.join(', '))}</span></span></span>
+                <span class="bar-track"><span class="bar-fill" style="width:${((r.v || 0) / maxParcel) * 100}%"></span></span>
+                <span class="bar-value">${r.v === null ? '<span class="muted small">zu wenig Ablesungen</span>' : `<strong>${fmtNum(Math.round(r.v))}</strong> kWh <span class="muted small">· Ø ${kw(r.v)} kW</span>`}</span>
+              </a>`).join('') || '<p class="muted">Noch keine Zähler.</p>'}
+          </div>
+        </div>`;
+      $$('[data-sort]', root).forEach((b) => b.onclick = () => { this.sort = b.dataset.sort; this.render(root); });
+    },
+  };
+
   /* ======================================================================
      DATEN
      ====================================================================== */
@@ -1505,8 +1636,9 @@
             <section class="card">
               <h2>Zurücksetzen</h2>
               <div class="card-actions" style="margin-top:0">
+                <button class="btn" id="d-plan">Parzellen aus Lageplan übernehmen</button>
                 <button class="btn btn-ghost" id="d-demo">Demo-Daten laden</button>
-                <button class="btn btn-danger" id="d-clear">Leeren Bestand anlegen</button>
+                <button class="btn btn-danger" id="d-clear">Alles leeren</button>
               </div>
               <p class="small muted">${S.mode === 'cloud' ? '<strong>Achtung:</strong> Beides überschreibt die zentrale Datenbank für alle Benutzer' : 'Beides überschreibt den aktuellen Stand'} – vorher eine Sicherung exportieren!</p>
             </section>
@@ -1529,13 +1661,13 @@
       };
       $('#d-csv', root).onclick = () => {
         const rows = [['Parzelle', 'Status', 'Objektart', 'Mieter', 'Telefon', 'E-Mail', 'Anschrift', 'Größe (m²)', 'Pacht/Miete mtl. (€)',
-          'Winterwasser', 'Heizung', 'Gas', 'Gastank', 'Stromzähler', 'Zählerort', 'Gaszähler', 'Notizen']];
+          'Winterwasser', 'Hunde', 'Mietbeginn', 'Frei ab', 'Heizung', 'Gas', 'Gastank', 'Stromzähler', 'Zählerort', 'Gaszähler', 'Notizen']];
         S.parcelsSorted().forEach((p) => {
           const ms = S.metersOf(p.id);
           const st = ms.filter((m) => m.type === 'strom');
           const gs = ms.filter((m) => m.type === 'gas');
           rows.push([p.nr, statusOf(p).label, objectOf(p).label, p.tenant.name, p.tenant.phone, p.tenant.email, p.tenant.address, p.size, p.rent,
-            p.winterWater ? 'ja' : 'nein', S.HEATING[p.heating] || '', S.GAS[p.gas] || '', S.tank(p.gasTankId)?.nr ?? '',
+            p.winterWater ? 'ja' : 'nein', p.dogs || 0, p.leaseStart ? fmtDate(p.leaseStart) : '', p.freeFrom ? fmtDate(p.freeFrom) : '', S.HEATING[p.heating] || '', S.GAS[p.gas] || '', S.tank(p.gasTankId)?.nr ?? '',
             st.map((m) => m.number).join(', '), st.map((m) => S.meterPlace(m)).join(', '),
             gs.map((m) => m.number).join(', '), p.notes]);
         });
@@ -1546,6 +1678,11 @@
         ? confirm(`${what}?`)
         : (prompt(`${what}?\n\nDas betrifft die zentrale Datenbank für alle Benutzer. Zum Bestätigen LÖSCHEN eingeben:`) || '').trim().toUpperCase() === 'LÖSCHEN';
       $('#d-demo', root).onclick = () => { if (reallyOverwrite('Aktuellen Stand durch Demo-Daten ersetzen')) { S.reset(); toast('Demo-Daten geladen'); this.render(root); } };
+      $('#d-plan', root).onclick = () => {
+        const n = (window.PLAN_DATA && window.PLAN_DATA.parcels.length) || 0;
+        if (!reallyOverwrite(`Alle Daten durch die ${n} leeren Parzellen aus dem Lageplan ersetzen (ohne Mieter, Zähler und Kästen)`)) return;
+        S.resetToPlan(); toast(`${n} Parzellen übernommen`); this.render(root);
+      };
       const refresh = $('#d-refresh', root);
       if (refresh) refresh.onclick = async () => {
         if (S.hasPending) { toast('Bitte warten, bis alles gespeichert ist'); return; }
@@ -1575,7 +1712,7 @@
     const params = new URLSearchParams(query || '');
     const viewMap = $('#view-karte');
     const viewPage = $('#view-page');
-    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', technik: 'technik', kasten: 'technik', ablesung: 'ablesung', verbrauch: 'ablesung', daten: 'daten' }[parts[0]] || 'karte';
+    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', technik: 'technik', kasten: 'technik', ablesung: 'ablesung', verbrauch: 'ablesung', auslastung: 'ablesung', daten: 'daten' }[parts[0]] || 'karte';
     $$('.tabbar a').forEach((a) => a.classList.toggle('is-active', a.dataset.nav === nav));
 
     if (nav === 'karte') {
@@ -1600,7 +1737,7 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { kasten: 'Stromkasten', kartei: 'Kartei', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Technik', ablesung: 'Ablesung', verbrauch: 'Verbrauch', daten: 'Daten' };
+    const titles = { kasten: 'Stromkasten', kartei: 'Kartei', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Technik', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
     switch (parts[0]) {
@@ -1614,6 +1751,7 @@
       case 'kasten': BoxEdit.render(viewPage, parts[1]); break;
       case 'ablesung': Ablesung.render(viewPage, params); break;
       case 'verbrauch': Verbrauch.render(viewPage); break;
+      case 'auslastung': Auslastung.render(viewPage); break;
       case 'daten': Daten.render(viewPage); break;
       default: location.hash = '#/karte';
     }

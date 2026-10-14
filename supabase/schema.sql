@@ -169,6 +169,22 @@ alter table public.meters add column if not exists label    text    not null def
 notify pgrst, 'reload schema';
 
 -- --------------------------------------------------------------------------
+-- Update 3 (Reserviert, Hunde, Mietbeginn, frei ab, Warnschwelle Stromkasten)
+-- --------------------------------------------------------------------------
+alter table public.parcels add column if not exists dogs        integer not null default 0;
+alter table public.parcels add column if not exists lease_start date;
+alter table public.parcels add column if not exists free_from   date;
+
+alter table public.parcels drop constraint if exists parcels_status_check;
+alter table public.parcels add constraint parcels_status_check
+  check (status in ('fest', 'wochenende', 'reserviert', 'altbestand', 'leer'));
+
+alter table public.boxes add column if not exists limit_kwh numeric;
+
+-- Supabase-Schnittstelle über die neuen Spalten informieren
+notify pgrst, 'reload schema';
+
+-- --------------------------------------------------------------------------
 -- WICHTIG: eigene E-Mail-Adresse(n) freischalten (Zeile anpassen & ausführen)
 -- --------------------------------------------------------------------------
 -- insert into public.team (email, name) values ('vorname@beispiel.de', 'Vorname Nachname')

@@ -19,7 +19,8 @@
   const MapView = {
     map: null,
     colorMode: 'status',   // 'status' | 'supply'
-    show: { boxes: true, tanks: true },
+    // Ebenen & Symbole zum An-/Abwählen
+    show: { boxes: true, tanks: true, aerial: false, ww: false, dogs: false, miet: false, pacht: false },
     editMode: false,
     selected: null,        // { type: 'parcel'|'box'|'tank', id }
     mode: null,            // null | { kind: 'draw', points, onDone, onCancel } | { kind: 'place', onDone, onCancel }
@@ -40,7 +41,10 @@
         maxBoundsViscosity: 0.8,
         doubleClickZoom: false,
       });
-      L.imageOverlay(cfg.url, bounds).addTo(this.map);
+      this.planLayer = L.imageOverlay(cfg.url, bounds).addTo(this.map);
+      this.aerialLayer = cfg.aerial ? L.imageOverlay(cfg.aerial, bounds) : null;
+      // eigener SVG-Renderer, damit Farbverläufe (zweifarbige Parzellen) definiert werden können
+      this.renderer = L.svg({ padding: 0.5 });
       this.bounds = bounds;
       this.fit();
 
@@ -72,8 +76,9 @@
     _updateLabelClass() {
       const z = this.map.getZoom();
       const c = this.map.getContainer();
-      c.classList.toggle('labels-small', z < -0.9);
-      c.classList.toggle('labels-tiny', z < -1.6);
+      c.classList.toggle('labels-small', z < -0.4);
+      c.classList.toggle('labels-tiny', z < -1.1);
+      c.classList.toggle('labels-hidden', z < -1.9);
     },
 
     parcelColor(p) {
@@ -107,14 +112,16 @@
         const isSel = sel && sel.type === 'parcel' && sel.id === p.id;
         const isLinked = linked.has(p.id);
         const color = this.parcelColor(p);
+        const split = this.colorMode === 'status' && Store.movingOut(p);
         const poly = L.polygon(p.geometry.map(toLL), {
+          renderer: this.renderer,
           color: isSel || isLinked ? '#1b2a1e' : '#ffffff',
           weight: isSel ? 4 : isLinked ? 3 : 1.5,
-          fillColor: color,
-          fillOpacity: dimOthers && !isLinked ? 0.25 : (Store.isFree(p) && this.colorMode === 'status' ? 0.45 : 0.75),
+          fillColor: split ? `url(#split-${p.status})` : color,
+          fillOpacity: dimOthers && !isLinked ? 0.25 : (this.show.aerial ? 0.6 : 0.8),
           dashArray: Store.isFree(p) ? '5 4' : null,
         });
-        poly.bindTooltip(String(p.nr), { permanent: true, direction: 'center', className: 'parcel-label', interactive: false });
+        poly.bindTooltip(this.labelHtml(p), { permanent: true, direction: 'center', className: 'parcel-label', interactive: false });
         poly.on('click', (e) => {
           if (this.mode) return; // Klick geht an die Karte (Zeichnen/Platzieren)
           L.DomEvent.stopPropagation(e);
@@ -122,6 +129,7 @@
         });
         poly.addTo(L_.parcels);
       });
+      this._ensureDefs();
 
       if (this.show.boxes) {
         Store.data.boxes.forEach((b) => {
@@ -167,6 +175,47 @@
           if (isSel) this._drawLinks(t.pos, Store.parcelsOnTank(t.id), '#d9822b');
         });
       }
+    },
+
+    // Beschriftung: Nummer, ggf. "frei ab", Symbole der eingeschalteten Ebenen
+    labelHtml(p) {
+      const sh = this.show;
+      const badges = [];
+      if (sh.ww && p.winterWater) badges.push('<span class="pb pb-ww" title="Winterwasser">WW</span>');
+      if (sh.dogs && p.dogs > 0) badges.push(`<span class="pb pb-dog" title="${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}">🐾${p.dogs > 1 ? p.dogs : ''}</span>`);
+      if (sh.miet && p.objectType === 'miet') badges.push('<span class="pb pb-miet" title="Mietobjekt">M</span>');
+      if (sh.pacht && p.objectType === 'pacht') badges.push('<span class="pb pb-pacht" title="Pachtgrundstück">P</span>');
+      const free = Store.movingOut(p) ? `<span class="pl-free">frei ab ${escapeHtml(p.freeFrom.split('-').reverse().join('.'))}</span>` : '';
+      return `<span class="pl-nr">${escapeHtml(p.nr)}</span>${free}${badges.length ? `<span class="pl-badges">${badges.join('')}</span>` : ''}`;
+    },
+
+    // Farbverläufe für "bewohnt, Auszug steht fest" (diagonal: Statusfarbe / frei)
+    _ensureDefs() {
+      const svg = this.renderer && this.renderer._container;
+      if (!svg || svg.querySelector('#split-fest')) return;
+      const NS = 'http://www.w3.org/2000/svg';
+      const defs = document.createElementNS(NS, 'defs');
+      ['fest', 'wochenende'].forEach((key) => {
+        const g = document.createElementNS(NS, 'linearGradient');
+        g.setAttribute('id', `split-${key}`);
+        [['x1', 0], ['y1', 0], ['x2', 1], ['y2', 1]].forEach(([k, v]) => g.setAttribute(k, v));
+        [[0, Store.STATUS[key].color], [0.5, Store.STATUS[key].color], [0.5, Store.MOVE_OUT_COLOR], [1, Store.MOVE_OUT_COLOR]].forEach(([o, c]) => {
+          const st = document.createElementNS(NS, 'stop');
+          st.setAttribute('offset', o);
+          st.setAttribute('stop-color', c);
+          g.appendChild(st);
+        });
+        defs.appendChild(g);
+      });
+      svg.insertBefore(defs, svg.firstChild);
+    },
+
+    setAerial(on) {
+      this.show.aerial = on;
+      if (!this.aerialLayer) return;
+      if (on) { this.map.removeLayer(this.planLayer); this.aerialLayer.addTo(this.map).bringToBack(); }
+      else { this.map.removeLayer(this.aerialLayer); this.planLayer.addTo(this.map).bringToBack(); }
+      this.render();
     },
 
     _drawLinks(from, parcels, color) {

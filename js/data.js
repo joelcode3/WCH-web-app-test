@@ -11,12 +11,16 @@
 
   const STORAGE_KEY = 'wch-platzverwaltung-v1';
 
+  // Reihenfolge = Reihenfolge in Auswahllisten und Legende
   const STATUS = {
-    fest:       { label: 'Festwohnsitz',          short: 'Fest',              color: '#3f7d3a' },
-    wochenende: { label: 'Wochenendgrundstück',   short: 'Wochenende',        color: '#2f6fa3' },
-    altbestand: { label: 'Frei (mit Altbestand)', short: 'Frei (Altbestand)', color: '#b9874a', free: true },
-    leer:       { label: 'Frei',                  short: 'Frei',              color: '#a39d8f', free: true },
+    fest:       { label: 'Festwohnsitz',           short: 'Fest',            color: '#1f4e8c' },
+    wochenende: { label: 'Wochenendparzelle',      short: 'Wochenende',      color: '#6fa8dc' },
+    reserviert: { label: 'Reserviert',             short: 'Reserviert',      color: '#2b6a33' },
+    leer:       { label: 'Frei – bezugsfertig',    short: 'Frei',            color: '#6cbf5a', free: true },
+    altbestand: { label: 'Frei – noch zu räumen',  short: 'Noch zu räumen',  color: '#ec8a2c', free: true },
   };
+  // Bewohnt, aber Auszugstermin steht fest → diagonal zweifarbig (Status / frei)
+  const MOVE_OUT_COLOR = STATUS.leer.color;
 
   // Wem gehört das Haus auf der Parzelle?
   const OBJECT_TYPES = {
@@ -72,76 +76,78 @@
 
   /* ---------- Demo-Daten (Platzhalter) ---------- */
 
+  // Leerer Bestand: alle Parzellen aus dem Lageplan, ohne Mieter/Zähler
+  function planParcels() {
+    const plan = window.PLAN_DATA || { parcels: [] };
+    return plan.parcels.map((pp) => ({
+      id: uid('p'), nr: pp.nr, status: 'leer',
+      tenant: { name: '', phone: '', email: '', address: '' },
+      size: pp.area || '', gas: 'none', gasTankId: '', heating: 'keine',
+      objectType: 'pacht', rent: '', winterWater: false, dogs: 0, leaseStart: '', freeFrom: '',
+      notes: '', geometry: pp.geometry.map((c) => [c[0], c[1]]),
+    }));
+  }
+
+  function emptyFromPlan() {
+    return { version: 1, parcels: planParcels(), boxes: [], tanks: [], meters: [], readings: [] };
+  }
+
+  /* ---------- Demo-Daten (auf dem echten Lageplan, Namen/Nummern erfunden) ---------- */
+
   function seed() {
     let s = 42;
     const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
     const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+    const pad = (n) => String(n).padStart(2, '0');
 
     const first = ['Anke', 'Bernd', 'Claudia', 'Dieter', 'Elke', 'Frank', 'Gabi', 'Heiko', 'Ingrid', 'Jürgen',
       'Karin', 'Lars', 'Monika', 'Norbert', 'Petra', 'Rainer', 'Sabine', 'Thomas', 'Ute', 'Werner'];
     const last = ['Ahrens', 'Behrens', 'Brandt', 'Cordes', 'Dittmer', 'Eckhoff', 'Gerdes', 'Hinck', 'Indorf',
       'Kück', 'Lühmann', 'Meyer', 'Oetjen', 'Prigge', 'Rathjen', 'Steffens', 'Tiedemann', 'Viebrock', 'Wahlers', 'Zabel'];
 
-    const blocks = [
-      { cols: [100, 196], w: 86 },
-      { cols: [324, 413, 502], w: 80 },
-      { cols: [624, 712], w: 78 },
-    ];
-    const rows = [110, 179, 248, 317, 424, 490, 556, 622];
-    const rowH = 60;
-
-    const boxes = [];
-    const boxXs = [303, 603, 811];
-    const boxYs = [180, 320, 490, 630];
-    let bn = 1;
-    boxXs.forEach((x) => boxYs.forEach((y) => {
-      boxes.push({ id: uid('b'), nr: String(bn++), pos: [x, y], location: '' });
-    }));
-    boxes[0].location = 'am Weg, gegenüber Rezeption';
-
+    const plan = window.PLAN_DATA || { parcels: [], demoBoxes: [] };
+    const boxes = (plan.demoBoxes || []).map((pos, i) => ({ id: uid('b'), nr: String(i + 1), pos: [pos[0], pos[1]], location: '', limitKwh: '' }));
+    if (boxes[0]) boxes[0].location = 'am Weg bei der Rezeption';
+    if (boxes[2]) boxes[2].limitKwh = 1500;
+    // Tank neben einem Kasten platzieren, aber nicht auf einem anderen Symbol
+    const tankAt = (i) => {
+      const base = boxes[i] ? boxes[i].pos : [100, 100];
+      const free = (pt) => boxes.every((bx) => Math.hypot(bx.pos[0] - pt[0], bx.pos[1] - pt[1]) > 60);
+      const offsets = [[0, 45], [0, -45], [60, 0], [-60, 0], [50, 45], [-50, 45], [50, -45], [-50, -45], [0, 90], [90, 0]];
+      const hit = offsets.map(([dx, dy]) => [base[0] + dx, base[1] + dy]).find(free);
+      return hit || [base[0], base[1] + 45];
+    };
     const tanks = [
-      { id: uid('t'), nr: '1', pos: [603, 250], capacity: '2.900 l', notes: 'Füllstand prüfen lassen' },
-      { id: uid('t'), nr: '2', pos: [303, 560], capacity: '2.100 l', notes: '' },
+      { id: uid('t'), nr: '1', pos: tankAt(12), capacity: '2.900 l', notes: 'Füllstand prüfen lassen' },
+      { id: uid('t'), nr: '2', pos: tankAt(5), capacity: '2.100 l', notes: '' },
     ];
 
-    const parcels = [];
+    const parcels = planParcels();
     const meters = [];
     const readings = [];
-    let nr = 1;
+    const center = (g) => g.reduce((a, c) => [a[0] + c[0] / g.length, a[1] + c[1] / g.length], [0, 0]);
 
-    blocks.forEach((b) => b.cols.forEach((x) => rows.forEach((y) => {
-      const geometry = [[x, y], [x + b.w, y], [x + b.w, y + rowH], [x, y + rowH]];
-      const cx = x + b.w / 2, cy = y + rowH / 2;
+    parcels.forEach((p) => {
+      const [cx, cy] = center(p.geometry);
       const r = rnd();
-      const status = r < 0.09 ? 'leer' : r < 0.15 ? 'altbestand' : r < 0.55 ? 'wochenende' : 'fest';
+      const status = r < 0.08 ? 'leer' : r < 0.14 ? 'altbestand' : r < 0.18 ? 'reserviert' : r < 0.55 ? 'wochenende' : 'fest';
       const free = STATUS[status].free;
-
-      // Gasversorgung: Tank nur in der Nähe eines Tanks
-      const nearTank = tanks.find((t) => Math.hypot(t.pos[0] - cx, t.pos[1] - cy) < 150);
+      const nearTank = tanks.find((t) => Math.hypot(t.pos[0] - cx, t.pos[1] - cy) < 170);
       const g = rnd();
       let gas = g < 0.35 ? 'none' : g < 0.65 ? 'bottle' : 'tank';
       if (gas === 'tank' && !nearTank) gas = 'bottle';
-      let heating;
-      if (gas === 'tank') heating = 'gas';
-      else if (gas === 'bottle') heating = rnd() < 0.6 ? 'gas' : 'holz';
-      else heating = rnd() < 0.7 ? 'strom' : 'holz';
-      if (free) heating = 'keine';
-
-      const p = {
-        id: uid('p'),
-        nr: String(nr++),
-        status,
-        tenant: { name: '', phone: '', email: '', address: '' },
-        size: Math.round(b.w * rowH * 0.09 + (rnd() - 0.5) * 30),
-        gas,
+      let heating = gas === 'tank' ? 'gas' : gas === 'bottle' ? (rnd() < 0.6 ? 'gas' : 'holz') : (rnd() < 0.7 ? 'strom' : 'holz');
+      if (free) { heating = 'keine'; gas = 'none'; }
+      Object.assign(p, {
+        status, gas, heating,
         gasTankId: gas === 'tank' ? nearTank.id : '',
-        heating,
         objectType: rnd() < 0.15 ? 'miet' : 'pacht',
         rent: free ? '' : Math.round((status === 'fest' ? 180 : 120) + rnd() * 80),
         winterWater: status === 'fest' ? rnd() < 0.85 : status === 'wochenende' ? rnd() < 0.3 : false,
-        notes: '',
-        geometry,
-      };
+        dogs: free ? 0 : (rnd() < 0.3 ? (rnd() < 0.25 ? 2 : 1) : 0),
+        leaseStart: free ? '' : `${2005 + Math.floor(rnd() * 20)}-${pad(1 + Math.floor(rnd() * 12))}-01`,
+        freeFrom: (status === 'fest' || status === 'wochenende') && rnd() < 0.07 ? `2027-${pad(3 + Math.floor(rnd() * 6))}-01` : '',
+      });
       if (!free) {
         const fn = pick(first), ln = pick(last);
         p.tenant = {
@@ -151,9 +157,9 @@
           address: status === 'fest' ? 'Zum Waldbad 3, 27404 Gyhum-Hesedorf' : '',
         };
       }
-      parcels.push(p);
 
-      // Stromzähler im nächstgelegenen Kasten
+      // Stromzähler im nächstgelegenen Kasten (manche im Haus)
+      if (!boxes.length) return;
       const box = boxes.reduce((best, bx) =>
         Math.hypot(bx.pos[0] - cx, bx.pos[1] - cy) < Math.hypot(best.pos[0] - cx, best.pos[1] - cy) ? bx : best);
       const inHouse = rnd() < 0.12;
@@ -173,15 +179,16 @@
         readings.push({ id: uid('r'), meterId: gm.id, date: '2024-10-01', value: g1 });
         readings.push({ id: uid('r'), meterId: gm.id, date: '2025-10-01', value: g1 + Math.round(300 + rnd() * 900) });
       }
-    })));
-
-    parcels[2].notes = 'Schlüssel für Stromkasten beim Mieter hinterlegt.';
+    });
+    if (parcels[2]) parcels[2].notes = 'Schlüssel für Stromkasten beim Mieter hinterlegt.';
 
     // Betriebszähler (ohne Parzelle)
-    [[9, 'sanitaer', 'Sanitärgebäude'], [10, 'licht', 'Wegbeleuchtung Ost'], [11, 'camper', 'Säulen Wiese B'], [1, 'rezeption', 'Rezeption']]
+    [[1, 'rezeption', 'Rezeption'], [2, 'sanitaer', 'Sanitärgebäude'], [8, 'licht', 'Wegbeleuchtung'], [12, 'camper', 'Säulen Wiese']]
       .forEach(([boxNr, purpose, label]) => {
+        const box = boxes[boxNr - 1];
+        if (!box) return;
         const m = { id: uid('m'), type: 'strom', number: `1ESY${Math.floor(10000000 + rnd() * 89999999)}`,
-          parcelId: '', boxId: boxes[boxNr - 1].id, inHouse: false, purpose, label, location: '', notes: '' };
+          parcelId: '', boxId: box.id, inHouse: false, purpose, label, location: '', notes: '' };
         meters.push(m);
         const v = Math.round(20000 + rnd() * 40000);
         readings.push({ id: uid('r'), meterId: m.id, date: '2024-10-01', value: v });
@@ -194,7 +201,9 @@
   /* ---------- Store ---------- */
 
   const Store = {
-    STATUS, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, supplyOf, uid, compareNr,
+    STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, supplyOf, uid, compareNr,
+    // Bewohnt, aber Auszug steht fest?
+    movingOut: (p) => !!p.freeFrom && (p.status === 'fest' || p.status === 'wochenende'),
     isFree: (p) => !!(STATUS[p.status] || STATUS.leer).free,
     data: null,
     listeners: [],
@@ -252,8 +261,12 @@
         if (!OBJECT_TYPES[p.objectType]) p.objectType = 'pacht';
         if (p.rent === undefined || p.rent === null) p.rent = '';
         p.winterWater = !!p.winterWater;
+        p.dogs = Math.max(0, parseInt(p.dogs, 10) || 0);
+        p.leaseStart = p.leaseStart || '';
+        p.freeFrom = p.freeFrom || '';
         if (!STATUS[p.status]) p.status = 'leer';
       });
+      d.boxes.forEach((b) => { if (b.limitKwh === undefined || b.limitKwh === null) b.limitKwh = ''; });
       d.meters.forEach((m) => {
         m.parcelId = m.parcelId || '';
         m.boxId = m.boxId || '';
@@ -313,6 +326,9 @@
     onChange(fn) { this.listeners.push(fn); },
 
     reset() { this.data = seed(); this.save(); },
+
+    // Alle Daten durch die leeren Parzellen aus dem Lageplan ersetzen
+    resetToPlan() { this.data = emptyFromPlan(); this.save(); },
 
     importJSON(obj) {
       if (!obj || !Array.isArray(obj.parcels)) throw new Error('Keine gültige Sicherungsdatei.');
