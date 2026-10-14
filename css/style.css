@@ -190,11 +190,17 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--w
 
 .parcel-label {
   background: none; border: 0; box-shadow: none; padding: 0;
-  color: #e9ecea; font-family: var(--font-head); font-weight: 700; font-size: var(--lbl, 10px);
+  color: #e9ecea; font-family: var(--font-head); font-weight: 700; font-size: 10px;
   text-shadow: 0 0 3px rgba(0,0,0,.75), 0 0 1px rgba(0,0,0,.9);
 }
 .parcel-label::before { display: none; }
-.parcel-label { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.05; text-align: center; white-space: nowrap; }
+/* Hintergrund + Beschriftung je als eine Ebene, die beim Zoomen nur per Transform skaliert wird */
+.scale-layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.bg-img { position: absolute; max-width: none; user-select: none; -webkit-user-drag: none; }
+.label-layer .parcel-label { position: absolute; transform: translate(-50%, -50%); pointer-events: none; }
+.parcel-label { line-height: 1.05; text-align: center; white-space: nowrap; }
+/* skaliert per Transform (siehe map.js _updateLabelClass) – kein Neu-Layout beim Zoomen */
+.parcel-label .pl { display: flex; flex-direction: column; align-items: center; gap: 1px; transform: scale(var(--lbl-s, 1)); transform-origin: 50% 50%; }
 .pl-free { font-size: .8em; font-weight: 700; background: rgba(255,255,255,.92); color: #234d1c; text-shadow: none; padding: 0 .35em; border-radius: .35em; }
 .pl-badges { display: flex; gap: .15em; }
 .pb { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.35em; padding: 0 .25em; border-radius: .35em;
