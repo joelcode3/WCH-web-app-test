@@ -19,8 +19,8 @@
   const TABLES = [
     {
       key: 'boxes',
-      toRow: (b) => ({ id: b.id, nr: String(b.nr), pos: b.pos || null, location: b.location || '' }),
-      fromRow: (r) => ({ id: r.id, nr: r.nr, pos: r.pos, location: r.location || '' }),
+      toRow: (b) => ({ id: b.id, nr: String(b.nr), pos: b.pos || null, location: b.location || '', limit_kwh: num(b.limitKwh) }),
+      fromRow: (r) => ({ id: r.id, nr: r.nr, pos: r.pos, location: r.location || '', limitKwh: r.limit_kwh === null || r.limit_kwh === undefined ? '' : Number(r.limit_kwh) }),
     },
     {
       key: 'tanks',
@@ -36,6 +36,7 @@
         size: num(p.size), gas: p.gas || 'none', gas_tank_id: nz(p.gasTankId),
         heating: p.heating || 'keine', notes: p.notes || '', geometry: p.geometry || [],
         object_type: p.objectType || 'pacht', rent: num(p.rent), winter_water: !!p.winterWater,
+        dogs: Math.max(0, parseInt(p.dogs, 10) || 0), lease_start: nz(p.leaseStart), free_from: nz(p.freeFrom),
       }),
       fromRow: (r) => ({
         id: r.id, nr: r.nr, status: r.status,
@@ -44,6 +45,7 @@
         heating: r.heating, notes: r.notes, geometry: r.geometry || [],
         objectType: r.object_type || 'pacht', rent: r.rent === null || r.rent === undefined ? '' : Number(r.rent),
         winterWater: !!r.winter_water,
+        dogs: r.dogs || 0, leaseStart: r.lease_start || '', freeFrom: r.free_from || '',
       }),
     },
     {

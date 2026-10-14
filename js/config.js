@@ -1,20 +1,20 @@
 /*
  * Zentrale Einstellungen der Platzverwaltung.
  *
- * Wenn der echte Lageplan da ist:
- *   1. Datei nach assets/ kopieren (SVG, PNG oder JPG)
- *   2. url, width und height hier anpassen (Pixelmaße des Bildes)
- *   3. metersPerPixel setzen, damit Flächen aus der Karte berechnet werden können
- *   4. In der App unter "Karte → Bearbeiten" Parzellen, Kästen und Tanks einzeichnen
+ * Neuer/geänderter Lageplan: tools/plan_import.py ausführen (erzeugt assets/platzplan.svg,
+ * assets/luftbild.jpg und js/plan-data.js). Parzellen lassen sich danach jederzeit in der
+ * App unter "Karte → Bearbeiten" anpassen oder neu einzeichnen.
  */
 window.APP_CONFIG = {
   map: {
-    url: 'assets/platzplan-platzhalter.svg',
-    width: 1200,
-    height: 800,
-    // Maßstab: wie viele Meter entspricht ein Bildpixel? (null = unbekannt)
-    metersPerPixel: 0.3,
-    isPlaceholder: true,
+    // Erzeugt mit tools/plan_import.py aus dem AutoCAD-Lageplan (siehe README)
+    url: 'assets/platzplan.svg',
+    aerial: 'assets/luftbild.jpg',
+    width: (window.PLAN_DATA && window.PLAN_DATA.width) || 1755,
+    height: (window.PLAN_DATA && window.PLAN_DATA.height) || 1765,
+    // Maßstab: wie viele Meter entspricht ein Kartenpixel?
+    metersPerPixel: (window.PLAN_DATA && window.PLAN_DATA.metersPerPixel) || 0.2,
+    isPlaceholder: false,
   },
   units: { strom: 'kWh', gas: 'm³' },
 

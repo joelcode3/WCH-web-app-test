@@ -23,7 +23,12 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
   Winterwasser, Strom, Gas & Heizung, Notizen und Ablesehistorie; Formular zum Bearbeiten
   (beliebig viele Strom-/Gaszähler je Parzelle, Zähler im Kasten oder im Haus) mit Warnung bei
   doppelter Parzellen- oder Zählernummer
-- **Status**: Festwohnsitz, Wochenende, Frei (mit Altbestand), Frei
+- **Status**: Festwohnsitz (dunkelblau), Wochenendparzelle (hellblau), Reserviert (dunkelgrün),
+  Frei – bezugsfertig (grün), Frei – noch zu räumen (orange); bewohnt mit Auszugstermin wird
+  diagonal zweifarbig mit „frei ab …“ angezeigt
+- **Kartei** zusätzlich: Mietbeginn, Parzelle frei ab, Hunde
+- **Karte**: zuschaltbare Symbole (WW Winterwasser, 🐾 Hunde, M Mietobjekt, P Pachtgrundstück)
+  und Luftbild als Hintergrund
 - **Technik** – Stromkästen und Gastanks; pro Kasten alle Zähler verwalten und entweder einer
   Parzelle zuordnen oder als **Betriebsstrom** kennzeichnen (Platzbeleuchtung, Sanitär, Camperstrom …)
 - **Zähler**
@@ -32,6 +37,8 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
   - *Verbrauch*: letzte zwei Ablesungen je Zähler oder frei wählbarer Zeitraum; Summen getrennt
     nach Parzellen und Betrieb; CSV-Liste (Parzelle, Name, Zählernummer, Zählerschrank,
     letzter Stand + Datum, aktueller Stand + Datum, Differenz)
+  - *Auslastung*: Ø Verbrauch pro Monat je Stromkasten und je Parzelle, optionale Warnschwelle
+    pro Kasten (Hinweis bei > 80 % bzw. Überschreitung)
 - **Daten** – Sicherung als JSON exportieren/importieren, Kartei als CSV,
   Demo-Daten oder leerer Bestand
 
@@ -48,13 +55,28 @@ Alternativ kann der Ordner auf einen beliebigen Webspace gelegt werden, z. B. Gi
 (siehe [SETUP.md](SETUP.md), Schritt 7). Auf dem iPhone in Safari über
 „Teilen → Zum Home-Bildschirm“ wie eine App ablegen.
 
-## Echten Lageplan einsetzen
+## Lageplan
 
-1. Plan als SVG/PNG/JPG nach `assets/` kopieren
-2. In `js/config.js` `url`, `width`, `height` (Pixelmaße) und ggf. `metersPerPixel` anpassen,
-   `isPlaceholder: false` setzen
-3. In der App unter **Daten → Leeren Bestand anlegen** (oder Demo-Parzellen behalten)
-4. **Karte → Bearbeiten**: Parzellen einzeichnen, Stromkästen und Gastanks platzieren
+Grundlage ist der AutoCAD-Plan (Luftbild + Linien: rot Grundstück, blau Wege, grün Gebäude,
+orange Parzellen). `tools/plan_import.py` erzeugt daraus die Kartengrundlage:
+
+- `assets/platzplan.svg` – gezeichneter Plan im App-Stil (Wald, Wiese, graue Wege, Gebäude)
+- `assets/luftbild.jpg` – passend zugeschnittenes Luftbild (in der Legende zuschaltbar)
+- `js/plan-data.js` – vereinfachte Parzellenumrisse mit Lücken, Nummern 1.01… (unterer Platz)
+  und 2.01… (oberer Platz), Wegflächen werden ausgespart
+
+Bei einem geänderten Plan:
+
+```bash
+pdftocairo -svg Platzplan_2.pdf plan2.svg      # Linien ohne Hintergrund
+pdfimages -j Platzplan_4.pdf luft              # Luftbild → luft-000.jpg
+pip install shapely pillow
+python3 tools/plan_import.py --lines plan2.svg --aerial luft-000.jpg
+```
+
+In der App übernimmt **Daten → Parzellen aus Lageplan übernehmen** die Parzellen (leer, ohne
+Mieter). Einzelne Parzellen lassen sich jederzeit unter **Karte → Bearbeiten** neu einzeichnen,
+neue Parzellen anlegen und Nummern in der Kartei ändern.
 
 ## Datenbank & Login
 
@@ -84,6 +106,9 @@ js/app.js             Ansichten: Karte, Kartei, Technik, Zähler, Daten
 assets/               Lageplan (Platzhalter) & Icon
 supabase/schema.sql   Datenbankschema inkl. Zugriffsregeln (enthält alle Updates)
 supabase/update-2.sql Update für bestehende Datenbanken (neue Felder)
+supabase/update-3.sql Update: Reserviert, Hunde, Mietbeginn, frei ab, Warnschwelle
+tools/plan_import.py  Umwandlung AutoCAD-Plan → Kartengrundlage
+js/plan-data.js       Parzellenumrisse aus dem Lageplan (erzeugt)
 vendor/leaflet/       Leaflet 1.9.4 (BSD-2-Clause)
 vendor/supabase/      supabase-js 2.116.0 (MIT)
 ```
