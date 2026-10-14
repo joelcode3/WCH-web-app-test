@@ -80,6 +80,9 @@ python3 tools/plan_import.py --lines plan2.svg --aerial luft-000.jpg
 Korrekturen gegenüber dem CAD-Plan (zusätzliche, geteilte Parzellen) stehen in `EDITS` in
 `tools/plan_import.py`. Die Nummerierung erfolgt blockweise (aneinandergrenzende Parzellen).
 
+**Neue Version veröffentlichen:** In `index.html` und `js/config.js` die Versionsnummer `?v=…` hochzählen,
+damit Browser die neuen Dateien sofort laden (GitHub Pages lässt sie sonst bis zu 10 Minuten zwischenspeichern).
+
 In der App übernimmt **Daten → Parzellen aus Lageplan übernehmen** die Parzellen (leer, ohne
 Mieter). Einzelne Parzellen lassen sich jederzeit unter **Karte → Bearbeiten** neu einzeichnen,
 neue Parzellen anlegen und Nummern in der Kartei ändern.

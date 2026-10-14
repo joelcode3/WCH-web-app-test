@@ -8,8 +8,8 @@
 window.APP_CONFIG = {
   map: {
     // Erzeugt mit tools/plan_import.py aus dem AutoCAD-Lageplan (siehe README)
-    url: 'assets/platzplan.svg',
-    aerial: 'assets/luftbild.jpg',
+    url: 'assets/platzplan.svg?v=20261014-3',
+    aerial: 'assets/luftbild.jpg?v=20261014-3',
     width: (window.PLAN_DATA && window.PLAN_DATA.width) || 1755,
     height: (window.PLAN_DATA && window.PLAN_DATA.height) || 1765,
     // Maßstab: wie viele Meter entspricht ein Kartenpixel?

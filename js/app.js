@@ -1774,6 +1774,21 @@
      ====================================================================== */
 
   const Daten = {
+    // Weicht der Bestand vom aktuellen Lageplan ab? (z. B. nach Plan-Update)
+    planDiff() {
+      const plan = (window.PLAN_DATA && window.PLAN_DATA.parcels) || [];
+      if (!plan.length) return '';
+      const inPlan = new Set(plan.map((p) => p.nr));
+      const inData = new Set(S.data.parcels.map((p) => p.nr));
+      const missing = [...inPlan].filter((nr) => !inData.has(nr));
+      const extra = [...inData].filter((nr) => !inPlan.has(nr));
+      if (!missing.length && !extra.length) return '';
+      const list = (a) => a.sort(S.compareNr).slice(0, 8).join(', ') + (a.length > 8 ? ' …' : '');
+      return `<p class="notice"><strong>Lageplan aktualisiert:</strong> Der Lageplan enthält ${plan.length} Parzellen, der Bestand ${S.data.parcels.length}.
+        ${missing.length ? `Neu im Plan: ${h(list(missing))}.` : ''} ${extra.length ? `Nicht mehr im Plan: ${h(list(extra))}.` : ''}
+        Mit „Parzellen aus Lageplan übernehmen“ (unten) wird der Bestand auf den neuen Plan umgestellt.</p>`;
+    },
+
     render(root) {
       const d = S.data;
       root.innerHTML = `
@@ -1786,6 +1801,7 @@
             <div class="stat"><div class="v">${d.meters.length}</div><div class="l">Zähler</div></div>
             <div class="stat"><div class="v">${d.readings.length}</div><div class="l">Ablesungen</div></div>
           </div>
+          ${this.planDiff()}
           ${d.demo && S.mode === 'local' ? '<p class="notice"><strong>Demo-Daten:</strong> Alle Namen, Nummern und Zählerstände sind erfunden und dienen nur zum Ausprobieren.</p>' : ''}
           <div class="cards">
             ${S.mode === 'cloud' ? `
@@ -2028,6 +2044,10 @@
       if (Object.keys(Ablesung.draft).length || S.hasPending) { e.preventDefault(); e.returnValue = ''; }
     });
     route();
+    if (Daten.planDiff() && !sessionStorage.getItem('wch-plan-hint')) {
+      try { sessionStorage.setItem('wch-plan-hint', '1'); } catch (_) { /* egal */ }
+      setTimeout(() => toast('Der Lageplan wurde aktualisiert – Details unter „Daten“'), 800);
+    }
   }
 
   start();
