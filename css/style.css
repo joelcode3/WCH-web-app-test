@@ -190,31 +190,26 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--w
 
 .parcel-label {
   background: none; border: 0; box-shadow: none; padding: 0;
-  color: #e9ecea; font-family: var(--font-head); font-weight: 700; font-size: 12px;
+  color: #e9ecea; font-family: var(--font-head); font-weight: 700; font-size: var(--lbl, 10px);
   text-shadow: 0 0 3px rgba(0,0,0,.75), 0 0 1px rgba(0,0,0,.9);
 }
 .parcel-label::before { display: none; }
 .parcel-label { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.05; text-align: center; white-space: nowrap; }
-.pl-free { font-size: 9.5px; font-weight: 700; background: rgba(255,255,255,.92); color: #234d1c; text-shadow: none; padding: 0 4px; border-radius: 4px; }
-.pl-badges { display: flex; gap: 2px; }
-.pb { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 14px; padding: 0 3px; border-radius: 4px;
-  font-family: var(--font-body); font-size: 9px; font-weight: 800; text-shadow: none; color: #fff; line-height: 1; }
+.pl-free { font-size: .8em; font-weight: 700; background: rgba(255,255,255,.92); color: #234d1c; text-shadow: none; padding: 0 .35em; border-radius: .35em; }
+.pl-badges { display: flex; gap: .15em; }
+.pb { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.35em; padding: 0 .25em; border-radius: .35em;
+  font-family: var(--font-body); font-size: .8em; font-weight: 800; text-shadow: none; color: #fff; line-height: 1; }
 .pb-ww { background: #1b8fc9; }
 .pb-icons { gap: 0; padding: 0 2px; background: #fff; }
-.pb-icons svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
-.pb-icons b { font-size: 9px; margin-left: 1px; }
+.pb-icons svg { width: 1.1em; height: 1.1em; fill: currentColor; stroke: none; }
+.pb-icons b { font-size: .9em; margin-left: .1em; }
 .pb-dog { color: #7a4a1f; }
 .pb-person { color: #1f4e8c; }
-.labels-tiny .pb-icons svg { width: 7px; height: 7px; }
 .legend label .pb-icons svg { width: 12px; height: 12px; }
 .snap-toggle { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: .9rem; cursor: pointer; }
 .snap-toggle input { width: 18px; height: 18px; accent-color: var(--wald); }
 .pb-miet { background: #8b3fa0; }
 .pb-pacht { background: #6b4521; }
-.labels-small .parcel-label { font-size: 10px; }
-.labels-tiny .parcel-label { font-size: 8px; }
-.labels-tiny .pl-free { display: none; }
-.labels-tiny .pb { min-width: 12px; height: 11px; font-size: 7px; padding: 0 2px; }
 .labels-hidden .parcel-label { display: none; }
 .legend .toggles h4 { margin-bottom: 2px; }
 .legend label .pb { min-width: 22px; height: 16px; font-size: 10px; }

@@ -8,6 +8,8 @@
   const H = cfg.height, W = cfg.width;
 
   const toLL = ([x, y]) => L.latLng(H - y, x);
+  // Parzellennummern: Größe in Pixeln bei Zoomstufe 0, Unter-/Obergrenze
+  const LABEL_BASE = 10, LABEL_MIN = 3.5, LABEL_MAX = 14;
   const fromLL = (ll) => [Math.round(ll.lng), Math.round(H - ll.lat)];
 
   function centroid(geometry) {
@@ -60,7 +62,9 @@
       this.map.on('click', (e) => this._onMapClick(e));
       this.map.on('mousemove', (e) => this._onMouseMove(e));
       this._initWheel(el);
-      this.map.on('zoomend', () => this._updateLabelClass());
+      // Beschriftung stufenlos mitskalieren (auch während des Zoomens → kein Nachhinken)
+      this.map.on('zoom zoomend', () => this._updateLabelClass());
+      this.map.on('zoomanim', (e) => this._updateLabelClass(e.zoom));
       this._updateLabelClass();
       this.render();
     },
@@ -76,12 +80,15 @@
       if (first && this.map.getSize().x > 0) { this._sized = true; this.fit(); }
     },
 
-    _updateLabelClass() {
-      const z = this.map.getZoom();
+    // Schriftgröße proportional zur Karte: wie aufgedruckt, passt immer in die Parzelle
+    _updateLabelClass(zoom) {
+      const z = zoom === undefined ? this.map.getZoom() : zoom;
       const c = this.map.getContainer();
-      c.classList.toggle('labels-small', z < -0.4);
+      const px = Math.min(LABEL_MAX, LABEL_BASE * Math.pow(2, z));
+      c.style.setProperty('--lbl', px.toFixed(2) + 'px');
+      c.classList.toggle('labels-hidden', px < LABEL_MIN);
+      c.classList.toggle('labels-small', z < -0.4);   // nur noch für Kasten-/Tank-Symbole
       c.classList.toggle('labels-tiny', z < -1.1);
-      c.classList.toggle('labels-hidden', z < -1.9);
     },
 
     parcelColor(p) {
