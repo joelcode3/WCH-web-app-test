@@ -9,7 +9,7 @@
 
   const toLL = ([x, y]) => L.latLng(H - y, x);
   // Parzellennummern: Größe in Pixeln bei Zoomstufe 0, Unter-/Obergrenze
-  const LABEL_BASE = 10, LABEL_MIN = 3.5, LABEL_MAX = 14;
+  const LABEL_BASE = 10, LABEL_MIN = 3.5, LABEL_MAX = 14, LABEL_FONT = 10; // LABEL_FONT = CSS-Grundgröße
   const fromLL = (ll) => [Math.round(ll.lng), Math.round(H - ll.lat)];
 
   function centroid(geometry) {
@@ -17,6 +17,38 @@
     geometry.forEach((p) => { x += p[0]; y += p[1]; });
     return [x / geometry.length, y / geometry.length];
   }
+
+  // Ebene, deren Inhalt in Kartenpixeln der letzten Zoomstufe liegt. Während Zoom-/Wischgesten
+  // wird sie nur als Ganzes per CSS-Transform skaliert (eine einzige Grafikebene statt vieler
+  // Einzelelemente) – erst am Ende einer Geste wird einmal neu positioniert.
+  const ScaleLayer = L.Layer.extend({
+    options: { pane: 'overlayPane', className: '' },
+    initialize(options, draw) { L.setOptions(this, options); this._draw = draw; },
+    onAdd() {
+      this._el = L.DomUtil.create('div', 'scale-layer ' + this.options.className, this.getPane());
+      this._reset();
+    },
+    onRemove() { L.DomUtil.remove(this._el); this._el = null; },
+    getEvents() {
+      const ev = { viewreset: this._reset, zoomend: this._reset, zoom: this._onZoom };
+      if (this._map._zoomAnimated) ev.zoomanim = this._onAnimZoom;
+      return ev;
+    },
+    redraw() { if (this._map && this._el) this._reset(); },
+    _reset() {
+      const map = this._map;
+      this._zoom = map.getZoom();
+      this._originLL = map.layerPointToLatLng([0, 0]);
+      L.DomUtil.setTransform(this._el, L.point(0, 0), 1);
+      this._draw(this._el, map, this._zoom);
+    },
+    _onZoom() { this._updateTransform(this._map.getCenter(), this._map.getZoom()); },
+    _onAnimZoom(e) { this._updateTransform(e.center, e.zoom); },
+    _updateTransform(center, zoom) {
+      const map = this._map;
+      L.DomUtil.setTransform(this._el, map._latLngToNewLayerPoint(this._originLL, zoom, center), map.getZoomScale(zoom, this._zoom));
+    },
+  });
 
   const MapView = {
     map: null,
@@ -45,8 +77,26 @@
         maxBoundsViscosity: 0.8,
         doubleClickZoom: false,
       });
-      this.planLayer = L.imageOverlay(cfg.url, bounds).addTo(this.map);
-      this.aerialLayer = cfg.aerial ? L.imageOverlay(cfg.aerial, bounds) : null;
+      // Hintergrund (Plan oder Luftbild) als skalierende Ebene
+      this.map.createPane('bg').style.zIndex = 150;
+      this.bgLayer = new ScaleLayer({ pane: 'bg', className: 'bg-layer' }, (el, map) => {
+        const src = this.show.aerial && cfg.aerial ? cfg.aerial : cfg.url;
+        let img = el.firstChild;
+        if (!img) { img = L.DomUtil.create('img', 'bg-img', el); img.alt = ''; img.draggable = false; }
+        if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+        const tl = map.latLngToLayerPoint(bounds.getNorthWest()), br = map.latLngToLayerPoint(bounds.getSouthEast());
+        Object.assign(img.style, { left: tl.x + 'px', top: tl.y + 'px', width: (br.x - tl.x) + 'px', height: (br.y - tl.y) + 'px' });
+      }).addTo(this.map);
+      // Parzellennummern als eine skalierende Ebene (über den Flächen, unter den Symbolen)
+      this.map.createPane('labels').style.zIndex = 450;
+      this._labels = [];
+      this.labelLayer = new ScaleLayer({ pane: 'labels', className: 'label-layer' }, (el, map, zoom) => {
+        this._updateLabelClass(zoom);
+        el.innerHTML = this._labels.map((l) => {
+          const pt = map.latLngToLayerPoint(l.ll);
+          return `<div class="parcel-label" data-id="${l.id}" style="left:${pt.x.toFixed(1)}px;top:${pt.y.toFixed(1)}px">${l.html}</div>`;
+        }).join('');
+      }).addTo(this.map);
       // eigener SVG-Renderer, damit Farbverläufe (zweifarbige Parzellen) definiert werden können
       this.renderer = L.svg({ padding: 0.5 });
       this.bounds = bounds;
@@ -63,10 +113,7 @@
       this.map.on('click', (e) => this._onMapClick(e));
       this.map.on('mousemove', (e) => this._onMouseMove(e));
       this._initWheel(el);
-      // Beschriftung stufenlos mitskalieren (auch während des Zoomens → kein Nachhinken)
-      this.map.on('zoom zoomend', () => this._updateLabelClass());
-      this.map.on('zoomanim', (e) => this._updateLabelClass(e.zoom));
-      this._updateLabelClass();
+
       this.render();
     },
 
@@ -81,15 +128,16 @@
       if (first && this.map.getSize().x > 0) { this._sized = true; this.fit(); }
     },
 
-    // Schriftgröße proportional zur Karte: wie aufgedruckt, passt immer in die Parzelle
+    // Beschriftung proportional zur Karte (wie aufgedruckt). Skaliert per CSS-Transform:
+    // kein Neu-Layout der Beschriftungen → flüssiges Zoomen.
     _updateLabelClass(zoom) {
       const z = zoom === undefined ? this.map.getZoom() : zoom;
       const c = this.map.getContainer();
       const px = Math.min(LABEL_MAX, LABEL_BASE * Math.pow(2, z));
-      c.style.setProperty('--lbl', px.toFixed(2) + 'px');
-      c.classList.toggle('labels-hidden', px < LABEL_MIN);
-      c.classList.toggle('labels-small', z < -0.4);   // nur noch für Kasten-/Tank-Symbole
-      c.classList.toggle('labels-tiny', z < -1.1);
+      // Grundgröße je Zoomstufe; während einer Geste skaliert die ganze Ebene mit
+      c.style.setProperty('--lbl-s', (px / LABEL_FONT).toFixed(3));
+      const flags = { 'labels-hidden': px < LABEL_MIN, 'labels-small': z < -0.4, 'labels-tiny': z < -1.1 };
+      Object.entries(flags).forEach(([cls, on]) => { if (c.classList.contains(cls) !== on) c.classList.toggle(cls, on); });
     },
 
     parcelColor(p) {
@@ -110,6 +158,7 @@
       if (!this.map) return;
       const L_ = this.layers;
       L_.parcels.clearLayers();
+      const labels = [];
       L_.boxes.clearLayers();
       L_.tanks.clearLayers();
       L_.links.clearLayers();
@@ -131,8 +180,9 @@
           fillColor: split ? `url(#split-${p.status})` : color,
           fillOpacity: dimOthers && !isLinked ? 0.25 : (this.show.aerial ? 0.6 : 0.8),
           dashArray: Store.isFree(p) ? '5 4' : null,
+          parcelId: p.id,
         });
-        poly.bindTooltip(this.labelHtml(p), { permanent: true, direction: 'center', className: 'parcel-label', interactive: false });
+
         poly.on('click', (e) => {
           if (this.mode && this.mode.kind === 'pick') {
             L.DomEvent.stopPropagation(e);
@@ -146,8 +196,11 @@
           this.handlers.onSelect('parcel', p.id);
         });
         poly.addTo(L_.parcels);
+        labels.push({ id: p.id, ll: poly.getCenter(), html: this.labelHtml(p) });
       });
       this._ensureDefs();
+      this._labels = labels;
+      if (this.labelLayer) this.labelLayer.redraw();
 
       if (this.show.boxes) {
         Store.data.boxes.forEach((b) => {
@@ -205,7 +258,7 @@
       if (sh.miet && p.objectType === 'miet') badges.push('<span class="pb pb-miet" title="Mietobjekt">M</span>');
       if (sh.pacht && p.objectType === 'pacht') badges.push('<span class="pb pb-pacht" title="Pachtgrundstück">P</span>');
       const free = Store.movingOut(p) ? `<span class="pl-free">frei ab ${escapeHtml(p.freeFrom.split('-').reverse().join('.'))}</span>` : '';
-      return `<span class="pl-nr">${escapeHtml(p.nr)}</span>${free}${badges.length ? `<span class="pl-badges">${badges.join('')}</span>` : ''}`;
+      return `<span class="pl"><span class="pl-nr">${escapeHtml(p.nr)}</span>${free}${badges.length ? `<span class="pl-badges">${badges.join('')}</span>` : ''}</span>`;
     },
 
     // Farbverläufe für "bewohnt, Auszug steht fest" (diagonal: Statusfarbe / frei)
@@ -231,9 +284,7 @@
 
     setAerial(on) {
       this.show.aerial = on;
-      if (!this.aerialLayer) return;
-      if (on) { this.map.removeLayer(this.planLayer); this.aerialLayer.addTo(this.map).bringToBack(); }
-      else { this.map.removeLayer(this.aerialLayer); this.planLayer.addTo(this.map).bringToBack(); }
+      this.bgLayer.redraw();
       this.render();
     },
 
@@ -281,6 +332,13 @@
     _onMapClick(e) {
       const pt = fromLL(e.latlng);
       if (this.mode && this.mode.kind === 'draw') {
+        // Tippen nahe am Startpunkt schließt die Fläche
+        const pts = this.mode.points;
+        if (pts.length >= 3) {
+          const a = this.map.latLngToContainerPoint(toLL(pts[0]));
+          const b = this.map.latLngToContainerPoint(e.latlng);
+          if (a.distanceTo(b) < 16) { this.finishDraw(); return; }
+        }
         this.mode.points.push(this._snapped(pt));
         this._renderDraw();
         this.handlers.onModeChange();
@@ -325,7 +383,7 @@
     finishDraw() {
       if (!this.mode || this.mode.kind !== 'draw' || this.mode.points.length < 3) return;
       const { points, onDone } = this.mode;
-      if (this.snap) closeOrthogonal(points);
+      if (this.snap) closeSquare(points);
       this._endMode();
       onDone(points);
     },
@@ -375,24 +433,51 @@
       this._renderDraw();
     },
 
-    // Mausrad = zoomen, Trackpad zwei Finger = verschieben, Kneifen (Strg) = zoomen
+    // Mausrad = zoomen, Trackpad zwei Finger = verschieben, Kneifen (Strg) = zoomen.
+    // Ereignisse werden pro Bildschirmbild gebündelt; während der Geste wird die Karte nur
+    // verschoben/skaliert (wie beim Finger-Zoom), die volle Neuberechnung erfolgt einmal am Ende.
     _initWheel(el) {
+      const map = this.map;
+      const g = { dx: 0, dy: 0, dz: 0, pt: null, frame: 0, endTimer: 0, zoomed: false };
+      const apply = () => {
+        g.frame = 0;
+        if (g.dx || g.dy) {
+          map._rawPanBy(L.point(g.dx, g.dy));
+          map.fire('move');
+          g.dx = g.dy = 0;
+        }
+        if (g.dz) {
+          const z0 = map.getZoom();
+          const z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), z0 + g.dz));
+          g.dz = 0;
+          if (z !== z0) {
+            // Punkt unter dem Mauszeiger bleibt stehen
+            const ll = map.containerPointToLatLng(g.pt);
+            const half = map.getSize().divideBy(2);
+            const center = map.unproject(map.project(ll, z).subtract(g.pt.subtract(half)), z);
+            map._move(center, z);
+            g.zoomed = true;
+          }
+        }
+        clearTimeout(g.endTimer);
+        g.endTimer = setTimeout(() => { map._moveEnd(g.zoomed); g.zoomed = false; }, 140);
+      };
       el.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const map = this.map;
-        const pt = map.mouseEventToContainerPoint(e);
+        g.pt = map.mouseEventToContainerPoint(e);
         if (e.ctrlKey) {
-          map.setZoomAround(pt, map.getZoom() - e.deltaY * 0.015, { animate: false });
-          return;
-        }
-        const lines = e.deltaMode !== 0;
-        const mouseWheel = lines || (e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 40);
-        if (mouseWheel) {
-          const step = Math.min(1, Math.abs(lines ? e.deltaY * 33 : e.deltaY) / 100) * 0.75;
-          map.setZoomAround(pt, map.getZoom() - Math.sign(e.deltaY) * step, { animate: false });
+          g.dz -= e.deltaY * 0.015;                       // Trackpad: Kneifen
         } else {
-          map.panBy([e.deltaX, e.deltaY], { animate: false });
+          const lines = e.deltaMode !== 0;
+          const mouseWheel = lines || (e.deltaX === 0 && Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= 40);
+          if (mouseWheel) {
+            const step = Math.min(1, Math.abs(lines ? e.deltaY * 33 : e.deltaY) / 100) * 0.75;
+            g.dz -= Math.sign(e.deltaY) * step;          // Mausrad: zoomen
+          } else {
+            g.dx += e.deltaX; g.dy += e.deltaY;           // Trackpad: zwei Finger verschieben
+          }
         }
+        if (!g.frame) g.frame = requestAnimationFrame(apply);
       }, { passive: false });
     },
 
@@ -442,19 +527,34 @@
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1];
   const unit = (v) => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
 
-  // Letzten Punkt so verschieben, dass auch die Schlusskante rechtwinklig ist
-  function closeOrthogonal(pts) {
+  // Fläche rechtwinklig schließen, auch wenn Start- und Endpunkt nicht genau getroffen wurden:
+  // - letzte Kante parallel zur ersten (z. B. unten → links zurück): Startpunkt auf der ersten
+  //   Kante so verschieben, dass die Schlusskante senkrecht steht
+  // - letzte Kante läuft schon auf die erste Kante zu (z. B. links hoch zum Start): sie wird
+  //   genau an der ersten Kante abgeschnitten bzw. verlängert, dieser Schnittpunkt wird die Ecke
+  //   (sonst bleibt neben dem Start ein Zipfel stehen)
+  function closeSquare(pts) {
     if (pts.length < 3) return;
-    const P = pts[pts.length - 2], Lp = pts[pts.length - 1], F = pts[0];
-    const d = unit(sub(Lp, P));
-    const n = [-d[1], d[0]];
-    // Schnittpunkt: P + s*d  =  F + t*n
-    const det = d[0] * (-n[1]) - d[1] * (-n[0]);
-    if (Math.abs(det) < 1e-9) return;
-    const rx = F[0] - P[0], ry = F[1] - P[1];
-    const sParam = (rx * (-n[1]) - ry * (-n[0])) / det;
-    pts[pts.length - 1] = [Math.round((P[0] + d[0] * sParam) * 10) / 10, Math.round((P[1] + d[1] * sParam) * 10) / 10];
+    const A = pts[0], B = pts[1], P = pts[pts.length - 2], Lp = pts[pts.length - 1];
+    const d = unit(sub(B, A));                 // Richtung der ersten Kante
+    const e = unit(sub(Lp, P));                // Richtung der letzten Kante
+    const cross = d[0] * e[1] - d[1] * e[0];
+    if (Math.abs(cross) < 0.2) {
+      // parallel: Schlusskante senkrecht durch den letzten Punkt, Start dorthin schieben
+      const s = dot(sub(Lp, A), d);
+      pts[0] = round1([A[0] + d[0] * s, A[1] + d[1] * s]);
+    } else if (pts.length >= 4) {
+      // Schnittpunkt der letzten Kante (P + t*e) mit der ersten Kante (A + s*d)
+      const t = ((A[0] - P[0]) * d[1] - (A[1] - P[1]) * d[0]) / (e[0] * d[1] - e[1] * d[0]);
+      pts[0] = round1([P[0] + e[0] * t, P[1] + e[1] * t]);
+      pts.pop();
+    }
+    // doppelte Punkte entfernen
+    for (let i = pts.length - 1; i > 0 && pts.length > 3; i--) {
+      if (Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) < 0.5) pts.splice(i, 1);
+    }
   }
+  const round1 = (p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10];
 
   const ICON_DOG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3l1.6 2.2 2.4.5-.5 2.6-2.4.4-1 2.3V15l-1.5 6h-2l-.6-4.5H9.5L8.5 21h-2l-.3-5.6C4.6 14.6 4 13.2 4 11.5V9.7L2.6 8.4 3.8 7 6 8.6c.7-.4 1.5-.6 2.3-.6H14l1.4-2.4z"/></svg>';
   const ICON_PERSON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6" r="3.6"/><path d="M5 22v-5.5C5 13.5 8 11 12 11s7 2.5 7 5.5V22z"/></svg>';

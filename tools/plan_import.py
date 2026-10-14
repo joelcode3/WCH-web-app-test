@@ -272,8 +272,15 @@ def main():
             l = LineString(c + [c[0]])
         green.append(l)
     buildings = [p for p in polygonize(unary_union(green)) if p.area > 200]
-    # von unten nach oben zeichnen: bei Überschneidung liegt das obere Gebäude oben
+    # Überschneidungen: das untere Gebäude endet an der Kante des oberen
     buildings.sort(key=lambda b: b.centroid.y)
+    clipped = []
+    for i, b in enumerate(buildings):
+        above = [o for o in buildings[i + 1:] if o.centroid.y > b.centroid.y + 50 and o.intersects(b)]
+        if above:
+            b = max(polys_of(b.difference(unary_union(above))), key=lambda g: g.area, default=b)
+        clipped.append(b)
+    buildings = clipped
     boundary_lines = unary_union(L['red'])
     site = max(polygonize(boundary_lines), key=lambda p: p.area)
 
