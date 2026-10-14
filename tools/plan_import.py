@@ -121,6 +121,7 @@ def from_map(x, y):
 # Manuelle Korrekturen nach Rückmeldung vom Platz (Koordinaten in Kartenpixeln).
 #   ('cut', Punkt in der Parzelle, Schnittlinie)  → Parzelle entlang der Linie teilen
 #   ('add', Rechteck x1, y1, x2, y2)              → neue Parzelle auf freier Wiese (ohne Wege/Nachbarn)
+#   ('clip', Punkt in der Parzelle, Rechteck)     → Parzelle auf das Rechteck zuschneiden
 EDITS = [
     ('add', (303.5, 1104.5, 380.0, 1178.5)),                    # neu rechts neben 1.28 (bis zum Weg)
     ('cut', (970, 425), [(975.6, 300), (975.6, 466)]),            # 2.30 senkrecht teilen
@@ -131,6 +132,7 @@ EDITS = [
     ('cut', (620, 510), [(603.5, 440), (603.5, 600)]),
     ('cut', (450, 510), [(496, 440), (496, 600)]),
     ('add', (590.0, 380.0, 676.0, 469.0)),                      # neu links neben 2.27 (oben rechts am Wendehammer)
+    ('clip', (290, 550), (0, 0, 302.0, 2000)),                 # 2.25 ohne Fortsatz oben, so schmal wie 2.24 unten
 ]
 
 
@@ -145,6 +147,17 @@ def apply_edits(raw, site, road_union):
                 continue
             pieces = [g for g in polys_of(split(hit, line)) if g.area > 300]
             raw = [p for p in raw if p is not hit] + pieces
+        elif op == 'clip':
+            pt = Point(*from_map(*args[0]))
+            hit = next((p for p in raw if p.contains(pt)), None)
+            if hit is None:
+                print(f'Hinweis: keine Parzelle bei {args[0]} gefunden – Zuschnitt übersprungen')
+                continue
+            x1, y1, x2, y2 = args[1]
+            (ax, ay), (bx, by) = from_map(x1, y1), from_map(x2, y2)
+            rect = Polygon([(ax, ay), (bx, ay), (bx, by), (ax, by)])
+            cut = max(polys_of(hit.intersection(rect)), key=lambda g: g.area, default=None)
+            raw = [p for p in raw if p is not hit] + ([cut] if cut is not None and cut.area > 1500 else [])
         elif op == 'add':
             x1, y1, x2, y2 = args[0]
             (ax, ay), (bx, by) = from_map(x1, y1), from_map(x2, y2)

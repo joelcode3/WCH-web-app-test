@@ -23,7 +23,8 @@
     colorMode: 'status',   // 'status' | 'supply'
     // Ebenen & Symbole zum An-/Abwählen
     show: { boxes: true, tanks: true, aerial: false, ww: false, dogs: false, persons: false, miet: false, pacht: false },
-    snap: true,            // beim Zeichnen auf rechte Winkel einrasten
+    // Beim Zeichnen auf rechte Winkel einrasten? Standard: Freiform; Wahl wird gemerkt
+    snap: (() => { try { return localStorage.getItem('wch-snap') === '1'; } catch (_) { return false; } })(),
     editMode: false,
     selected: null,        // { type: 'parcel'|'box'|'tank', id }
     mode: null,            // null | { kind: 'draw', points, onDone, onCancel } | { kind: 'place', onDone, onCancel }
@@ -342,6 +343,7 @@
     },
     setSnap(on) {
       this.snap = on;
+      try { localStorage.setItem('wch-snap', on ? '1' : '0'); } catch (_) { /* egal */ }
       if (this.mode) this._renderDraw();
     },
 

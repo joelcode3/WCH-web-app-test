@@ -300,7 +300,7 @@
     renderModebar() {
       const bar = $('#map-modebar');
       const mode = MapView.mode;
-      const snapToggle = `<label class="snap-toggle"><input type="checkbox" data-snap ${MapView.snap ? 'checked' : ''}> Rechte Winkel</label>`;
+      const snapToggle = `<label class="snap-toggle" title="Aus = Freiform (beliebige Winkel)"><input type="checkbox" data-snap ${MapView.snap ? 'checked' : ''}> Auf rechte Winkel einrasten</label>`;
       if (mode && mode.kind === 'line') {
         bar.innerHTML = `
           <span class="grow">${h(mode.label || 'Teilen')}: Anfang und Ende der Trennlinie antippen</span>
