@@ -10,6 +10,7 @@
   const toLL = ([x, y]) => L.latLng(H - y, x);
   // Parzellennummern: Größe in Pixeln bei Zoomstufe 0, Unter-/Obergrenze
   const LABEL_BASE = 10, LABEL_MIN = 3.5, LABEL_MAX = 14, LABEL_FONT = 10; // LABEL_FONT = CSS-Grundgröße
+  const HOVER = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const fromLL = (ll) => [Math.round(ll.lng), Math.round(H - ll.lat)];
 
   function centroid(geometry) {
@@ -112,6 +113,8 @@
       };
 
       this.map.on('zoomend', () => this._updateBounds());
+      this.map.on('zoom', () => this._updatePinScale(this.map.getZoom()));
+      this.map.on('zoomanim', (e) => this._updatePinScale(e.zoom));
       this.map.on('click', (e) => this._onMapClick(e));
       this.map.on('mousemove', (e) => this._onMouseMove(e));
       this._initWheel(el);
@@ -159,12 +162,21 @@
       const px = Math.min(LABEL_MAX, LABEL_BASE * Math.pow(2, z));
       // Grundgröße je Zoomstufe; während einer Geste skaliert die ganze Ebene mit
       c.style.setProperty('--lbl-s', (px / LABEL_FONT).toFixed(3));
-      // Kästen/Tanks: ab Zoom 0.5 volle Größe, darunter kleiner (mind. 28 %)
-      // Unterkünfte in Originalgröße (1 Kartenpixel = 0,2 m), beim Rauszoomen nicht kleiner als 75 %
-      c.style.setProperty('--unit-s', Math.max(0.75, Math.pow(2, z)).toFixed(3));
-      c.style.setProperty('--pin-s', Math.max(0.28, Math.min(1, 0.55 * Math.pow(2, z * 0.8) + 0.05)).toFixed(3));
+      this._updatePinScale(z);
       const flags = { 'labels-hidden': px < LABEL_MIN, 'labels-small': z < -0.4, 'labels-tiny': z < -1.1 };
       Object.entries(flags).forEach(([cls, on]) => { if (c.classList.contains(cls) !== on) c.classList.toggle(cls, on); });
+    },
+
+    // Größe von Kästen, Tanks und Unterkünften – bei jedem Zoom-Schritt (nur die Symbol-Ebene,
+    // nicht die Beschriftungen → kein Ruckeln, kein Sprung am Ende des Zooms)
+    _updatePinScale(z) {
+      const pane = this.map.getPane('markerPane');
+      // Kästen/Tanks: ab Zoom 0.5 volle Größe, darunter kleiner (mind. 28 %)
+      const pin = Math.max(0.28, Math.min(1, 0.55 * Math.pow(2, z * 0.8) + 0.05)).toFixed(3);
+      // Unterkünfte in Originalgröße (1 Kartenpixel = 0,2 m), beim Rauszoomen nicht kleiner als 75 %
+      const unit = Math.max(0.75, Math.pow(2, z)).toFixed(3);
+      if (pane._pinS !== pin) { pane.style.setProperty('--pin-s', pin); pane._pinS = pin; }
+      if (pane._unitS !== unit) { pane.style.setProperty('--unit-s', unit); pane._unitS = unit; }
     },
 
     parcelColor(p) {
@@ -226,6 +238,10 @@
           L.DomEvent.stopPropagation(e);
           this.handlers.onSelect('parcel', p.id);
         });
+        if (HOVER) {
+          poly.bindTooltip(`<strong>${escapeHtml(p.nr)}</strong> ${escapeHtml(p.tenant.name || (Store.isFree(p) ? 'frei' : 'Mieter nicht eingetragen'))}`,
+            { sticky: true, direction: 'top', offset: [0, -10], className: 'parcel-hover', opacity: 1 });
+        }
         poly.addTo(L_.parcels);
         labels.push({ id: p.id, ll: poly.getCenter(), html: this.labelHtml(p) });
       });
@@ -309,16 +325,18 @@
     // Beschriftung: Nummer, ggf. "frei ab", Symbole der eingeschalteten Ebenen
     labelHtml(p) {
       const sh = this.show;
-      const badges = [];
-      if (sh.ww && p.winterWater) badges.push('<span class="pb pb-ww" title="Winterwasser">WW</span>');
-      if (sh.persons && p.residents > 0) badges.push(iconBadge('pb-person', ICON_PERSON, p.residents, `${p.residents} Bewohner`));
-      if (sh.dogs && p.dogs > 0) badges.push(iconBadge('pb-dog', ICON_DOG, p.dogs, `${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}`));
-      if (sh.miet && p.objectType === 'miet') badges.push('<span class="pb pb-miet" title="Mietobjekt">M</span>');
-      if (sh.pacht && p.objectType === 'pacht') badges.push('<span class="pb pb-pacht" title="Pachtgrundstück">P</span>');
+      // Zeile 1: To-Dos, Winterwasser, Pacht/Miete – Zeile 2: Bewohner, Hunde
+      const row1 = [], row2 = [];
       const nTodo = this._todoCounts && this._todoCounts.get(`parcel:${p.id}`);
-      if (nTodo) badges.push(`<span class="pb pb-todo" title="${nTodo} offene To-Do${nTodo > 1 ? 's' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>${nTodo}</span>`);
+      if (nTodo) row1.push(`<span class="pb pb-todo" title="${nTodo} offene To-Do${nTodo > 1 ? 's' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>${nTodo}</span>`);
+      if (sh.ww && p.winterWater) row1.push('<span class="pb pb-ww" title="Winterwasser">WW</span>');
+      if (sh.miet && p.objectType === 'miet') row1.push('<span class="pb pb-miet" title="Mietobjekt">M</span>');
+      if (sh.pacht && p.objectType === 'pacht') row1.push('<span class="pb pb-pacht" title="Pachtgrundstück">P</span>');
+      if (sh.persons && p.residents > 0) row2.push(iconBadge('pb-person', ICON_PERSON, p.residents, `${p.residents} Bewohner`));
+      if (sh.dogs && p.dogs > 0) row2.push(iconBadge('pb-dog', ICON_DOG, p.dogs, `${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}`));
       const free = Store.movingOut(p) ? `<span class="pl-free">frei ab ${escapeHtml(p.freeFrom.split('-').reverse().join('.'))}</span>` : '';
-      return `<span class="pl"><span class="pl-nr">${escapeHtml(p.nr)}</span>${free}${badges.length ? `<span class="pl-badges">${badges.join('')}</span>` : ''}</span>`;
+      const rows = [row1, row2].filter((r) => r.length).map((r) => `<span class="pl-badges">${r.join('')}</span>`).join('');
+      return `<span class="pl"><span class="pl-nr">${escapeHtml(p.nr)}</span>${free}${rows}</span>`;
     },
 
     // Farbverläufe für "bewohnt, Auszug steht fest" (diagonal: Statusfarbe / frei)
@@ -419,8 +437,7 @@
       if (this.mode && this.mode.kind === 'pick') return; // Parzelle anklicken
       if (this.mode && this.mode.kind === 'place') {
         const done = this.mode.onDone;
-        this.mode = null;
-        this.handlers.onModeChange();
+        this._endMode();          // Fadenkreuz und Klick-Sperre der Symbole wieder aufheben
         done(pt);
         return;
       }

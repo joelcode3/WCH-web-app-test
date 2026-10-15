@@ -17,11 +17,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Permanent+Marker&display=swap">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="css/style.css?v=20261015-7">
+  <link rel="stylesheet" href="css/style.css?v=20261016-1">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#/karte" aria-label="Zur Karte">
+    <a class="brand" href="#/karte" aria-label="Zur Map">
       <svg class="tree" viewBox="0 0 26 34" aria-hidden="true"><path d="M13 0 8 8h3l-6 8h4l-7 9h9v9h4v-9h9l-7-9h4l-6-8h3z"/></svg>
       <span class="brand-text">
         <strong>Waldcamping Hesedorf</strong>
@@ -30,29 +30,25 @@
     </a>
     <button type="button" id="sync-status" class="sync" hidden></button>
     <nav class="tabbar" aria-label="Hauptnavigation">
-      <a href="#/karte" data-nav="karte" title="Karte">
+      <a href="#/karte" data-nav="karte" title="Map">
         <svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zm0 0v14m6-12v14"/></svg>
-        <span>Karte</span>
+        <span>Map</span>
       </a>
-      <a href="#/kartei" data-nav="kartei" title="Kartei">
+      <a href="#/kartei" data-nav="kartei" title="Mieter">
         <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg>
-        <span>Kartei</span>
+        <span>Mieter</span>
       </a>
       <a href="#/todos" data-nav="todos" title="To-Dos">
         <svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5 2.5-2.5M3.5 18l1.5 1.5 2.5-2.5"/></svg>
-        <span>To-Dos</span><b id="todo-badge" class="nav-badge" hidden></b>
+        <span>To-Dos</span>
       </a>
-      <a href="#/airbnb" data-nav="airbnb" title="Airbnb">
+      <a href="#/airbnb" data-nav="airbnb" title="airbnb">
         <svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7M5 10v10h14V10M9 20v-5h6v5"/></svg>
-        <span>Airbnb</span>
+        <span>airbnb</span>
       </a>
-      <a href="#/technik" data-nav="technik" title="Technik">
+      <a href="#/technik" data-nav="technik" title="Infrastruktur">
         <svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
-        <span>Technik</span>
-      </a>
-      <a href="#/ablesung" data-nav="ablesung" title="Zähler">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13l4-4M12 5V3M8 2h8"/></svg>
-        <span>Zähler</span>
+        <span>Infrastruktur</span>
       </a>
       <a href="#/daten" data-nav="daten" title="Daten">
         <svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>
@@ -106,14 +102,14 @@
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="vendor/polygon-clipping/polygon-clipping.umd.min.js"></script>
   <script src="vendor/supabase/supabase.js"></script>
-  <script src="js/plan-data.js?v=20261015-7"></script>
-  <script src="js/config.js?v=20261015-7"></script>
-  <script src="js/cloud.js?v=20261015-7"></script>
-  <script src="js/auth.js?v=20261015-7"></script>
-  <script src="js/data.js?v=20261015-7"></script>
-  <script src="js/photos.js?v=20261015-7"></script>
-  <script src="js/airbnb.js?v=20261015-7"></script>
-  <script src="js/map.js?v=20261015-7"></script>
-  <script src="js/app.js?v=20261015-7"></script>
+  <script src="js/plan-data.js?v=20261016-1"></script>
+  <script src="js/config.js?v=20261016-1"></script>
+  <script src="js/cloud.js?v=20261016-1"></script>
+  <script src="js/auth.js?v=20261016-1"></script>
+  <script src="js/data.js?v=20261016-1"></script>
+  <script src="js/photos.js?v=20261016-1"></script>
+  <script src="js/airbnb.js?v=20261016-1"></script>
+  <script src="js/map.js?v=20261016-1"></script>
+  <script src="js/app.js?v=20261016-1"></script>
 </body>
 </html>
