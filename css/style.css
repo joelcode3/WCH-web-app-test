@@ -666,3 +666,106 @@ body.is-locked { padding-bottom: 0; }
 .fuse-row .close { width: 32px; height: 32px; }
 .fuse-edit .link-btn { justify-self: start; display: inline-flex; align-items: center; gap: 4px; }
 .fuse-edit .link-btn svg { width: 16px; height: 16px; }
+.card-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.card-title-row h2 { margin: 0; }
+
+/* ==========================================================================
+   Ferienunterkünfte (Airbnb)
+   ========================================================================== */
+.polaroid {
+  --pw: 80px;
+  display: inline-block; width: var(--pw); padding: 4px 4px 0; background: #fffdf8; border-radius: 2px;
+  box-shadow: 0 3px 8px rgba(0,0,0,.28), 0 0 0 1px rgba(0,0,0,.05); transform: rotate(var(--tilt, 0deg));
+}
+.pol-photo { aspect-ratio: 4 / 3; overflow: hidden; background: #dfe9e0; }
+.pol-photo svg, .pol-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pol-cap { display: flex; align-items: center; justify-content: center; gap: 3px; padding: 3px 1px 4px;
+  font-family: 'Permanent Marker', var(--font-head); font-size: 8px; line-height: 1.1; color: #2b3a33; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.polaroid.is-big { --pw: 150px; padding: 7px 7px 0; }
+.polaroid.is-big .pol-cap { font-size: 15px; padding: 6px 2px 8px; }
+.pol-dot { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; background: #b8b8b0; box-shadow: 0 0 0 1.5px #fff; }
+.pol-dot.is-free { background: #3fa34d; }
+.pol-dot.is-busy { background: #d2453a; }
+.pol-dot.is-blk { background: #7b7f86; }
+
+.pin-polaroid { position: relative; cursor: pointer; transform: translate(-50%, -50%) scale(var(--pol-s, 1)); transform-origin: 50% 50%; width: max-content; }
+.pin-polaroid:hover .polaroid, .pin-polaroid.is-selected .polaroid { box-shadow: 0 0 0 3px #1b2a1e, 0 6px 14px rgba(0,0,0,.35); }
+.pin-polaroid .pin-todo { top: -6px; right: -6px; }
+.labels-hidden .pin-polaroid .pol-cap { font-size: 0; padding: 2px; }
+.labels-hidden .pin-polaroid .pol-cap .pol-dot { width: 9px; height: 9px; }
+
+.airbnb-top { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+.pol-wrap { position: relative; cursor: pointer; flex: none; }
+.pol-change { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); background: rgba(14,58,58,.82); color: #fff;
+  font-size: .75rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; opacity: .9; }
+.airbnb-status { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.state-chip { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: .88rem; padding: 4px 10px; border-radius: 999px; background: #eef1ec; width: fit-content; }
+.state-chip.is-free { background: #e3f1dc; color: #2c6524; }
+.state-chip.is-busy { background: #fbe4e1; color: #9b2c1f; }
+.state-chip.is-blk { background: #ececee; color: #44474d; }
+
+/* Monatskalender */
+.cal { border: 1px solid var(--linie); border-radius: var(--radius-s); padding: 8px; background: #fff; }
+.cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cal-head strong { flex: 1; }
+.cal-head .muted { margin-right: 4px; }
+.cal-nav { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--linie); background: var(--papier); font-size: 1.2rem; line-height: 1; cursor: pointer; color: var(--wald); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-wd { text-align: center; font-size: .72rem; color: var(--text-leise); font-weight: 700; padding-bottom: 2px; }
+.cal-day { --res: #d2453a; --blk: #9a9ea6; text-align: center; font-size: .85rem; padding: 6px 0; border-radius: 6px; background: #f1f6ee; font-variant-numeric: tabular-nums; }
+.cal-day.is-empty { background: none; }
+.cal-day.is-past { opacity: .5; }
+.cal-day.n-res { background: var(--res); color: #fff; font-weight: 700; }
+.cal-day.n-blk { background: var(--blk); color: #fff; }
+.cal-day.n-res.d-in { background: linear-gradient(135deg, #f1f6ee 50%, var(--res) 50%); color: #2b3a33; }
+.cal-day.n-blk.d-in { background: linear-gradient(135deg, #f1f6ee 50%, var(--blk) 50%); color: #2b3a33; }
+.cal-day.o-res { background: linear-gradient(135deg, var(--res) 50%, #f1f6ee 50%); }
+.cal-day.o-blk { background: linear-gradient(135deg, var(--blk) 50%, #f1f6ee 50%); }
+.cal-day.is-today { outline: 2px solid var(--wald); outline-offset: -2px; font-weight: 800; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .78rem; color: var(--text-leise); margin-top: 6px; }
+.cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cal-legend i { width: 12px; height: 12px; border-radius: 3px; background: #f1f6ee; border: 1px solid var(--linie); }
+.cal-legend i.n-res { background: #d2453a; border-color: #d2453a; }
+.cal-legend i.n-blk { background: #9a9ea6; border-color: #9a9ea6; }
+
+/* Reiter Airbnb */
+.ab-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.ab-card { display: flex; gap: 14px; align-items: center; padding: 12px; background: var(--papier); border: 1px solid var(--linie); border-radius: var(--radius); text-decoration: none; color: inherit; }
+.ab-card:hover { border-color: var(--wald-hell); box-shadow: var(--shadow); }
+.ab-card .polaroid { --pw: 84px; flex: none; }
+.ab-card .pol-cap { font-size: 10px; }
+.ab-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.tl-wrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px 6px; }
+.tl { --tl-name: 150px; --tl-col: 24px; display: grid; gap: 2px 1px; align-items: center; width: max-content; }
+.tl-corner { position: sticky; left: 0; background: var(--papier); z-index: 1; }
+.tl-month { font-size: .78rem; font-weight: 700; color: var(--wald); border-left: 2px solid var(--linie); padding-left: 4px; white-space: nowrap; overflow: hidden; }
+.tl-day { text-align: center; font-size: .72rem; color: var(--text-leise); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tl-day small { display: block; font-size: .62rem; }
+.tl-day.is-we { color: var(--wald); font-weight: 700; }
+.tl-day.is-today { background: var(--wald); color: #fff; border-radius: 5px; }
+.tl-name { position: sticky; left: 0; z-index: 1; background: var(--papier); display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 0;
+  font-weight: 700; font-size: .9rem; color: inherit; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-cell { --res: #d2453a; --blk: #9a9ea6; height: 30px; background: #eef4ea; border-radius: 3px; }
+.tl-cell.is-we { background: #e4ede0; }
+.tl-cell.n-res { background: var(--res); }
+.tl-cell.n-blk { background: var(--blk); }
+.tl-cell.n-res.d-in { background: linear-gradient(90deg, #eef4ea 45%, var(--res) 45%); }
+.tl-cell.n-blk.d-in { background: linear-gradient(90deg, #eef4ea 45%, var(--blk) 45%); }
+.tl-cell.o-res { background: linear-gradient(90deg, var(--res) 55%, #eef4ea 55%); }
+.tl-cell.o-blk { background: linear-gradient(90deg, var(--blk) 55%, #eef4ea 55%); }
+.tl-cell.is-today { box-shadow: inset 0 0 0 2px var(--wald); }
+@media (max-width: 860px) {
+  .tl { --tl-name: 108px; --tl-col: 22px; }
+  .tl-name { font-size: .8rem; }
+  .ab-cards { grid-template-columns: 1fr; }
+  .airbnb-top { gap: 12px; }
+  .polaroid.is-big { --pw: 128px; }
+  .tabbar a span { font-size: .66rem; }
+}
+.ab-card .state-chip { font-size: .82rem; }
+@media (max-width: 860px) {
+  .tl-name { white-space: normal; line-height: 1.15; font-size: .78rem; }
+  .tl-name span { display: none; }
+}
+/* beim Zeichnen/Platzieren fangen Symbole keine Klicks ab */
+#map.is-drawing .leaflet-marker-icon { pointer-events: none; }

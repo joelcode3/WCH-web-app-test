@@ -12,7 +12,6 @@
   const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const todayIso = () => iso(new Date());
   const addDays = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
-  const fmt = (s) => (s ? s.split('-').reverse().join('.') : '');
   const fmtShort = (s) => { const [, m, d] = s.split('-'); return `${+d}.${+m}.`; };
   const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
   const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -78,6 +77,8 @@
       const S = window.Store;
       if (!S.airbnbs().length) return;
       if (S.mode !== 'cloud') { this._demo(); this._emit(); return; }
+      // auch erfolglose Versuche merken – sonst löst jede Anzeige sofort einen neuen Versuch aus
+      this.fetchedAt = Date.now();
       if (Cloud.missingCols.has('places.ical_url')) { this.state = 'needsUpdate'; this._emit(); return; }
       if (!S.airbnbs().some((o) => o.icalUrl)) { this.state = 'ok'; this.events = {}; this._emit(); return; }
       this.state = 'loading';
@@ -91,7 +92,9 @@
         this.fetchedAt = Date.now();
       } catch (e) {
         this.state = e.message === 'missing' ? 'missing' : 'error';
-        this.error = e.message;
+        this.error = e.status === 401
+          ? 'Supabase hat den Aufruf abgelehnt (401). Bitte bei der Funktion „airbnb-kalender“ unter „Details“ die Option „Verify JWT“ ausschalten (siehe SETUP.md).'
+          : e.message;
       }
       this._emit();
     },
@@ -132,11 +135,11 @@
         let end = cur.end, next;
         while ((next = this.eventOn(o, end)) && next.type === cur.type) end = next.end;
         return cur.type === 'blocked'
-          ? { cls: 'blk', busy: true, text: `gesperrt bis ${fmt(end)}` }
-          : { cls: 'busy', busy: true, text: `belegt · Abreise ${fmt(end)}` };
+          ? { cls: 'blk', busy: true, text: `gesperrt bis ${fmtShort(end)}` }
+          : { cls: 'busy', busy: true, text: `belegt bis ${fmtShort(end)}` };
       }
       const next = (this.events[o.id] || []).find((e) => e.start > t);
-      return { cls: 'free', busy: false, text: next ? `frei · nächste Anreise ${fmt(next.start)}` : 'frei' };
+      return { cls: 'free', busy: false, text: next ? `frei bis ${fmtShort(next.start)}` : 'frei' };
     },
 
     // Anteil belegter Nächte im Monat (0…1)
