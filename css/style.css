@@ -806,3 +806,8 @@ body.is-locked { padding-bottom: 0; }
 .leaflet-tooltip.parcel-hover strong { color: var(--wald); margin-right: 4px; }
 .leaflet-tooltip.parcel-hover::before { display: none; }
 .pl-badges + .pl-badges { margin-top: 1px; }
+/* Osterei: Dreirad mit Pritsche */
+.easter-trike { position: relative; width: 0; height: 0; cursor: pointer; }
+.easter-body { position: absolute; left: 0; top: 0; width: 16px; height: 8px; transform-origin: 50% 50%; will-change: transform;
+  filter: drop-shadow(0 1px 1.2px rgba(0,0,0,.45)); }
+.easter-body svg { display: block; width: 100%; height: 100%; stroke: none; }
