@@ -1017,17 +1017,17 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head">
-            <h1>Mieter</h1>
+            <h1>Parzellen</h1>
             <a class="btn" href="#/neu">${ICON.plus} Parzelle</a>
           </div>
           <div class="filters">
-            <div class="search">${ICON.search}<input type="search" id="k-q" placeholder="Nr., Name, Telefon, Zählernummer…" value="${h(this.q)}" aria-label="Mieter durchsuchen"></div>
+            <div class="search">${ICON.search}<input type="search" id="k-q" placeholder="Nr., Name, Telefon, Zählernummer…" value="${h(this.q)}" aria-label="Parzellen durchsuchen"></div>
             <select id="k-supply" aria-label="Versorgung filtern">
               <option value="alle">Alle Versorgungsarten</option>
               ${Object.entries(S.SUPPLY).map(([k, v]) => `<option value="${k}"${this.supply === k ? ' selected' : ''}>${h(v.label)}</option>`).join('')}
             </select>
             <select id="k-extra" aria-label="Weitere Filter">
-              ${[['alle', 'Alle Objekte'], ['pacht', 'Nur Pachtgrundstücke'], ['miet', 'Nur Mietobjekte'], ['ww1', 'Mit Winterwasser'], ['ww0', 'Ohne Winterwasser'], ['dogs', 'Mit Hund(en)'], ['auszug', 'Auszug geplant (frei ab)']]
+              ${[['alle', 'Alle Objekte'], ['pacht', 'Nur Pachtgrundstücke'], ['miet', 'Nur Mietobjekte'], ['ww1', 'Mit Winterwasser'], ['ww0', 'Ohne Winterwasser'], ['dogs', 'Mit Hund(en)'], ['auszug', 'wird frei']]
                 .map(([k, l]) => `<option value="${k}"${this.extra === k ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
           </div>
@@ -1096,7 +1096,7 @@
   const Detail = {
     render(root, id) {
       const p = S.parcel(id);
-      if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p><a href="#/kartei">Zur Mieterliste</a></div>'; return; }
+      if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p><a href="#/kartei">Zur Parzellenliste</a></div>'; return; }
       const meters = S.metersOf(p.id);
       const strom = meters.filter((m) => m.type === 'strom');
       const gas = meters.filter((m) => m.type === 'gas');
@@ -1141,7 +1141,7 @@
 
       root.innerHTML = `
         <div class="page">
-          <a class="back" href="#/kartei">${ICON.back} Mieter</a>
+          <a class="back" href="#/kartei">${ICON.back} Parzellen</a>
           <div class="detail-head">
             ${nrBadge(p, 'nr-lg')}
             <div class="title"><h1>Parzelle ${h(p.nr)}</h1>${statusBadge(p)}</div>
@@ -1315,7 +1315,7 @@
 
       root.innerHTML = `
         <div class="page">
-          <a class="back" href="${backHref}">${ICON.back} ${isNew ? 'Mieter' : 'Zurück'}</a>
+          <a class="back" href="${backHref}">${ICON.back} ${isNew ? 'Parzellen' : 'Zurück'}</a>
           <div class="page-head"><h1>${isNew ? 'Neue Parzelle' : `Parzelle ${h(p.nr)} bearbeiten`}</h1></div>
           <form id="edit-form" novalidate>
             <div class="cards">
@@ -2186,7 +2186,7 @@
               <h2>Export (Excel)</h2>
               <div class="card-actions" style="margin-top:0">
                 <button class="btn" id="d-readings">${ICON.download} Zählerstände</button>
-                <button class="btn btn-ghost" id="d-csv">${ICON.download} Mieterliste</button>
+                <button class="btn btn-ghost" id="d-csv">${ICON.download} Parzellenliste</button>
               </div>
               <p class="small muted">Zählerstände: Parzelle, Mieter, Zählernummer, die letzten beiden Stände mit Ablesedatum und die Differenz.</p>
             </section>
@@ -2259,7 +2259,7 @@
             st.map((m) => m.number).join(', '), st.map((m) => S.meterPlace(m)).join(', '), st.map((m) => S.fusesText(m)).filter(Boolean).join('; '),
             gs.map((m) => m.number).join(', '), p.notes]);
         });
-        download(`mieterliste-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
+        download(`parzellen-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
       };
       // In der Datenbank nur nach ausdrücklicher Bestätigung überschreiben
       const reallyOverwrite = (what) => S.mode !== 'cloud'
@@ -2769,7 +2769,7 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Mieter', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
+    const titles = { airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Parzellen', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
     switch (parts[0]) {

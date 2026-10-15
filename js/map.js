@@ -268,7 +268,8 @@
           m.on('click', (e) => { if (this.mode) return; L.DomEvent.stopPropagation(e); this.handlers.onSelect('box', b.id); });
           m.on('dragend', () => { b.pos = fromLL(m.getLatLng()); Store.save(); });
           m.addTo(L_.boxes);
-          if (isSel) this._drawLinks(b.pos, Store.metersInBox(b.id).map((mt) => Store.parcel(mt.parcelId)), '#e0a526');
+          // Versorgung: alle Verbindungen zeigen (ausgewählter Kasten kräftiger)
+          if (isSel || this.colorMode === 'supply') this._drawLinks(b.pos, Store.metersInBox(b.id).map((mt) => Store.parcel(mt.parcelId)), '#e0a526', !isSel);
         });
       }
 
@@ -290,7 +291,7 @@
           m.on('click', (e) => { if (this.mode) return; L.DomEvent.stopPropagation(e); this.handlers.onSelect('tank', t.id); });
           m.on('dragend', () => { t.pos = fromLL(m.getLatLng()); Store.save(); });
           m.addTo(L_.tanks);
-          if (isSel) this._drawLinks(t.pos, Store.parcelsOnTank(t.id), '#2f9e74');
+          if (isSel || this.colorMode === 'supply') this._drawLinks(t.pos, Store.parcelsOnTank(t.id), '#2f9e74', !isSel);
         });
       }
 
@@ -366,11 +367,13 @@
       this.render();
     },
 
-    _drawLinks(from, parcels, color) {
+    _drawLinks(from, parcels, color, weak) {
+      const seen = new Set();
       parcels.forEach((p) => {
-        if (!p || !p.geometry || p.geometry.length < 3) return;
+        if (!p || !p.geometry || p.geometry.length < 3 || seen.has(p.id)) return;
+        seen.add(p.id);
         L.polyline([toLL(from), toLL(centroid(p.geometry))], {
-          color, weight: 2.5, dashArray: '6 5', opacity: 0.95, interactive: false,
+          color, weight: weak ? 1.8 : 2.5, dashArray: weak ? '5 4' : '6 5', opacity: weak ? 0.85 : 0.95, interactive: false,
         }).addTo(this.layers.links);
       });
     },
