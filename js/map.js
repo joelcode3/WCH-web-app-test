@@ -136,6 +136,8 @@
       const px = Math.min(LABEL_MAX, LABEL_BASE * Math.pow(2, z));
       // Grundgröße je Zoomstufe; während einer Geste skaliert die ganze Ebene mit
       c.style.setProperty('--lbl-s', (px / LABEL_FONT).toFixed(3));
+      // Kästen/Tanks: ab Zoom 0.5 volle Größe, darunter kleiner (mind. 28 %)
+      c.style.setProperty('--pin-s', Math.max(0.28, Math.min(1, 0.55 * Math.pow(2, z * 0.8) + 0.05)).toFixed(3));
       const flags = { 'labels-hidden': px < LABEL_MIN, 'labels-small': z < -0.4, 'labels-tiny': z < -1.1 };
       Object.entries(flags).forEach(([cls, on]) => { if (c.classList.contains(cls) !== on) c.classList.toggle(cls, on); });
     },

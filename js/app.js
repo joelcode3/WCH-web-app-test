@@ -106,7 +106,7 @@
       </form>`;
     const form = $('form', dlg);
     $('[data-cancel]', dlg).onclick = () => dlg.close();
-    fields.filter((f) => f.suggest).forEach((f) => attachSuggest(form.elements[f.name], f.suggest));
+    fields.filter((f) => f.suggest).forEach((f) => attachSuggest(form.elements[f.name], f.suggest, f.suggestWhen));
     form.onsubmit = (e) => {
       e.preventDefault();
       const values = Object.fromEntries(new FormData(form).entries());
@@ -631,7 +631,7 @@
       formDialog({
         title: t ? `Gastank ${t.nr} bearbeiten` : 'Neuer Gastank',
         fields: [
-          { name: 'nr', label: 'Tank-Nr.', value: t ? t.nr : nextNr(S.data.tanks), required: true, suggest: t ? null : suggestSimpleNr(S.data.tanks) },
+          { name: 'nr', label: 'Tank-Nr.', value: t ? t.nr : nextNr(S.data.tanks), required: true, suggest: suggestSimpleNr(S.data.tanks), suggestWhen: t ? (v) => S.data.tanks.some((x) => x.nr === v.trim() && x !== t) : null },
           { name: 'capacity', label: 'Größe / Füllmenge', value: t ? t.capacity : '', placeholder: 'z. B. 2.900 l' },
           { name: 'notes', label: 'Notizen', type: 'textarea', value: t ? t.notes : '' },
         ],

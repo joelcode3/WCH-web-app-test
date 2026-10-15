@@ -571,14 +571,11 @@ body.is-locked { padding-bottom: 0; }
 }
 
 /* Symbole bei weit herausgezoomter Karte verkleinern (z. B. iPhone-Gesamtansicht) */
-.labels-small .pin-box { transform: translateX(calc(-50% + 22px)) scale(.8); }
-.labels-small .pin-tank { transform: translateX(calc(-50% + 25px)) scale(.8); }
-.labels-tiny .pin-box { transform: translateX(calc(-50% + 22px)) scale(.6); }
-.labels-tiny .pin-tank { transform: translateX(calc(-50% + 25px)) scale(.6); }
-.labels-hidden .pin-box { transform: translateX(calc(-50% + 22px)) scale(.45); }
-.labels-hidden .pin-tank { transform: translateX(calc(-50% + 25px)) scale(.45); }
-.labels-small .pin-box.is-selected, .labels-tiny .pin-box.is-selected { transform: translateX(calc(-50% + 22px)) scale(.95); }
-.labels-small .pin-tank.is-selected, .labels-tiny .pin-tank.is-selected { transform: translateX(calc(-50% + 25px)) scale(.95); }
+/* Kästen/Tanks auf der Karte: stufenlos kleiner beim Rauszoomen (--pin-s aus map.js) */
+.leaflet-container .pin-box { transform: translateX(calc(-50% + 22px)) scale(var(--pin-s, 1)); }
+.leaflet-container .pin-tank { transform: translateX(calc(-50% + 25px)) scale(var(--pin-s, 1)); }
+.leaflet-container .pin-box.is-selected { transform: translateX(calc(-50% + 22px)) scale(calc(var(--pin-s, 1) * 1.15 + .1)); }
+.leaflet-container .pin-tank.is-selected { transform: translateX(calc(-50% + 25px)) scale(calc(var(--pin-s, 1) * 1.15 + .1)); }
 
 @media (min-width: 861px) {
   .sync { margin-left: auto; }
