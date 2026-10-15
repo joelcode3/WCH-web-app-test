@@ -31,13 +31,15 @@
       <g stroke="#cfc09c" stroke-width="1"><path d="M27 2 V52 M2 27 H52 M9.3 9.3 L44.7 44.7 M44.7 9.3 L9.3 44.7"/></g>
       <path d="M27 27 L19 50 A25 25 0 0 0 35 50 Z" fill="#c9b48a"/>
       <circle cx="27" cy="27" r="4" fill="#8d6b45"/></svg>` },
-    // Zirkus-/Bäckerwagen ca. 6 × 2,4 m mit Deichsel links
-    baeckerwagen: { w: 38, h: 13, svg: `<svg viewBox="0 0 76 26" aria-hidden="true">
-      <path d="M1 13 L14 6 M1 13 L14 20" stroke="#5d3b1f" stroke-width="2" stroke-linecap="round"/>
-      <rect x="13" y="1" width="62" height="24" rx="4" fill="#8a5a32" stroke="#4e3119" stroke-width="1.5"/>
-      <path d="M15 13 H73" stroke="#b98552" stroke-width="2"/>
-      <g stroke="#6f4626" stroke-width="1"><path d="M23 2 V24 M33 2 V24 M43 2 V24 M53 2 V24 M63 2 V24"/></g>
-      <circle cx="66" cy="7" r="2.6" fill="#333" stroke="#111" stroke-width=".8"/></svg>` },
+    // Bäckerwagen: Kastenwagen ca. 5,6 × 2,2 m, cremefarbener Aufbau, dunkelgrüne Front rechts
+    baeckerwagen: { w: 28, h: 11, svg: `<svg viewBox="0 0 112 44" aria-hidden="true">
+      <rect x="80" y="-1" width="7" height="5" rx="1.5" fill="#1a3a2e"/><rect x="80" y="40" width="7" height="5" rx="1.5" fill="#1a3a2e"/>
+      <rect x="2" y="3" width="84" height="38" rx="4" fill="#efe3c4" stroke="#8e7d57" stroke-width="2"/>
+      <rect x="9" y="9" width="70" height="26" rx="2" fill="#e6d8b4"/>
+      <g stroke="#d3c39b" stroke-width="1.5"><path d="M23 9v26M37 9v26M51 9v26M65 9v26"/></g>
+      <path d="M84 4h10c9 0 15 6 15 18s-6 18-15 18H84z" fill="#1f4a3a" stroke="#122d23" stroke-width="2"/>
+      <path d="M86 8h7c3 0 4 2 4 4v20c0 2-1 4-4 4h-7z" fill="#2c3b44"/>
+      <path d="M101 14q4 8 0 16" stroke="#3b6b58" stroke-width="2" fill="none"/></svg>` },
     // sonstige Unterkunft: Hütte mit Satteldach
     unterkunft: { w: 30, h: 22, svg: `<svg viewBox="0 0 60 44" aria-hidden="true">
       <rect x="1" y="1" width="58" height="42" rx="2" fill="#9a6b40" stroke="#5d3b1f" stroke-width="1.5"/>

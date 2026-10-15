@@ -348,27 +348,27 @@
       const items = MapView.colorMode === 'supply'
         ? Object.values(S.SUPPLY).map((x) => [`background:${x.color}`, x.label])
         : [...Object.values(S.STATUS).map((x) => [`background:${x.color}`, x.label]),
-          [`background:linear-gradient(135deg, ${S.STATUS.fest.color} 50%, ${S.MOVE_OUT_COLOR} 50%)`, 'Bewohnt, Auszug steht fest']];
+          [`background:linear-gradient(135deg, ${S.STATUS.fest.color} 50%, ${S.MOVE_OUT_COLOR} 50%)`, 'wird frei']];
       const cb = (key, label) => `<label><input type="checkbox" data-layer="${key}" ${sh[key] ? 'checked' : ''}> ${label}</label>`;
       el.className = 'legend' + (this.legendCollapsed ? ' is-collapsed' : '');
       el.innerHTML = `
-        <button type="button" class="legend-toggle" aria-expanded="${!this.legendCollapsed}">Legende &amp; Ebenen ${this.legendCollapsed ? '▴' : '▾'}</button>
+        <button type="button" class="legend-toggle" aria-expanded="${!this.legendCollapsed}">Legende &amp; Ebenen <svg class="legend-chev${this.legendCollapsed ? '' : ' is-open'}" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
         <div class="legend-body">
           <h4>${MapView.colorMode === 'supply' ? 'Versorgung / Heizung' : 'Status der Parzelle'}</h4>
           <ul>${items.map(([st, l]) => `<li><span class="swatch" style="${st}"></span>${h(l)}</li>`).join('')}</ul>
           <div class="toggles">
-            <h4>Auf der Karte zeigen</h4>
+            <h4>Auf der Map zeigen</h4>
             ${cb('boxes', `${ICON.strom} Stromkästen`)}
             ${cb('tanks', `${ICON.gas} Gastanks`)}
             ${cb('places', `<span class="legend-ico">${ICON.pin}</span> Orte / Gebäude`)}
-            ${cb('airbnb', `<span class="legend-ico">${ICON.house}</span> Ferienunterkünfte`)}
+            ${cb('airbnb', `<span class="legend-ico">${ICON.house}</span> airbnb`)}
             ${cb('todos', `<span class="pb pb-todo">${ICON.check}1</span> Offene To-Dos`)}
             ${cb('ww', '<span class="pb pb-ww">WW</span> Winterwasser')}
             ${cb('persons', `<span class="pb pb-icons pb-person">${MapView.icons.person}</span> Bewohner`)}
             ${cb('dogs', `<span class="pb pb-icons pb-dog">${MapView.icons.dog}</span> Hunde`)}
             ${cb('miet', '<span class="pb pb-miet">M</span> Mietobjekt')}
             ${cb('pacht', '<span class="pb pb-pacht">P</span> Pachtgrundstück')}
-            ${CFG.map.aerial ? cb('aerial', 'Luftbild als Hintergrund') : ''}
+            ${CFG.map.aerial ? cb('aerial', 'Satellitenbild') : ''}
           </div>
         </div>`;
       $('.legend-toggle', el).onclick = () => {
@@ -406,7 +406,7 @@
           <button type="button" class="btn btn-sm" data-act="finish" ${n >= 3 ? '' : 'disabled'}>Umriss speichern</button>`;
       } else if (mode && mode.kind === 'place') {
         bar.innerHTML = `
-          <span class="grow">${h(mode.label || 'Position wählen')}: auf die gewünschte Stelle in der Karte tippen</span>
+          <span class="grow">${h(mode.label || 'Position wählen')}: auf die gewünschte Stelle in der Map tippen</span>
           <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Abbrechen</button>`;
       } else if (MapView.editMode) {
         bar.innerHTML = `
@@ -547,7 +547,7 @@
             </div>` : ''}
         </div>
         <div class="panel-actions">
-          <a class="btn" href="#/parzelle/${p.id}">Karteikarte öffnen</a>
+          <a class="btn" href="#/parzelle/${p.id}">Details öffnen</a>
           <a class="btn btn-ghost" href="#/parzelle/${p.id}/bearbeiten">${ICON.edit} Bearbeiten</a>
         </div>`;
     },
@@ -637,7 +637,7 @@
       return `
         <div class="panel-head">
           <span class="pin pin-place" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i></span>
-          <div class="title"><h2>${h(o.name || kind.label)}</h2><span class="muted small">${h(kind.label)} · Airbnb</span></div>
+          <div class="title"><h2>${h(o.name || kind.label)}</h2><span class="muted small">${h(kind.label)} · airbnb</span></div>
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">
@@ -645,7 +645,7 @@
             <label class="tile-wrap" title="Foto ändern">${Airbnb.tileHtml(o, { big: true })}
               <span class="tile-change">${ICON.camera}${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}</span><input type="file" accept="image/*" hidden data-place-photo></label>
             <div class="airbnb-status">
-              ${listing ? `<a class="small" href="${h(listing)}" target="_blank" rel="noopener">Inserat bei Airbnb öffnen</a>` : ''}
+              ${listing ? `<a class="small" href="${h(listing)}" target="_blank" rel="noopener">Inserat bei airbnb öffnen</a>` : ''}
               ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
               ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
               ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
@@ -713,7 +713,7 @@
         <div class="panel-body">
           ${o.notes ? `<p class="small" style="margin:0;white-space:pre-line">${h(o.notes)}</p>` : ''}
           ${todoSection('place', o.id, true)}
-          ${MapView.editMode ? '<p class="muted small">Im Bearbeitungsmodus lässt sich das Symbol auf der Karte verschieben.</p>' : ''}
+          ${MapView.editMode ? '<p class="muted small">Im Bearbeitungsmodus lässt sich das Symbol auf der Map verschieben.</p>' : ''}
         </div>
         <div class="panel-actions">
           <button class="btn" data-goto="#/todo/neu?ziel=place:${o.id}&${backParam()}">${ICON.plus} To-Do</button>
@@ -818,12 +818,12 @@
       formDialog({
         title: o ? `${o.name || 'Ort'} bearbeiten` : 'Neuer Ort auf der Karte',
         fields: [
-          { name: 'kind', label: 'Art', type: 'select', value: o ? o.kind : 'sanitaer', options: Object.entries(S.PLACE_KINDS).map(([k, v]) => [k, v.airbnb ? `${v.label} (Airbnb)` : v.label]) },
+          { name: 'kind', label: 'Art', type: 'select', value: o ? o.kind : 'sanitaer', options: Object.entries(S.PLACE_KINDS).map(([k, v]) => [k, v.airbnb ? `${v.label} (airbnb)` : v.label]) },
           { name: 'name', label: 'Name', value: o ? o.name : '', placeholder: 'z. B. Sanitärgebäude 2', required: true },
-          { name: 'icalUrl', label: 'Airbnb-Kalender-Link (endet auf .ics)', value: o ? o.icalUrl : '', placeholder: 'https://www.airbnb.de/calendar/ical/….ics?t=…' },
+          { name: 'icalUrl', label: 'airbnb-Kalender-Link (endet auf .ics)', value: o ? o.icalUrl : '', placeholder: 'https://www.airbnb.de/calendar/ical/….ics?t=…' },
           { name: 'notes', label: 'Notizen', type: 'textarea', value: o ? o.notes : '' },
         ],
-        submitLabel: o ? 'Speichern' : 'Weiter: auf Karte setzen',
+        submitLabel: o ? 'Speichern' : 'Weiter: auf Map setzen',
         extra: o ? `<div class="card-actions" style="margin:0">
             <button type="button" class="btn btn-ghost btn-sm" data-move>Neu platzieren</button>
             <button type="button" class="btn btn-danger btn-sm" data-del>${ICON.trash} Ort löschen</button></div>` : '',
@@ -1017,11 +1017,11 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head">
-            <h1>Kartei</h1>
+            <h1>Mieter</h1>
             <a class="btn" href="#/neu">${ICON.plus} Parzelle</a>
           </div>
           <div class="filters">
-            <div class="search">${ICON.search}<input type="search" id="k-q" placeholder="Nr., Name, Telefon, Zählernummer…" value="${h(this.q)}" aria-label="Kartei durchsuchen"></div>
+            <div class="search">${ICON.search}<input type="search" id="k-q" placeholder="Nr., Name, Telefon, Zählernummer…" value="${h(this.q)}" aria-label="Mieter durchsuchen"></div>
             <select id="k-supply" aria-label="Versorgung filtern">
               <option value="alle">Alle Versorgungsarten</option>
               ${Object.entries(S.SUPPLY).map(([k, v]) => `<option value="${k}"${this.supply === k ? ' selected' : ''}>${h(v.label)}</option>`).join('')}
@@ -1068,7 +1068,7 @@
       $('#k-count').textContent = `${list.length} Parzelle${list.length === 1 ? '' : 'n'} · ${counts.join(' · ')}`;
       $('#k-list').innerHTML = list.length ? list.map((p) => {
         const meters = S.metersOf(p.id);
-        const strom = meters.filter((m) => m.type === 'strom').map((m) => h(S.meterPlace(m) || 'ohne Kasten'));
+        const strom = [...new Set(meters.filter((m) => m.type === 'strom').map((m) => S.meterPlace(m) || 'ohne Kasten'))].map(h);
         return `<li><a class="card-row" href="#/parzelle/${p.id}">
           ${nrBadge(p)}
           <div class="main">
@@ -1096,7 +1096,7 @@
   const Detail = {
     render(root, id) {
       const p = S.parcel(id);
-      if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p><a href="#/kartei">Zur Kartei</a></div>'; return; }
+      if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p><a href="#/kartei">Zur Mieterliste</a></div>'; return; }
       const meters = S.metersOf(p.id);
       const strom = meters.filter((m) => m.type === 'strom');
       const gas = meters.filter((m) => m.type === 'gas');
@@ -1115,26 +1115,42 @@
         </dl>`;
       };
 
-      // Ablesehistorie
-      const hist = [];
-      meters.forEach((m) => {
-        const rs = S.readingsOf(m.id);
-        rs.forEach((r, i) => hist.push({ m, r, diff: i > 0 ? r.value - rs[i - 1].value : null }));
-      });
-      hist.sort((a, b) => b.r.date.localeCompare(a.r.date) || a.m.type.localeCompare(b.m.type));
+      // Ablesehistorie je Zähler; Zähler ohne Ablesung erscheinen mit einer leeren Zeile
+      const meterPlaceHtml = (m) => (m.type !== 'strom' ? h(m.location || '–')
+        : m.inHouse ? 'im Haus' : S.box(m.boxId) ? `<a href="#/karte/box/${m.boxId}">Kasten ${h(S.box(m.boxId).nr)}</a>` : '<span class="warn">kein Kasten</span>');
+      const histTable = (list, full) => {
+        const rows = [];
+        list.forEach((m) => {
+          const rs = S.readingsOf(m.id);
+          if (!rs.length) rows.push({ m, r: null, diff: null });
+          rs.forEach((r, i) => rows.push({ m, r, diff: i > 0 ? r.value - rs[i - 1].value : null }));
+        });
+        rows.sort((a, b) => (b.r ? b.r.date : '').localeCompare(a.r ? a.r.date : '') || (a.m.number || '').localeCompare(b.m.number || ''));
+        if (!full && !rows.some((x) => x.r)) return '';
+        return `<div class="table-wrap"><table class="table-cards">
+          <thead><tr>${full ? '<th>Zählerort</th><th>Zählernummer</th><th>Sicherung</th>' : ''}<th>Datum</th><th class="num">Stand</th><th class="num">Verbrauch</th></tr></thead>
+          <tbody>${rows.map(({ m, r, diff }) => `<tr>
+            ${full ? `<td data-label="Zählerort">${meterPlaceHtml(m)}</td>
+            <td data-label="Zählernummer" class="mono">${h(m.number || '—')}</td>
+            <td data-label="Sicherung">${h(S.fusesText(m) || '–')}</td>` : ''}
+            <td data-label="Datum">${r ? fmtDate(r.date) : '–'}</td>
+            <td data-label="Stand" class="num">${r ? `${fmtNum(r.value)} ${unit(m.type)}` : '–'}</td>
+            <td data-label="Verbrauch" class="num">${diff === null ? '–' : `${fmtNum(diff)} ${unit(m.type)}`}</td></tr>`).join('')}
+          </tbody></table></div>`;
+      };
 
       root.innerHTML = `
         <div class="page">
-          <a class="back" href="#/kartei">${ICON.back} Kartei</a>
+          <a class="back" href="#/kartei">${ICON.back} Mieter</a>
           <div class="detail-head">
             ${nrBadge(p, 'nr-lg')}
             <div class="title"><h1>Parzelle ${h(p.nr)}</h1>${statusBadge(p)}</div>
             <div class="actions">
-              ${hasShape(p) ? `<a class="btn btn-ghost" href="#/karte/parcel/${p.id}">${ICON.map} Auf Karte</a>` : ''}
+              ${hasShape(p) ? `<a class="btn btn-ghost" href="#/karte/parcel/${p.id}">${ICON.map} Auf Map</a>` : ''}
               <a class="btn" href="#/parzelle/${p.id}/bearbeiten">${ICON.edit} Bearbeiten</a>
             </div>
           </div>
-          ${hasShape(p) ? '' : `<p class="notice">Diese Parzelle ist noch nicht auf der Karte eingezeichnet. <button class="link-btn" data-draw>Jetzt einzeichnen</button></p>`}
+          ${hasShape(p) ? '' : `<p class="notice">Diese Parzelle ist noch nicht auf der Map eingezeichnet. <button class="link-btn" data-draw>Jetzt einzeichnen</button></p>`}
           <div class="cards">
             <section class="card">
               <h2>${ICON.user} Mieter</h2>
@@ -1153,39 +1169,27 @@
               <h2>${ICON.area} Grundstück</h2>
               <dl class="facts">
                 <dt>Status</dt><dd>${h(statusOf(p).label)}</dd>
-                <dt>Objektart</dt><dd>${h(objectOf(p).label)} <span class="muted small">(${h(objectOf(p).hint)})</span></dd>
+                <dt>Objektart</dt><dd>${h(objectOf(p).label)}</dd>
                 <dt>${h(objectOf(p).rentLabel)}</dt><dd>${fmtEuro(p.rent)}</dd>
                 <dt>Winterwasser</dt><dd>${yesNo(p.winterWater)}</dd>
-                <dt>Größe</dt><dd>${p.size ? fmtNum(p.size) + ' m²' : '–'}${area && CFG.map.isPlaceholder === false ? ` <span class="muted small">(Karte: ≈ ${fmtNum(area)} m²)</span>` : ''}</dd>
-                <dt>Karte</dt><dd>${hasShape(p) ? `eingezeichnet · <button class="link-btn" data-draw>neu zeichnen</button>` : '<span class="warn">nicht eingezeichnet</span>'}</dd>
+                <dt>Größe</dt><dd>${p.size ? fmtNum(p.size) + ' m²' : '–'}${area && CFG.map.isPlaceholder === false ? ` <span class="muted small">(Map: ≈ ${fmtNum(area)} m²)</span>` : ''}</dd>
               </dl>
-            </section>
-            <section class="card">
-              <h2>${ICON.strom} Strom</h2>
-              ${strom.length ? strom.map(meterBlock).join('') : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
             </section>
             <section class="card">
               <h2>${ICON.gas} Gas &amp; Heizung</h2>
               <dl class="facts" style="margin-bottom:10px">
                 <dt>Heizung</dt><dd>${h(S.HEATING[p.heating] || '–')}</dd>
                 <dt>Gas</dt><dd>${tank ? `<a href="#/karte/tank/${tank.id}">Gastank ${h(tank.nr)}</a>` : gasText(p)}</dd>
-                ${tank ? `<dt>Am Tank</dt><dd>${S.parcelsOnTank(tank.id).map((x) => x.id === p.id ? `<strong>${h(x.nr)}</strong>` : `<a href="#/parzelle/${x.id}">${h(x.nr)}</a>`).join(', ')}</dd>` : ''}
               </dl>
               ${gas.map(meterBlock).join('')}
               ${p.gas === 'tank' && !gas.length ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
+              ${histTable(gas, false)}
             </section>
             ${p.notes ? `<section class="card span-all"><h2>Notizen</h2><p style="margin:0;white-space:pre-line">${h(p.notes)}</p></section>` : ''}
             <section class="card span-all todo-card">${todoSection('parcel', p.id)}</section>
             <section class="card span-all">
-              <h2>Zählerstände</h2>
-              ${hist.length ? `<div class="table-wrap"><table class="table-cards">
-                <thead><tr><th>Datum</th><th>Zähler</th><th class="num">Stand</th><th class="num">Verbrauch</th></tr></thead>
-                <tbody>${hist.map(({ m, r, diff }) => `<tr>
-                  <td data-label="Datum">${fmtDate(r.date)}</td>
-                  <td data-label="Zähler">${m.type === 'strom' ? 'Strom' : 'Gas'} <span class="mono muted">${h(m.number)}</span></td>
-                  <td data-label="Stand" class="num">${fmtNum(r.value)} ${unit(m.type)}</td>
-                  <td data-label="Verbrauch" class="num">${diff === null ? '–' : `${fmtNum(diff)} ${unit(m.type)}`}</td></tr>`).join('')}
-                </tbody></table></div>` : '<p class="muted">Noch keine Zählerstände erfasst.</p>'}
+              <h2>${ICON.strom} Strom</h2>
+              ${strom.length ? histTable(strom, true) : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
             </section>
           </div>
         </div>`;
@@ -1311,7 +1315,7 @@
 
       root.innerHTML = `
         <div class="page">
-          <a class="back" href="${backHref}">${ICON.back} ${isNew ? 'Kartei' : 'Zurück'}</a>
+          <a class="back" href="${backHref}">${ICON.back} ${isNew ? 'Mieter' : 'Zurück'}</a>
           <div class="page-head"><h1>${isNew ? 'Neue Parzelle' : `Parzelle ${h(p.nr)} bearbeiten`}</h1></div>
           <form id="edit-form" novalidate>
             <div class="cards">
@@ -1321,7 +1325,7 @@
                   <div>${fieldHtml({ name: 'nr', label: 'Parzellen-Nr.', value: p.nr, required: true })}<p class="dup-warn" id="nr-warn" hidden></p></div>
                   ${fieldHtml({ name: 'size', label: 'Größe (m²)', type: 'number', value: p.size })}
                   ${fieldHtml({ name: 'status', label: 'Status', type: 'select', value: p.status, options: Object.entries(S.STATUS).map(([k, v]) => [k, v.label]), full: true })}
-                  ${fieldHtml({ name: 'objectType', label: 'Objektart', type: 'select', value: p.objectType, options: Object.entries(S.OBJECT_TYPES).map(([k, v]) => [k, `${v.label} (${v.hint})`]), full: true })}
+                  ${fieldHtml({ name: 'objectType', label: 'Objektart', type: 'select', value: p.objectType, options: Object.entries(S.OBJECT_TYPES).map(([k, v]) => [k, v.label]), full: true })}
                   <label class="field"><span id="rent-label">${h(objectOf(p).rentLabel)} (€)</span><input type="number" name="rent" inputmode="decimal" step="any" value="${h(p.rent)}"></label>
                   <label class="check"><input type="checkbox" name="winterWater" ${p.winterWater ? 'checked' : ''}> Winterwasser</label>
                 </div>
@@ -1672,28 +1676,36 @@
       const tanks = S.tanksSorted();
       const unassigned = S.data.meters.filter((m) => m.type === 'strom' && !m.inHouse && !S.box(m.boxId));
       const inHouse = S.sortMeters(S.data.meters.filter((m) => m.type === 'strom' && m.inHouse));
-      const service = S.serviceMeters();
       const chip = (p) => `<a href="#/parzelle/${p.id}" class="badge" style="text-decoration:none"><span class="dot" style="background:${statusOf(p).color}"></span>${h(p.nr)}</a>`;
+
+      // Parzelle + Mieter je Zeile (doppelte Parzellen nur einmal)
+      const rows = (parcels) => {
+        const seen = new Set();
+        const list = parcels.filter((p) => p && !seen.has(p.id) && seen.add(p.id)).sort((x, y) => S.compareNr(x.nr, y.nr));
+        return list.length ? `<ul class="tenant-rows">${list.map((p) => `<li><a href="#/parzelle/${p.id}">${nrBadge(p, 'nr-sm')}<span class="${p.tenant.name ? '' : 'muted'}">${h(tenantName(p))}</span></a></li>`).join('')}</ul>` : '';
+      };
+      const otherRows = (ms) => (ms.length ? `<ul class="tenant-rows">${ms.map((m) => `<li><span class="tr-static">${S.isFreeMeter(m) ? '<span class="nr nr-sm nr-free">F</span>' : serviceBadge()}<span>${h(S.purposeText(m))}${m.number ? ` <span class="mono muted small">${h(m.number)}</span>` : ''}</span></span></li>`).join('')}</ul>` : '');
 
       root.innerHTML = `
         <div class="page">
-          <div class="page-head">
-            <h1>Stromkästen</h1>
-            <button class="btn" data-new="box">${ICON.plus} Stromkasten</button>
-          </div>
+          <div class="page-head"><h1>Infrastruktur</h1></div>
+          ${infraTabs('technik')}
           ${unassigned.length ? `<p class="notice">${unassigned.length} Stromzähler sind keinem Kasten zugeordnet: ${unassigned.map((m) => { const p = S.parcel(m.parcelId); return p ? chip(p) : h(S.purposeText(m)); }).join(' ')}</p>` : ''}
+          <div class="page-head section-head">
+            <h2>Stromkästen</h2>
+            <button class="btn btn-sm" data-new="box">${ICON.plus} Stromkasten</button>
+          </div>
           <div class="cards">
             ${boxes.map((b) => {
               const ms = S.metersInBox(b.id);
               const svc = ms.filter((m) => S.isService(m));
               return `<section class="card">
                 <h3><span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(b.nr)}</span></span> Stromkasten ${h(b.nr)}</h3>
-                <p class="muted small" style="margin:-6px 0 10px">${h(b.location || 'kein Standorthinweis')}</p>
-                <div class="small" style="margin-bottom:6px"><strong>${ms.length}</strong> Zähler${ms.length - svc.length ? ' für Parzellen:' : ''}</div>
-                <div class="chips">${ms.map((m) => S.parcel(m.parcelId)).filter(Boolean).map(chip).join('') || (svc.length ? '' : '<span class="muted small">–</span>')}</div>
-                ${svc.length ? `<div class="chips" style="margin-top:6px">${svc.map((m) => (S.isFreeMeter(m) ? `<span class="badge">frei · ${h(m.number || 'ohne Nr.')}</span>` : `<span class="badge badge-service">B · ${h(S.purposeText(m))}</span>`)).join('')}</div>` : ''}
+                ${b.location ? `<p class="muted small" style="margin:-6px 0 10px">${h(b.location)}</p>` : ''}
+                ${rows(ms.map((m) => S.parcel(m.parcelId))) || (svc.length ? '' : '<p class="muted small">Noch keine Zähler.</p>')}
+                ${otherRows(svc)}
                 <div class="card-actions">
-                  ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Karte</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Karte platzieren</button>`}
+                  ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-box="${b.id}">${ICON.edit} Bearbeiten</button>
                   <a class="btn btn-ghost btn-sm" href="#/ablesung?typ=strom&gruppe=${b.id}">Ablesen</a>
                 </div>
@@ -1701,20 +1713,28 @@
             }).join('') || '<p class="muted">Noch keine Stromkästen angelegt.</p>'}
           </div>
 
-          <div class="page-head" style="margin-top:32px">
-            <h1>Gastanks</h1>
-            <button class="btn" data-new="tank">${ICON.plus} Gastank</button>
+          <div class="cards" style="margin-top:14px">
+            <section class="card">
+              <h3>${ICON.strom} Zähler im Haus</h3>
+              <p class="small muted" style="margin:0 0 8px">Stromzähler, die beim Mieter im Haus hängen (kein Kasten)</p>
+              ${rows(inHouse.map((m) => S.parcel(m.parcelId))) || '<p class="muted small">–</p>'}
+            </section>
+          </div>
+
+          <div class="page-head section-head">
+            <h2>Gastanks</h2>
+            <button class="btn btn-sm" data-new="tank">${ICON.plus} Gastank</button>
           </div>
           <div class="cards">
             ${tanks.map((t) => {
               const ps = S.parcelsOnTank(t.id);
+              const info = [t.capacity, t.notes].filter(Boolean).join(' · ');
               return `<section class="card">
                 <h3><span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span> Gastank ${h(t.nr)}</h3>
-                <p class="muted small" style="margin:-6px 0 10px">${h([t.capacity, t.notes].filter(Boolean).join(' · ') || '–')}</p>
-                <div class="small" style="margin-bottom:6px"><strong>${ps.length}</strong> angeschlossene Parzellen:</div>
-                <div class="chips">${ps.map(chip).join('') || '<span class="muted small">–</span>'}</div>
+                ${info ? `<p class="muted small" style="margin:-6px 0 10px">${h(info)}</p>` : ''}
+                ${rows(ps) || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
                 <div class="card-actions">
-                  ${t.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/tank/${t.id}">${ICON.map} Karte</a>` : `<button class="btn btn-sm" data-place-tank="${t.id}">${ICON.map} Auf Karte platzieren</button>`}
+                  ${t.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/tank/${t.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-tank="${t.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-tank="${t.id}">${ICON.edit} Bearbeiten</button>
                   <a class="btn btn-ghost btn-sm" href="#/ablesung?typ=gas&gruppe=${t.id}">Ablesen</a>
                 </div>
@@ -1722,23 +1742,10 @@
             }).join('') || '<p class="muted">Noch keine Gastanks angelegt.</p>'}
           </div>
 
-          <div class="cards" style="margin-top:32px">
-            <section class="card">
-              <h3>${ICON.strom} Betriebszähler</h3>
-              <p class="small muted" style="margin:0 0 8px">Allgemeiner Betrieb (Beleuchtung, Sanitär, Camperstrom …). Hinzufügen über „Bearbeiten“ beim jeweiligen Stromkasten.</p>
-              ${service.length ? `<ul class="meter-list">${service.map((m) => MapUI.meterItem(m, 'service')).join('')}</ul>` : '<p class="muted small">Noch keine Betriebszähler.</p>'}
-            </section>
-            <section class="card">
-              <h3>${ICON.strom} Zähler im Haus</h3>
-              <p class="small muted" style="margin:0 0 8px">Stromzähler, die beim Mieter im Haus hängen (kein Kasten):</p>
-              <div class="chips">${inHouse.map((m) => S.parcel(m.parcelId)).filter(Boolean).map(chip).join('') || '<span class="muted small">–</span>'}</div>
-            </section>
-          </div>
-
           <div class="card" style="margin-top:14px">
             <h3>${ICON.gas} Gasflaschen</h3>
-            <p class="small muted" style="margin:0 0 8px">Parzellen, die mit Gasflaschen versorgt werden (kein Zähler):</p>
-            <div class="chips">${S.parcelsSorted().filter((p) => p.gas === 'bottle').map(chip).join('') || '<span class="muted small">–</span>'}</div>
+            <p class="small muted" style="margin:0 0 8px">Parzellen, die mit Gasflaschen versorgt werden (kein Zähler)</p>
+            ${rows(S.parcelsSorted().filter((p) => p.gas === 'bottle')) || '<p class="muted small">–</p>'}
           </div>
         </div>`;
 
@@ -1773,7 +1780,7 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head"><h1>Zähler</h1></div>
-          ${zaehlerTabs('ablesung')}
+          ${infraTabs('ablesung')}
           <div class="controls">
             <div class="segmented" role="group" aria-label="Zählerart">
               <button type="button" data-type="strom" class="${this.type === 'strom' ? 'is-active' : ''}">Strom</button>
@@ -1964,7 +1971,7 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head"><h1>Zähler</h1></div>
-          ${zaehlerTabs('verbrauch')}
+          ${infraTabs('verbrauch')}
           <div class="controls">
             <div class="segmented" role="group" aria-label="Zählerart">
               <button type="button" data-type="strom" class="${this.type === 'strom' ? 'is-active' : ''}">Strom</button>
@@ -2033,7 +2040,8 @@
     return Math.max(0, (b.value - a.value) / days * 30.44);
   }
 
-  const zaehlerTabs = (active) => `<div class="tabs">
+  const infraTabs = (active) => `<div class="tabs">
+    <a href="#/technik"${active === 'technik' ? ' class="is-active"' : ''}>Kästen &amp; Tanks</a>
     <a href="#/ablesung"${active === 'ablesung' ? ' class="is-active"' : ''}>Ablesen</a>
     <a href="#/verbrauch"${active === 'verbrauch' ? ' class="is-active"' : ''}>Verbrauch</a>
     <a href="#/auslastung"${active === 'auslastung' ? ' class="is-active"' : ''}>Auslastung</a></div>`;
@@ -2077,7 +2085,7 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head"><h1>Zähler</h1></div>
-          ${zaehlerTabs('auslastung')}
+          ${infraTabs('auslastung')}
           <p class="small muted" style="margin-top:-4px">Ø Stromverbrauch pro Monat, berechnet aus den letzten beiden Ablesungen je Zähler. „Ø kW“ ist die daraus abgeleitete mittlere Dauerlast – kurze Spitzen sind höher.</p>
           <div class="summary">
             <div class="stat"><div class="v">${fmtNum(Math.round(boxes.reduce((s, x) => s + x.total, 0)))} kWh</div><div class="l">Ø pro Monat, alle Kästen</div></div>
@@ -2159,11 +2167,29 @@
           </div>
           ${this.planDiff()}
           ${d.demo && S.mode === 'local' ? '<p class="notice"><strong>Demo-Daten:</strong> Alle Namen, Nummern und Zählerstände sind erfunden und dienen nur zum Ausprobieren.</p>' : ''}
-          <div class="cards">
+          <div class="cards cards-2">
+            <section class="card">
+              <h2>Sicherung</h2>
+              <div class="card-actions" style="margin-top:0">
+                <button class="btn" id="d-export">${ICON.download} Sicherung exportieren</button>
+                <label class="btn btn-ghost" style="cursor:pointer">${ICON.upload} Sicherung importieren<input type="file" id="d-import" accept="application/json,.json" hidden></label>
+              </div>
+              <p class="small muted">Kompletter Stand als Datei (für den Notfall). Beim Import wird der aktuelle Stand ersetzt.</p>
+            </section>
+            <section class="card">
+              <h2>Export (Excel)</h2>
+              <div class="card-actions" style="margin-top:0">
+                <button class="btn" id="d-readings">${ICON.download} Zählerstände</button>
+                <button class="btn btn-ghost" id="d-csv">${ICON.download} Mieterliste</button>
+              </div>
+              <p class="small muted">Zählerstände: Parzelle, Mieter, Zählernummer, die letzten beiden Stände mit Ablesedatum und die Differenz.</p>
+            </section>
+          </div>
+          <div class="cards cards-account">
             ${S.mode === 'cloud' ? `
             <section class="card">
               <h2>Konto</h2>
-              <dl class="facts">
+              <dl class="facts facts-wide">
                 <dt>Angemeldet als</dt><dd>${h(Cloud.user && Cloud.user.email)}</dd>
                 <dt>Speicherort</dt><dd>Zentrale Datenbank</dd>
                 <dt>Stand geladen</dt><dd>${new Date(S.lastFetch).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</dd>
@@ -2179,27 +2205,12 @@
               <p class="small muted">Sobald in <code>js/config.js</code> die Supabase-Zugangsdaten eingetragen sind, erscheint eine Anmeldung und alle Geräte arbeiten mit demselben Datenbestand (siehe SETUP.md).</p>
             </section>`}
             <section class="card">
-              <h2>Sicherung</h2>
-              <div class="card-actions" style="margin-top:0">
-                <button class="btn" id="d-export">${ICON.download} Sicherung exportieren</button>
-                <label class="btn btn-ghost" style="cursor:pointer">${ICON.upload} Sicherung importieren<input type="file" id="d-import" accept="application/json,.json" hidden></label>
-              </div>
-              <p class="small muted">Export als JSON-Datei. Beim Import wird der aktuelle Stand ersetzt.</p>
-            </section>
-            <section class="card">
-              <h2>Listen exportieren</h2>
-              <div class="card-actions" style="margin-top:0">
-                <button class="btn btn-ghost" id="d-csv">${ICON.download} Kartei als CSV (Excel)</button>
-              </div>
-            </section>
-            <section class="card">
               <h2>Zurücksetzen</h2>
               <div class="card-actions" style="margin-top:0">
-                <button class="btn btn-ghost" id="d-plan">Alles durch leere Lageplan-Parzellen ersetzen</button>
                 <button class="btn btn-ghost" id="d-demo">Demo-Daten laden</button>
                 <button class="btn btn-danger" id="d-clear">Alles leeren</button>
               </div>
-              <p class="small muted">${S.mode === 'cloud' ? '<strong>Achtung:</strong> Beides überschreibt die zentrale Datenbank für alle Benutzer' : 'Beides überschreibt den aktuellen Stand'} – vorher eine Sicherung exportieren!</p>
+              <p class="small muted">${S.mode === 'cloud' ? '<strong>Achtung:</strong> überschreibt die zentrale Datenbank für alle Benutzer' : 'Überschreibt den aktuellen Stand'} – vorher eine Sicherung exportieren!</p>
             </section>
           </div>
         </div>`;
@@ -2218,6 +2229,18 @@
         };
         reader.readAsText(file);
       };
+      $('#d-readings', root).onclick = () => {
+        const rows = [['Parzelle', 'Mieter', 'Art', 'Zählernummer', 'Zählerort', 'Sicherung', 'Vorletzter Stand', 'Datum vorletzter Stand', 'Letzter Stand', 'Datum letzter Stand', 'Differenz', 'Einheit']];
+        S.sortMeters([...S.data.meters]).forEach((m) => {
+          const p = S.parcel(m.parcelId);
+          const rs = S.readingsOf(m.id);
+          const a = rs[rs.length - 2], b = rs[rs.length - 1];
+          rows.push([p ? p.nr : S.isFreeMeter(m) ? 'frei' : 'Betrieb', p ? p.tenant.name : S.purposeText(m), m.type === 'strom' ? 'Strom' : 'Gas',
+            m.number, S.meterPlace(m), S.fusesText(m), a ? a.value : '', a ? fmtDate(a.date) : '', b ? b.value : '', b ? fmtDate(b.date) : '',
+            a && b ? b.value - a.value : '', unit(m.type)]);
+        });
+        download(`zaehlerstaende-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
+      };
       $('#d-csv', root).onclick = () => {
         const rows = [['Parzelle', 'Status', 'Objektart', 'Mieter', 'Telefon', 'E-Mail', 'Anschrift', 'Größe (m²)', 'Pacht/Miete mtl. (€)',
           'Winterwasser', 'Bewohner', 'Hunde', 'Mietbeginn', 'Frei ab', 'Heizung', 'Gas', 'Gastank', 'Stromzähler', 'Zählerort', 'Sicherungen', 'Gaszähler', 'Notizen']];
@@ -2230,7 +2253,7 @@
             st.map((m) => m.number).join(', '), st.map((m) => S.meterPlace(m)).join(', '), st.map((m) => S.fusesText(m)).filter(Boolean).join('; '),
             gs.map((m) => m.number).join(', '), p.notes]);
         });
-        download(`kartei-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
+        download(`mieterliste-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
       };
       // In der Datenbank nur nach ausdrücklicher Bestätigung überschreiben
       const reallyOverwrite = (what) => S.mode !== 'cloud'
@@ -2244,11 +2267,6 @@
         S.applyPlanSync(sync);
         toast('Neue Parzellennummern übernommen');
         this.render(root);
-      };
-      $('#d-plan', root).onclick = () => {
-        const n = (window.PLAN_DATA && window.PLAN_DATA.parcels.length) || 0;
-        if (!reallyOverwrite(`Alle Daten durch die ${n} leeren Parzellen aus dem Lageplan ersetzen (ohne Mieter, Zähler und Kästen)`)) return;
-        S.resetToPlan(); toast(`${n} Parzellen übernommen`); this.render(root);
       };
       const refresh = $('#d-refresh', root);
       if (refresh) refresh.onclick = async () => {
@@ -2398,7 +2416,7 @@
           <div class="filters filters-todo">
             <div class="search">${ICON.search}<input type="search" id="t-q" placeholder="Titel, Beschreibung, Ort…" value="${h(this.q)}" aria-label="To-Dos durchsuchen"></div>
             <select id="t-kind" aria-label="Ort filtern">
-              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['airbnb', 'Ferienunterkünfte'], ['allgemein', 'Allgemein']]
+              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['airbnb', 'airbnb'], ['allgemein', 'Allgemein']]
                 .map(([k, l]) => `<option value="${k}"${this.kind === k ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
             <select id="t-who" aria-label="Zuständig filtern">
@@ -2675,18 +2693,18 @@
       const monday = new Date(t); monday.setDate(t.getDate() - ((t.getDay() + 6) % 7));
       const start = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
       const notice = {
-        demo: '<p class="notice"><strong>Testmodus:</strong> Die Belegung ist erfunden. In der echten App kommt sie live aus den Airbnb-Kalendern.</p>',
-        missing: `<p class="notice"><strong>Einmal einrichten:</strong> Die Supabase-Funktion <code>airbnb-kalender</code> fehlt noch. Anleitung in <code>SETUP.md</code> (Abschnitt „Airbnb-Kalender“).</p>`,
+        demo: '<p class="notice"><strong>Testmodus:</strong> Die Belegung ist erfunden. In der echten App kommt sie live aus den airbnb-Kalendern.</p>',
+        missing: `<p class="notice"><strong>Einmal einrichten:</strong> Die Supabase-Funktion <code>airbnb-kalender</code> fehlt noch. Anleitung in <code>SETUP.md</code> (Abschnitt „Airbnb-Kalender einrichten“).</p>`,
         needsUpdate: '<p class="notice"><strong>Datenbank-Update nötig:</strong> bitte <code>supabase/update-7.sql</code> im Supabase „SQL Editor“ ausführen und die App neu laden.</p>',
         error: `<p class="notice"><strong>Kalender konnten nicht geladen werden:</strong> ${h(Airbnb.error)}</p>`,
       }[st] || '';
       root.innerHTML = `
         <div class="page">
           <div class="page-head">
-            <h1>Airbnb</h1>
+            <h1>airbnb</h1>
             <button class="btn btn-ghost" id="ab-refresh">${st === 'loading' ? 'Lädt …' : 'Aktualisieren'}</button>
           </div>
-          <p class="muted small" style="margin-top:-6px">Belegung aus den Airbnb-Kalendern (ohne Gästedaten)${Airbnb.fetchedAt ? ` · Stand ${new Date(Airbnb.fetchedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr` : ''}. Airbnb aktualisiert die Kalender mit einigen Stunden Verzögerung.</p>
+          <p class="muted small" style="margin-top:-6px">Belegung aus den airbnb-Kalendern (ohne Gästedaten)${Airbnb.fetchedAt ? ` · Stand ${new Date(Airbnb.fetchedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr` : ''}. airbnb aktualisiert die Kalender mit einigen Stunden Verzögerung.</p>
           ${notice}
           ${units.length ? `
           <div class="ab-cards">${units.map((o) => {
@@ -2705,7 +2723,7 @@
             <div class="card-title-row"><h2>Belegung der nächsten ${this.weeks} Wochen</h2>
               <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>geblockt</span><span><i class="free"></i>frei</span></div></div>
             ${Airbnb.timelineHtml(units, start, this.weeks * 7)}
-          </section>` : '<p class="muted">Noch keine Ferienunterkunft angelegt. Auf der Karte unter „Bearbeiten“ → „+ Ort“ eine Unterkunft (Londonbus, Glampingzelt, Bäckerwagen …) anlegen.</p>'}
+          </section>` : '<p class="muted">Noch keine Ferienunterkunft angelegt. Auf der Map unter „Bearbeiten“ → „+ Ort“ eine Unterkunft (Londonbus, Glampingzelt, Bäckerwagen …) anlegen.</p>'}
         </div>`;
       $('#ab-refresh', root).onclick = () => Airbnb.load(true);
       Airbnb.load();
@@ -2720,7 +2738,7 @@
     const params = new URLSearchParams(query || '');
     const viewMap = $('#view-karte');
     const viewPage = $('#view-page');
-    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', todos: 'todos', todo: 'todos', airbnb: 'airbnb', technik: 'technik', kasten: 'technik', ablesung: 'ablesung', verbrauch: 'ablesung', auslastung: 'ablesung', daten: 'daten' }[parts[0]] || 'karte';
+    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', todos: 'todos', todo: 'todos', airbnb: 'airbnb', technik: 'technik', kasten: 'technik', ablesung: 'technik', verbrauch: 'technik', auslastung: 'technik', daten: 'daten' }[parts[0]] || 'karte';
     $$('.tabbar a').forEach((a) => a.classList.toggle('is-active', a.dataset.nav === nav));
 
     if (nav === 'karte') {
@@ -2736,7 +2754,7 @@
         MapView.select(null);
         MapUI.hidePanel();
       }
-      document.title = 'Karte · Platzverwaltung';
+      document.title = 'Map · Platzverwaltung';
       return;
     }
 
@@ -2745,7 +2763,7 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { airbnb: 'Airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Kartei', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Technik', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
+    const titles = { airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Mieter', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
     switch (parts[0]) {
@@ -2786,6 +2804,8 @@
       return;
     }
     const st = S.sync.state;
+    // Normalfall (alles gespeichert) braucht keine Anzeige – nur "Speichert …" und Fehler
+    if (st !== 'saving' && st !== 'error') { el.hidden = true; return; }
     el.className = 'sync' + (st === 'saving' ? ' is-saving' : st === 'error' ? ' is-error' : ' is-ok');
     el.innerHTML = `<span>${st === 'saving' ? 'Speichert …' : st === 'error' ? 'Nicht gespeichert' : 'Gespeichert'}</span>`;
     el.setAttribute('aria-label', el.textContent);

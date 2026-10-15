@@ -13,11 +13,11 @@
 
   // Reihenfolge = Reihenfolge in Auswahllisten und Legende
   const STATUS = {
-    fest:       { label: 'Festwohnsitz',           short: 'Fest',            color: '#1f4e8c' },
-    wochenende: { label: 'Wochenendparzelle',      short: 'Wochenende',      color: '#6fa8dc' },
+    fest:       { label: 'Festwohnsitz',           short: 'Festwohnsitz',        color: '#1f4e8c' },
+    wochenende: { label: 'Freizeitgrundstück',     short: 'Freizeitgrundstück',  color: '#6fa8dc' },
     reserviert: { label: 'Reserviert',             short: 'Reserviert',      color: '#2b6a33' },
     leer:       { label: 'Frei – bezugsfertig',    short: 'Frei',            color: '#6cbf5a', free: true },
-    altbestand: { label: 'Frei – noch zu räumen',  short: 'Noch zu räumen',  color: '#ec8a2c', free: true },
+    altbestand: { label: 'Frei – zu räumen',       short: 'Zu räumen',           color: '#ec8a2c', free: true },
   };
   // Bewohnt, aber Auszugstermin steht fest → diagonal zweifarbig (Status / frei)
   const MOVE_OUT_COLOR = STATUS.leer.color;
@@ -73,7 +73,7 @@
     // Ferienunterkünfte (Airbnb): Draufsicht auf der Karte, Kalender mit Belegung
     londonbus: { label: 'Londonbus', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M5 3h14a1 1 0 0 1 1 1v13H4V4a1 1 0 0 1 1-1z M4 10h16 M7 20v-3 M17 20v-3 M7 13.5h.01 M17 13.5h.01"/></svg>', airbnb: true },
     glamping: { label: 'Glampingzelt', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 20L12 4l9 16z M12 4v16 M9 20l3-6 3 6"/></svg>', airbnb: true },
-    baeckerwagen: { label: 'Bäckerwagen', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M4 7q8-4 16 0v9H4z M8 10h3v3H8z M1 15l3-1 M7.5 18.5a1.5 1.5 0 1 0 .01 0 M16.5 18.5a1.5 1.5 0 1 0 .01 0"/></svg>', airbnb: true },
+    baeckerwagen: { label: 'Bäckerwagen', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M2 6h12v11H2z M14 9h4.5l3.5 4v4h-8 M6.5 19.5a1.8 1.8 0 1 0 .01 0 M17.5 19.5a1.8 1.8 0 1 0 .01 0 M15.5 11h3"/></svg>', airbnb: true },
     unterkunft: { label: 'Ferienunterkunft (sonstige)', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 11l9-7 9 7 M5 10v10h14V10 M10 20v-5h4v5"/></svg>', airbnb: true },
   };
 
@@ -258,7 +258,12 @@
   const Store = {
     STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, AIRBNB_DEFAULTS, supplyOf, uid, compareNr,
     isAirbnb: (o) => !!(o && (PLACE_KINDS[o.kind] || {}).airbnb),
-    airbnbs() { return this.data.places.filter((o) => this.isAirbnb(o)).sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })); },
+    // Reihenfolge: Londonbusse, Glampingzelte, Bäckerwagen, sonstige – innerhalb nach Name
+    airbnbs() {
+      const order = ['londonbus', 'glamping', 'baeckerwagen', 'unterkunft'];
+      return this.data.places.filter((o) => this.isAirbnb(o))
+        .sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.name.localeCompare(b.name, 'de', { numeric: true }));
+    },
     // Inserats-Link aus dem Kalender-Link ableiten (…/calendar/ical/123.ics → …/rooms/123)
     listingUrl(o) {
       const m = String(o.icalUrl || '').match(/^https:\/\/(www\.airbnb\.[a-z.]+)\/calendar\/ical\/(\d+)\.ics/);

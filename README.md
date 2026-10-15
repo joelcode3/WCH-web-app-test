@@ -20,7 +20,7 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
     (Ecken antippen, rastet auf rechte Winkel ein), Umrisse neu zeichnen,
     Parzellen **teilen** (Trennlinie ziehen) und mit dem Nachbarn **verbinden**
   - Bedienung: Mausrad zoomt, Trackpad mit zwei Fingern verschiebt, Kneifen zoomt
-- **Kartei** – alle Parzellen mit Suche und Filtern (Status, Versorgung, Objektart, Winterwasser);
+- **Mieter** (früher Kartei) – alle Parzellen mit Suche und Filtern (Status, Versorgung, Objektart, Winterwasser);
   Karteikarte mit Mieter, Objektart (Pachtgrundstück / Mietobjekt), monatlicher Pacht/Miete,
   Winterwasser, Strom, Gas & Heizung, Notizen und Ablesehistorie; Formular zum Bearbeiten
   (beliebig viele Strom-/Gaszähler je Parzelle, Zähler im Kasten oder im Haus) mit Warnung bei
@@ -46,7 +46,7 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
   in Originalgröße auf der Karte (im Bearbeiten-Modus verschieb- und drehbar), Punkt = heute belegt
   (grün) / frei (weiß) / geblockt (grau). Infofenster mit Foto, Monatskalender, Link zum Inserat und To-Dos. Reiter „Airbnb“: alle Unterkünfte mit Belegung der
   nächsten 9 Wochen. Belegung live aus den Airbnb-Kalendern (Supabase-Funktion `airbnb-kalender`)
-- **Technik** – Stromkästen und Gastanks; pro Kasten alle Zähler verwalten und entweder einer
+- **Infrastruktur** (früher Technik, mit Unterreitern Ablesen / Verbrauch / Auslastung) – Stromkästen und Gastanks; pro Kasten alle Zähler verwalten und entweder einer
   Parzelle zuordnen oder als **Betriebsstrom** kennzeichnen (Platzbeleuchtung, Sanitär, Camperstrom …)
 - **Zähler**
   - *Ablesen*: Zählerstände je Kasten/Tank eintippen, sofortiger Abgleich mit dem
