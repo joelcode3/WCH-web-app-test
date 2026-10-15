@@ -1671,7 +1671,8 @@
      ====================================================================== */
 
   const Technik = {
-    render(root) {
+    // typ: 'strom' (Stromkästen, Zähler im Haus) | 'gas' (Gastanks, Gasflaschen)
+    render(root, typ = 'strom') {
       const boxes = S.boxesSorted();
       const tanks = S.tanksSorted();
       const unassigned = S.data.meters.filter((m) => m.type === 'strom' && !m.inHouse && !S.box(m.boxId));
@@ -1689,7 +1690,8 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head"><h1>Infrastruktur</h1></div>
-          ${infraTabs('technik')}
+          ${infraTabs(typ === 'gas' ? 'gas' : 'technik')}
+          ${typ === 'strom' ? `
           ${unassigned.length ? `<p class="notice">${unassigned.length} Stromzähler sind keinem Kasten zugeordnet: ${unassigned.map((m) => { const p = S.parcel(m.parcelId); return p ? chip(p) : h(S.purposeText(m)); }).join(' ')}</p>` : ''}
           <div class="page-head section-head">
             <h2>Stromkästen</h2>
@@ -1721,6 +1723,7 @@
             </section>
           </div>
 
+          ` : `
           <div class="page-head section-head">
             <h2>Gastanks</h2>
             <button class="btn btn-sm" data-new="tank">${ICON.plus} Gastank</button>
@@ -1747,11 +1750,13 @@
             <p class="small muted" style="margin:0 0 8px">Parzellen, die mit Gasflaschen versorgt werden (kein Zähler)</p>
             ${rows(S.parcelsSorted().filter((p) => p.gas === 'bottle')) || '<p class="muted small">–</p>'}
           </div>
+          `}
         </div>`;
 
       const rerender = () => this.render(root);
-      $('[data-new=box]', root).onclick = () => Actions.newBox(false);
-      $('[data-new=tank]', root).onclick = () => Actions.newTank(false);
+      const nb = $('[data-new=box]', root), nt = $('[data-new=tank]', root);
+      if (nb) nb.onclick = () => Actions.newBox(false);
+      if (nt) nt.onclick = () => Actions.newTank(false);
       $$('[data-edit-box]', root).forEach((b) => b.onclick = () => Actions.editBox(b.dataset.editBox));
       $$('[data-edit-tank]', root).forEach((b) => b.onclick = () => Actions.editTank(b.dataset.editTank));
       $$('[data-place-box]', root).forEach((b) => b.onclick = () => Actions.placeBox(b.dataset.placeBox));
@@ -2041,7 +2046,8 @@
   }
 
   const infraTabs = (active) => `<div class="tabs">
-    <a href="#/technik"${active === 'technik' ? ' class="is-active"' : ''}>Kästen &amp; Tanks</a>
+    <a href="#/technik"${active === 'technik' ? ' class="is-active"' : ''}>Strom</a>
+    <a href="#/technik/gas"${active === 'gas' ? ' class="is-active"' : ''}>Gas</a>
     <a href="#/ablesung"${active === 'ablesung' ? ' class="is-active"' : ''}>Ablesen</a>
     <a href="#/verbrauch"${active === 'verbrauch' ? ' class="is-active"' : ''}>Verbrauch</a>
     <a href="#/auslastung"${active === 'auslastung' ? ' class="is-active"' : ''}>Auslastung</a></div>`;
@@ -2776,7 +2782,7 @@
       case 'todos': Todos.render(viewPage, params); break;
       case 'airbnb': AirbnbView.render(viewPage); break;
       case 'todo': TodoEdit.render(viewPage, parts[1] === 'neu' ? null : parts[1], params); break;
-      case 'technik': Technik.render(viewPage); break;
+      case 'technik': Technik.render(viewPage, parts[1] === 'gas' ? 'gas' : 'strom'); break;
       case 'kasten': BoxEdit.render(viewPage, parts[1]); break;
       case 'ablesung': Ablesung.render(viewPage, params); break;
       case 'verbrauch': Verbrauch.render(viewPage); break;
@@ -2862,7 +2868,7 @@
       MapView.render();
       const sel = MapView.selected;
       if (!$('#view-karte').hidden && sel) MapUI.showPanel(sel.type, sel.id);
-      if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'));
+      if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'), location.hash.startsWith('#/technik/gas') ? 'gas' : 'strom');
       if (!$('#view-page').hidden && location.hash.startsWith('#/todos')) Todos.renderList();
       renderTodoBadge();
     });
