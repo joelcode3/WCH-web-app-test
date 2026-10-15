@@ -352,6 +352,7 @@
             ${cb('boxes', `${ICON.strom} Stromkästen`)}
             ${cb('tanks', `${ICON.gas} Gastanks`)}
             ${cb('places', '<span class="legend-emoji">📍</span> Orte / Gebäude')}
+            ${cb('airbnb', '<span class="legend-emoji">📷</span> Ferienunterkünfte')}
             ${cb('todos', '<span class="pb pb-todo">✓1</span> Offene To-Dos')}
             ${cb('ww', '<span class="pb pb-ww">WW</span> Winterwasser')}
             ${cb('persons', `<span class="pb pb-icons pb-person">${MapView.icons.person}</span> Bewohner`)}
@@ -494,7 +495,9 @@
       $('.close', panel).onclick = () => { location.hash = '#/karte'; };
       $$('[data-goto]', panel).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
       $$('[data-action]', panel).forEach((el) => el.addEventListener('click', () => Actions[el.dataset.action](el.dataset.id)));
-      $('.panel-body', panel).scrollTop = 0;
+      if (type === 'place' && S.isAirbnb(S.place(id))) this.bindAirbnbPanel(panel, S.place(id));
+      if (this._panelKey !== type + id) $('.panel-body', panel).scrollTop = 0;
+      this._panelKey = type + id;
     },
 
     hidePanel() { $('#map-panel').hidden = true; },
@@ -616,8 +619,71 @@
         </div>`;
     },
 
+    // Ferienunterkunft: Polaroid, Belegung heute, Monatskalender, To-Dos
+    airbnbPanel(o) {
+      const kind = S.PLACE_KINDS[o.kind];
+      if (!this.calMonth || this.calMonth.id !== o.id) { const d = new Date(); this.calMonth = { id: o.id, y: d.getFullYear(), m: d.getMonth() }; }
+      const st = Airbnb.status(o);
+      const listing = S.listingUrl(o);
+      return `
+        <div class="panel-head">
+          <span class="pin pin-place" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i></span>
+          <div class="title"><h2>${h(o.name || kind.label)}</h2><span class="muted small">${h(kind.label)} · Airbnb</span></div>
+          <button class="close" aria-label="Schließen">${ICON.close}</button>
+        </div>
+        <div class="panel-body">
+          <div class="airbnb-top">
+            <label class="pol-wrap" title="Foto ändern">${Airbnb.polaroidHtml(o, { big: true, noDot: true })}
+              <span class="pol-change">${o.photo ? 'Foto ändern' : '+ Foto'}</span><input type="file" accept="image/*" hidden data-place-photo></label>
+            <div class="airbnb-status"><span class="state-chip is-${st.cls}"><i class="pol-dot is-${st.cls}"></i>${h(st.text)}</span>
+              ${listing ? `<a class="small" href="${h(listing)}" target="_blank" rel="noopener">Inserat bei Airbnb öffnen ↗</a>` : ''}
+              ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
+              ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}</div>
+          </div>
+          <div id="airbnb-cal">${Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m)}</div>
+          ${o.notes ? `<p class="small" style="margin:8px 0 0;white-space:pre-line">${h(o.notes)}</p>` : ''}
+          ${todoSection('place', o.id, true)}
+        </div>
+        <div class="panel-actions">
+          <button class="btn" data-goto="#/todo/neu?ziel=place:${o.id}&${backParam()}">${ICON.plus} To-Do</button>
+          <button class="btn btn-ghost" data-action="editPlace" data-id="${o.id}">${ICON.edit} Bearbeiten</button>
+        </div>`;
+    },
+
+    bindAirbnbPanel(panel, o) {
+      const cal = $('#airbnb-cal', panel);
+      cal.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-cal]');
+        if (!b) return;
+        const d = new Date(this.calMonth.y, this.calMonth.m + +b.dataset.cal, 1);
+        this.calMonth = { id: o.id, y: d.getFullYear(), m: d.getMonth() };
+        cal.innerHTML = Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m);
+      });
+      const inp = $('[data-place-photo]', panel);
+      if (inp) inp.onchange = async () => {
+        const file = inp.files[0];
+        inp.value = '';
+        if (!file || blockIfMissing()) return;
+        if (S.mode === 'cloud' && Cloud.missingCols.has('places.photo')) { alert('Für Fotos bitte zuerst supabase/update-7.sql ausführen.'); return; }
+        $('.pol-change', panel).textContent = 'lädt …';
+        try {
+          const old = o.photo;
+          o.photo = await Photos.add(`ort-${o.id}`, file);
+          delete Airbnb.photoUrls[o.id];
+          S.save();
+          if (old) Photos.remove([old]);
+          await loadPlacePhotos();
+          toast('Foto gespeichert');
+        } catch (err) {
+          alert(`Foto konnte nicht gespeichert werden:\n${err.message || err}`);
+          $('.pol-change', panel).textContent = '+ Foto';
+        }
+      };
+    },
+
     placePanel(o) {
       if (!o) return '';
+      if (S.isAirbnb(o)) return this.airbnbPanel(o);
       const kind = S.PLACE_KINDS[o.kind] || S.PLACE_KINDS.sonstiges;
       return `
         <div class="panel-head">
@@ -734,6 +800,7 @@
         fields: [
           { name: 'kind', label: 'Art', type: 'select', value: o ? o.kind : 'sanitaer', options: Object.entries(S.PLACE_KINDS).map(([k, v]) => [k, `${v.icon} ${v.label}`]) },
           { name: 'name', label: 'Name', value: o ? o.name : '', placeholder: 'z. B. Sanitärgebäude 2', required: true },
+          { name: 'icalUrl', label: 'Airbnb-Kalender-Link (endet auf .ics)', value: o ? o.icalUrl : '', placeholder: 'https://www.airbnb.de/calendar/ical/….ics?t=…' },
           { name: 'notes', label: 'Notizen', type: 'textarea', value: o ? o.notes : '' },
         ],
         submitLabel: o ? 'Speichern' : 'Weiter: auf Karte setzen',
@@ -741,13 +808,21 @@
             <button type="button" class="btn btn-ghost btn-sm" data-move>Neu platzieren</button>
             <button type="button" class="btn btn-danger btn-sm" data-del>${ICON.trash} Ort löschen</button></div>` : '',
         onSubmit: (v) => {
-          const data = { kind: v.kind, name: v.name.trim(), notes: v.notes.trim() };
-          if (o) { Object.assign(o, data); S.save(); toast('Gespeichert'); return; }
+          const ical = S.PLACE_KINDS[v.kind].airbnb ? v.icalUrl.trim() : '';
+          if (ical && !/^https:\/\/[^ ]+\.ics(\?|$)/i.test(ical)) { toast('Der Kalender-Link muss mit https:// beginnen und .ics enthalten'); return false; }
+          const data = { kind: v.kind, name: v.name.trim(), notes: v.notes.trim(), icalUrl: ical };
+          if (o) {
+            const changed = o.icalUrl !== data.icalUrl;
+            Object.assign(o, data); S.save(); toast('Gespeichert');
+            if (changed) setTimeout(() => Airbnb.load(true), 800);   // erst speichern, dann Kalender neu holen
+            return;
+          }
           const neu = { id: S.uid('o'), pos: null, ...data };
           if (!location.hash.startsWith('#/karte')) location.hash = '#/karte';
           setTimeout(() => {
             MapView.startPlace((pt) => {
               neu.pos = pt; S.data.places.push(neu); S.save();
+              if (neu.icalUrl) setTimeout(() => Airbnb.load(true), 800);
               go(`#/karte/place/${neu.id}`);
               toast(`${neu.name} platziert`);
             });
@@ -759,6 +834,10 @@
       // Namen aus der Art vorschlagen, solange noch nichts eingetragen ist
       const dlg = $('#dialog');
       const kind = $('[name=kind]', dlg), name = $('[name=name]', dlg);
+      const icalField = $('[name=icalUrl]', dlg).closest('.field');
+      const syncIcal = () => { icalField.hidden = !S.PLACE_KINDS[kind.value].airbnb; };
+      kind.addEventListener('change', syncIcal);
+      syncIcal();
       if (!o) {
         const suggest = () => {
           const base = S.PLACE_KINDS[kind.value].label.split(' /')[0];
@@ -767,7 +846,7 @@
         };
         let auto = suggest();
         name.value = auto;
-        kind.onchange = () => { if (!name.value || name.value === auto) { auto = suggest(); name.value = auto; } };
+        kind.addEventListener('change', () => { if (!name.value || name.value === auto) { auto = suggest(); name.value = auto; } });
       }
       const del = $('[data-del]', dlg);
       if (del) del.onclick = () => {

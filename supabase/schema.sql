@@ -276,6 +276,14 @@ grant execute on function public.ping() to anon, authenticated;
 notify pgrst, 'reload schema';
 
 -- --------------------------------------------------------------------------
+-- Update 7 (Ferienunterkünfte: Kalender-Link und Foto)
+-- --------------------------------------------------------------------------
+alter table public.places add column if not exists ical_url text not null default '';
+alter table public.places add column if not exists photo    jsonb;
+
+notify pgrst, 'reload schema';
+
+-- --------------------------------------------------------------------------
 -- WICHTIG: eigene E-Mail-Adresse(n) freischalten (Zeile anpassen & ausführen)
 -- --------------------------------------------------------------------------
 -- insert into public.team (email, name) values ('vorname@beispiel.de', 'Vorname Nachname')

@@ -54,7 +54,7 @@
     map: null,
     colorMode: 'status',   // 'status' | 'supply'
     // Ebenen & Symbole zum An-/Abwählen
-    show: { boxes: true, tanks: true, places: true, todos: true, aerial: false, ww: false, dogs: false, persons: false, miet: false, pacht: false },
+    show: { boxes: true, tanks: true, places: true, airbnb: true, todos: true, aerial: false, ww: false, dogs: false, persons: false, miet: false, pacht: false },
     // Beim Zeichnen auf rechte Winkel einrasten? Standard: Freiform; Wahl wird gemerkt
     snap: (() => { try { return localStorage.getItem('wch-snap') === '1'; } catch (_) { return false; } })(),
     editMode: false,
@@ -148,6 +148,8 @@
       // Grundgröße je Zoomstufe; während einer Geste skaliert die ganze Ebene mit
       c.style.setProperty('--lbl-s', (px / LABEL_FONT).toFixed(3));
       // Kästen/Tanks: ab Zoom 0.5 volle Größe, darunter kleiner (mind. 28 %)
+      // Polaroids: etwas größer als die Kasten-Symbole, aber auch kleiner beim Rauszoomen
+      c.style.setProperty('--pol-s', Math.max(0.4, Math.min(1.15, 0.62 * Math.pow(2, z * 0.7) + 0.08)).toFixed(3));
       c.style.setProperty('--pin-s', Math.max(0.28, Math.min(1, 0.55 * Math.pow(2, z * 0.8) + 0.05)).toFixed(3));
       const flags = { 'labels-hidden': px < LABEL_MIN, 'labels-small': z < -0.4, 'labels-tiny': z < -1.1 };
       Object.entries(flags).forEach(([cls, on]) => { if (c.classList.contains(cls) !== on) c.classList.toggle(cls, on); });
@@ -264,18 +266,22 @@
         });
       }
 
-      if (this.show.places) {
+      if (this.show.places || this.show.airbnb) {
         Store.data.places.forEach((o) => {
           if (!o.pos) return;
+          if (!(Store.isAirbnb(o) ? this.show.airbnb : this.show.places)) return;
           const isSel = sel && sel.type === 'place' && sel.id === o.id;
           const kind = Store.PLACE_KINDS[o.kind] || Store.PLACE_KINDS.sonstiges;
           const name = o.name || kind.label;
+          const airbnb = kind.airbnb && window.Airbnb;
           const m = L.marker(toLL(o.pos), {
             icon: L.divIcon({
               className: '',
-              html: `<div class="pin pin-place${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
-              iconSize: [0, 28],
-              iconAnchor: [0, 14],
+              html: airbnb
+                ? `<div class="pin-polaroid${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}">${window.Airbnb.polaroidHtml(o)}${todoDot('place', o.id)}</div>`
+                : `<div class="pin pin-place${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
+              iconSize: [0, airbnb ? 0 : 28],
+              iconAnchor: [0, airbnb ? 0 : 14],
             }),
             draggable: this.editMode && !this.mode,
             zIndexOffset: isSel ? 1000 : 300,

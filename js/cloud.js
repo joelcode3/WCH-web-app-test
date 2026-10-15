@@ -73,8 +73,10 @@
     {
       key: 'places',
       optional: true,
-      toRow: (o) => ({ id: o.id, name: o.name || '', kind: o.kind || 'sonstiges', pos: o.pos || null, notes: o.notes || '' }),
-      fromRow: (r) => ({ id: r.id, name: r.name || '', kind: r.kind || 'sonstiges', pos: r.pos, notes: r.notes || '' }),
+      toRow: (o) => ({ id: o.id, name: o.name || '', kind: o.kind || 'sonstiges', pos: o.pos || null, notes: o.notes || '',
+        ical_url: o.icalUrl || '', photo: o.photo || null }),
+      fromRow: (r) => ({ id: r.id, name: r.name || '', kind: r.kind || 'sonstiges', pos: r.pos, notes: r.notes || '',
+        icalUrl: r.ical_url || '', photo: r.photo || null }),
     },
     {
       key: 'todos',
@@ -95,7 +97,7 @@
   ];
 
   // Spalten aus späteren Updates: fehlen sie noch, werden sie beim Speichern weggelassen
-  const OPTIONAL_COLS = { meters: ['fuses', 'fuse_box_id'] };
+  const OPTIONAL_COLS = { meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo'] };
 
   const PAGE = 1000;
   const BUCKET = 'todo-fotos';
@@ -232,6 +234,19 @@
       }
       return changes;
     },
+  };
+
+  /* ---------- Airbnb-Kalender (Supabase Edge Function "airbnb-kalender") ---------- */
+  // liefert { units: [{ id, events: [{ start, end, type }] | error }], fetchedAt } – wirft bei fehlender Funktion 'missing'
+  Cloud.calendars = async function () {
+    const { data, error } = await Cloud.client.functions.invoke('airbnb-kalender', { body: {} });
+    if (error) {
+      const status = error.context && error.context.status;
+      const e = new Error(status === 404 ? 'missing' : (error.message || 'Fehler'));
+      e.status = status;
+      throw e;
+    }
+    return data;
   };
 
   /* ---------- Fotos (Supabase Storage, privater Ordner "todo-fotos") ---------- */
