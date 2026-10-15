@@ -54,11 +54,11 @@
     map: null,
     colorMode: 'status',   // 'status' | 'supply'
     // Ebenen & Symbole zum An-/Abwählen
-    show: { boxes: true, tanks: true, aerial: false, ww: false, dogs: false, persons: false, miet: false, pacht: false },
+    show: { boxes: true, tanks: true, places: true, todos: true, aerial: false, ww: false, dogs: false, persons: false, miet: false, pacht: false },
     // Beim Zeichnen auf rechte Winkel einrasten? Standard: Freiform; Wahl wird gemerkt
     snap: (() => { try { return localStorage.getItem('wch-snap') === '1'; } catch (_) { return false; } })(),
     editMode: false,
-    selected: null,        // { type: 'parcel'|'box'|'tank', id }
+    selected: null,        // { type: 'parcel'|'box'|'tank'|'place', id }
     mode: null,            // null | { kind: 'draw', points, onDone, onCancel } | { kind: 'place', onDone, onCancel }
     handlers: {},          // onSelect(type, id), onClear(), onModeChange()
 
@@ -107,6 +107,7 @@
         parcels: L.layerGroup().addTo(this.map),
         tanks: L.layerGroup().addTo(this.map),
         boxes: L.layerGroup().addTo(this.map),
+        places: L.layerGroup().addTo(this.map),
         draw: L.layerGroup().addTo(this.map),
       };
 
@@ -136,6 +137,8 @@
       const px = Math.min(LABEL_MAX, LABEL_BASE * Math.pow(2, z));
       // Grundgröße je Zoomstufe; während einer Geste skaliert die ganze Ebene mit
       c.style.setProperty('--lbl-s', (px / LABEL_FONT).toFixed(3));
+      // Kästen/Tanks: ab Zoom 0.5 volle Größe, darunter kleiner (mind. 28 %)
+      c.style.setProperty('--pin-s', Math.max(0.28, Math.min(1, 0.55 * Math.pow(2, z * 0.8) + 0.05)).toFixed(3));
       const flags = { 'labels-hidden': px < LABEL_MIN, 'labels-small': z < -0.4, 'labels-tiny': z < -1.1 };
       Object.entries(flags).forEach(([cls, on]) => { if (c.classList.contains(cls) !== on) c.classList.toggle(cls, on); });
     },
@@ -162,6 +165,10 @@
       L_.boxes.clearLayers();
       L_.tanks.clearLayers();
       L_.links.clearLayers();
+      L_.places.clearLayers();
+      const todoCounts = this.show.todos ? Store.openTodoCounts() : new Map();
+      this._todoCounts = todoCounts;
+      const todoDot = (type, id) => { const n = todoCounts.get(`${type}:${id}`); return n ? `<b class="pin-todo" title="${n} offene To-Do${n > 1 ? 's' : ''}">${n}</b>` : ''; };
 
       const linked = this._linkedParcelIds();
       const sel = this.selected;
@@ -209,7 +216,7 @@
           const m = L.marker(toLL(b.pos), {
             icon: L.divIcon({
               className: '',
-              html: `<div class="pin pin-box${isSel ? ' is-selected' : ''}" title="Stromkasten ${b.nr}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>${escapeHtml(b.nr)}</span></div>`,
+              html: `<div class="pin pin-box${isSel ? ' is-selected' : ''}" title="Stromkasten ${b.nr}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>${escapeHtml(b.nr)}</span>${todoDot('box', b.id)}</div>`,
               iconSize: [44, 28],
               iconAnchor: [22, 14],
             }),
@@ -232,7 +239,7 @@
           const m = L.marker(toLL(t.pos), {
             icon: L.divIcon({
               className: '',
-              html: `<div class="pin pin-tank${isSel ? ' is-selected' : ''}" title="Gastank ${t.nr}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-3-1-5 0-8z"/></svg><span>T${escapeHtml(t.nr)}</span></div>`,
+              html: `<div class="pin pin-tank${isSel ? ' is-selected' : ''}" title="Gastank ${t.nr}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-3-1-5 0-8z"/></svg><span>T${escapeHtml(t.nr)}</span>${todoDot('tank', t.id)}</div>`,
               iconSize: [50, 28],
               iconAnchor: [25, 14],
             }),
@@ -246,6 +253,29 @@
           if (isSel) this._drawLinks(t.pos, Store.parcelsOnTank(t.id), '#2f9e74');
         });
       }
+
+      if (this.show.places) {
+        Store.data.places.forEach((o) => {
+          if (!o.pos) return;
+          const isSel = sel && sel.type === 'place' && sel.id === o.id;
+          const kind = Store.PLACE_KINDS[o.kind] || Store.PLACE_KINDS.sonstiges;
+          const name = o.name || kind.label;
+          const m = L.marker(toLL(o.pos), {
+            icon: L.divIcon({
+              className: '',
+              html: `<div class="pin pin-place${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
+              iconSize: [0, 28],
+              iconAnchor: [0, 14],
+            }),
+            draggable: this.editMode && !this.mode,
+            zIndexOffset: isSel ? 1000 : 300,
+            title: name,
+          });
+          m.on('click', (e) => { if (this.mode) return; L.DomEvent.stopPropagation(e); this.handlers.onSelect('place', o.id); });
+          m.on('dragend', () => { o.pos = fromLL(m.getLatLng()); Store.save(); });
+          m.addTo(L_.places);
+        });
+      }
     },
 
     // Beschriftung: Nummer, ggf. "frei ab", Symbole der eingeschalteten Ebenen
@@ -257,6 +287,8 @@
       if (sh.dogs && p.dogs > 0) badges.push(iconBadge('pb-dog', ICON_DOG, p.dogs, `${p.dogs} Hund${p.dogs > 1 ? 'e' : ''}`));
       if (sh.miet && p.objectType === 'miet') badges.push('<span class="pb pb-miet" title="Mietobjekt">M</span>');
       if (sh.pacht && p.objectType === 'pacht') badges.push('<span class="pb pb-pacht" title="Pachtgrundstück">P</span>');
+      const nTodo = this._todoCounts && this._todoCounts.get(`parcel:${p.id}`);
+      if (nTodo) badges.push(`<span class="pb pb-todo" title="${nTodo} offene To-Do${nTodo > 1 ? 's' : ''}">✓${nTodo}</span>`);
       const free = Store.movingOut(p) ? `<span class="pl-free">frei ab ${escapeHtml(p.freeFrom.split('-').reverse().join('.'))}</span>` : '';
       return `<span class="pl"><span class="pl-nr">${escapeHtml(p.nr)}</span>${free}${badges.length ? `<span class="pl-badges">${badges.join('')}</span>` : ''}</span>`;
     },
@@ -310,7 +342,7 @@
           this._flyTo(b.getCenter(), Math.max(z, Math.min(this.map.getZoom(), maxZ)));
         }
       } else {
-        const obj = type === 'box' ? Store.box(id) : Store.tank(id);
+        const obj = type === 'box' ? Store.box(id) : type === 'place' ? Store.place(id) : Store.tank(id);
         if (obj && obj.pos) this._flyTo(toLL(obj.pos), Math.max(this.map.getZoom(), -0.5));
       }
     },

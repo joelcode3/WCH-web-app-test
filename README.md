@@ -32,6 +32,14 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
 - **Karte**: zuschaltbare Symbole (WW Winterwasser, Bewohner und Hunde je nach Anzahl,
   M Mietobjekt, P Pachtgrundstück)
   und Luftbild als Hintergrund
+- **To-Dos** – eigener Reiter mit allen Aufgaben: Titel, Beschreibung, Ort (Parzelle, Stromkasten,
+  Gastank, Ort auf der Karte oder frei, z. B. „Sanitärgebäude 2“), Status (kein Status / in Planung /
+  in Arbeit / erledigt), Deadline, optionaler Termin (z. B. Techniker), Zuständig, Fotos
+  (direkt mit der Handykamera), Erstellungs- und Erledigt-Datum. Filter nach Status, Ort und
+  Zuständigkeit; überfällige zuerst. In jedem Infofenster der Karte „+ To-Do“; offene To-Dos
+  werden auf der Karte markiert, der Reiter zeigt die Anzahl (rot bei Überfälligem)
+- **Orte** – Sanitärgebäude, Grillhütte, Spielplatz, Rezeption … als Symbole auf der Karte
+  (Bearbeiten-Modus → „+ Ort“), jeweils mit eigenen To-Dos
 - **Technik** – Stromkästen und Gastanks; pro Kasten alle Zähler verwalten und entweder einer
   Parzelle zuordnen oder als **Betriebsstrom** kennzeichnen (Platzbeleuchtung, Sanitär, Camperstrom …)
 - **Zähler**
@@ -111,12 +119,14 @@ js/data.js            Datenmodell, Speicherung, Demo-Daten
 js/cloud.js           Supabase: Laden, Speichern (nur Änderungen), Login
 js/auth.js            Anmeldebildschirm
 js/map.js             Interaktive Karte (Leaflet)
+js/photos.js          Fotos zu To-Dos (verkleinern, Supabase-Speicher „todo-fotos“)
 js/app.js             Ansichten: Karte, Kartei, Technik, Zähler, Daten
 assets/               Lageplan (Platzhalter) & Icon
 supabase/schema.sql   Datenbankschema inkl. Zugriffsregeln (enthält alle Updates)
 supabase/update-2.sql Update für bestehende Datenbanken (neue Felder)
 supabase/update-3.sql Update: Reserviert, Hunde, Mietbeginn, frei ab, Warnschwelle
 supabase/update-4.sql Update: Bewohneranzahl
+supabase/update-5.sql Update: To-Dos mit Fotos, Orte auf der Karte
 tools/plan_import.py  Umwandlung AutoCAD-Plan → Kartengrundlage
 js/plan-data.js       Parzellenumrisse aus dem Lageplan (erzeugt)
 vendor/leaflet/       Leaflet 1.9.4 (BSD-2-Clause)

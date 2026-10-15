@@ -58,6 +58,9 @@ Es wird genauso wie oben im **SQL Editor** eingefügt und mit **Run** ausgeführ
 lassen sich gefahrlos mehrfach ausführen. Wer neu einrichtet, braucht nur `schema.sql`
 (enthält alle Updates).
 
+`update-5.sql` (To-Dos & Orte) legt zusätzlich den privaten Foto-Speicher **todo-fotos** an –
+unter „Storage“ muss dafür nichts von Hand eingerichtet werden.
+
 ## 6. Zugangsdaten in die App eintragen
 
 **Project Settings → API Keys** (oder oben der Button **„Connect“**):

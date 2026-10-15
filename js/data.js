@@ -51,6 +51,27 @@
     keine: 'keine / unbekannt',
   };
 
+  // To-Dos: Bearbeitungsstand
+  const TODO_STATUS = {
+    offen:    { label: 'Kein Status', short: 'Offen',      color: '#8a918b' },
+    planung:  { label: 'In Planung',  short: 'In Planung', color: '#d49a0a' },
+    arbeit:   { label: 'In Arbeit',   short: 'In Arbeit',  color: '#1b7fc9' },
+    erledigt: { label: 'Erledigt',    short: 'Erledigt',   color: '#2b8a3e' },
+  };
+
+  // Orte auf der Karte (Gebäude, Spielplatz …), an denen To-Dos hängen können
+  const PLACE_KINDS = {
+    sanitaer:   { label: 'Sanitärgebäude', icon: '🚻' },
+    grill:      { label: 'Grillhütte',     icon: '🔥' },
+    spielplatz: { label: 'Spielplatz',     icon: '🛝' },
+    rezeption:  { label: 'Rezeption / Büro', icon: '🏠' },
+    gebaeude:   { label: 'Gebäude / Halle', icon: '🏚️' },
+    wiese:      { label: 'Camperwiese',    icon: '⛺' },
+    muell:      { label: 'Müllplatz',      icon: '🗑️' },
+    wasser:     { label: 'Wasser / Brunnen', icon: '🚰' },
+    sonstiges:  { label: 'Sonstiger Ort',  icon: '📍' },
+  };
+
   // Farbschema "Versorgung" auf der Karte
   const SUPPLY = {
     tank:   { label: 'Gastank',          color: '#5cc49a' },
@@ -89,7 +110,7 @@
   }
 
   function emptyFromPlan() {
-    return { version: 1, parcels: planParcels(), boxes: [], tanks: [], meters: [], readings: [] };
+    return { version: 1, parcels: planParcels(), boxes: [], tanks: [], meters: [], readings: [], places: [], todos: [] };
   }
 
   /* ---------- Demo-Daten (auf dem echten Lageplan, Namen/Nummern erfunden) ---------- */
@@ -196,13 +217,30 @@
         readings.push({ id: uid('r'), meterId: m.id, date: '2025-10-01', value: v + Math.round(2000 + rnd() * 9000) });
       });
 
-    return { version: 1, parcels, boxes, tanks, meters, readings, demo: true };
+    // Orte & To-Dos (Beispiele)
+    const places = [
+      { id: uid('o'), name: 'Sanitärgebäude 1', kind: 'sanitaer', pos: [505, 1435], notes: '' },
+      { id: uid('o'), name: 'Grillhütte', kind: 'grill', pos: [1249, 458], notes: 'Schlüssel an der Rezeption' },
+      { id: uid('o'), name: 'Spielplatz', kind: 'spielplatz', pos: [877, 807], notes: '' },
+    ];
+    const iso = (d) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
+    const todo = (o) => ({ id: uid('d'), title: '', description: '', targetType: '', targetId: '', location: '', status: 'offen',
+      deadline: '', appointment: '', assignee: '', photos: [], createdAt: new Date(Date.now() - 3 * 864e5).toISOString(), doneAt: '', ...o });
+    const todos = [
+      todo({ title: 'Dusche tropft', description: 'Duschkopf und Dichtung tauschen.', targetType: 'parcel', targetId: parcels[5] ? parcels[5].id : '', status: 'planung', deadline: iso(5), assignee: 'Thomas' }),
+      todo({ title: 'Zähler tauschen (Eichfrist)', targetType: 'box', targetId: boxes[2] ? boxes[2].id : '', status: 'arbeit', deadline: iso(20), appointment: `${iso(9)}T10:00`, assignee: 'Elektro Meyer' }),
+      todo({ title: 'Baumschnitt am Hauptweg', location: 'Hauptweg', deadline: iso(-2), assignee: 'Thomas' }),
+      todo({ title: 'Reparatur im Sanitärgebäude 2', description: 'Spülkasten Herren-WC läuft nach.', location: 'Sanitärgebäude 2', status: 'offen' }),
+      todo({ title: 'Grillrost erneuern', targetType: 'place', targetId: places[1].id, status: 'erledigt', doneAt: iso(-1) }),
+    ];
+
+    return { version: 1, parcels, boxes, tanks, meters, readings, places, todos, demo: true };
   }
 
   /* ---------- Store ---------- */
 
   const Store = {
-    STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, supplyOf, uid, compareNr,
+    STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, supplyOf, uid, compareNr,
     // Bewohnt, aber Auszug steht fest?
     movingOut: (p) => !!p.freeFrom && (p.status === 'fest' || p.status === 'wochenende'),
     isFree: (p) => !!(STATUS[p.status] || STATUS.leer).free,
@@ -256,7 +294,18 @@
 
     _normalize() {
       const d = this.data;
-      ['parcels', 'boxes', 'tanks', 'meters', 'readings'].forEach((k) => { if (!Array.isArray(d[k])) d[k] = []; });
+      ['parcels', 'boxes', 'tanks', 'meters', 'readings', 'places', 'todos'].forEach((k) => { if (!Array.isArray(d[k])) d[k] = []; });
+      d.places.forEach((o) => {
+        o.name = o.name || '';
+        if (!PLACE_KINDS[o.kind]) o.kind = 'sonstiges';
+        o.notes = o.notes || '';
+      });
+      d.todos.forEach((t) => {
+        ['title', 'description', 'targetType', 'targetId', 'location', 'deadline', 'appointment', 'assignee', 'doneAt'].forEach((k) => { t[k] = t[k] || ''; });
+        if (!TODO_STATUS[t.status]) t.status = 'offen';
+        if (!Array.isArray(t.photos)) t.photos = [];
+        t.createdAt = t.createdAt || new Date().toISOString();
+      });
       d.parcels.forEach((p) => {
         p.tenant = Object.assign({ name: '', phone: '', email: '', address: '' }, p.tenant);
         if (!OBJECT_TYPES[p.objectType]) p.objectType = 'pacht';
@@ -330,7 +379,16 @@
     reset() { this.data = seed(); this.save(); },
 
     // Alle Daten durch die leeren Parzellen aus dem Lageplan ersetzen
-    resetToPlan() { this.data = emptyFromPlan(); this.save(); },
+    // Orte und To-Dos bleiben erhalten (To-Dos alter Parzellen werden zu "allgemein")
+    resetToPlan() {
+      const old = this.data || {};
+      const labels = Object.fromEntries((old.todos || []).map((t) => [t.id, this.todoTargetText(t)]));
+      this.data = emptyFromPlan();
+      this.data.places = old.places || [];
+      this.data.todos = (old.todos || []).map((t) => (t.targetType && t.targetType !== 'place'
+        ? { ...t, targetType: '', targetId: '', location: labels[t.id] } : t));
+      this.save();
+    },
 
     importJSON(obj) {
       if (!obj || !Array.isArray(obj.parcels)) throw new Error('Keine gültige Sicherungsdatei.');
@@ -340,7 +398,7 @@
     },
 
     clearAll() {
-      this.data = { version: 1, parcels: [], boxes: [], tanks: [], meters: [], readings: [] };
+      this.data = { version: 1, parcels: [], boxes: [], tanks: [], meters: [], readings: [], places: [], todos: [] };
       this.save();
     },
 
@@ -349,6 +407,55 @@
     box(id) { return this.data.boxes.find((b) => b.id === id); },
     tank(id) { return this.data.tanks.find((t) => t.id === id); },
     meter(id) { return this.data.meters.find((m) => m.id === id); },
+    place(id) { return this.data.places.find((o) => o.id === id); },
+    todo(id) { return this.data.todos.find((t) => t.id === id); },
+    placesSorted() { return [...this.data.places].sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })); },
+
+    /* To-Dos */
+    isDone: (t) => t.status === 'erledigt',
+    isOverdue(t, today) { return !!t.deadline && t.status !== 'erledigt' && t.deadline < (today || new Date().toISOString().slice(0, 10)); },
+    target(t) {
+      const fn = { parcel: 'parcel', box: 'box', tank: 'tank', place: 'place' }[t.targetType];
+      return fn ? this[fn](t.targetId) : null;
+    },
+    // "Parzelle 1.23", "Stromkasten 4", "Grillhütte", freier Ort oder "Allgemein"
+    todoTargetText(t) {
+      const o = this.target(t);
+      if (o) {
+        if (t.targetType === 'parcel') return `Parzelle ${o.nr}`;
+        if (t.targetType === 'box') return `Stromkasten ${o.nr}`;
+        if (t.targetType === 'tank') return `Gastank ${o.nr}`;
+        if (t.targetType === 'place') return o.name || PLACE_KINDS[o.kind].label;
+      }
+      return t.location || 'Allgemein';
+    },
+    todosOf(type, id, withDone) {
+      return this.data.todos.filter((t) => t.targetType === type && t.targetId === id && (withDone || t.status !== 'erledigt'));
+    },
+    // offene To-Dos je Ziel: Map "parcel:ID" → Anzahl
+    openTodoCounts() {
+      const m = new Map();
+      this.data.todos.forEach((t) => {
+        if (t.status === 'erledigt' || !t.targetType) return;
+        const k = `${t.targetType}:${t.targetId}`;
+        m.set(k, (m.get(k) || 0) + 1);
+      });
+      return m;
+    },
+    // Ziel wird gelöscht → To-Dos behalten den Namen als freien Ort
+    _detachTodos(type, id) {
+      this.data.todos.forEach((t) => {
+        if (t.targetType === type && t.targetId === id) {
+          t.location = `${this.todoTargetText(t)} (gelöscht)`;
+          t.targetType = ''; t.targetId = '';
+        }
+      });
+    },
+    deleteTodo(id) { this.data.todos = this.data.todos.filter((t) => t.id !== id); },
+    deletePlace(id) {
+      this._detachTodos('place', id);
+      this.data.places = this.data.places.filter((o) => o.id !== id);
+    },
 
     parcelsSorted() { return [...this.data.parcels].sort((a, b) => compareNr(a.nr, b.nr)); },
     boxesSorted() { return [...this.data.boxes].sort((a, b) => compareNr(a.nr, b.nr)); },
@@ -415,6 +522,7 @@
 
     // Löschen mit Aufräumen
     deleteParcel(id) {
+      this._detachTodos('parcel', id);
       const meterIds = this.metersOf(id).map((m) => m.id);
       this.data.readings = this.data.readings.filter((r) => !meterIds.includes(r.meterId));
       this.data.meters = this.data.meters.filter((m) => m.parcelId !== id);
@@ -425,10 +533,12 @@
       this.data.meters = this.data.meters.filter((m) => m.id !== id);
     },
     deleteBox(id) {
+      this._detachTodos('box', id);
       this.data.meters.forEach((m) => { if (m.boxId === id) m.boxId = ''; });
       this.data.boxes = this.data.boxes.filter((b) => b.id !== id);
     },
     deleteTank(id) {
+      this._detachTodos('tank', id);
       this.data.parcels.forEach((p) => { if (p.gasTankId === id) p.gasTankId = ''; });
       this.data.tanks = this.data.tanks.filter((t) => t.id !== id);
     },

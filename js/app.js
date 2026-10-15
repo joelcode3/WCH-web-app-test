@@ -106,6 +106,7 @@
       </form>`;
     const form = $('form', dlg);
     $('[data-cancel]', dlg).onclick = () => dlg.close();
+    fields.filter((f) => f.suggest).forEach((f) => attachSuggest(form.elements[f.name], f.suggest, f.suggestWhen));
     form.onsubmit = (e) => {
       e.preventDefault();
       const values = Object.fromEntries(new FormData(form).entries());
@@ -133,7 +134,72 @@
     return `<label class="field${f.full ? ' full' : ''}"><span>${h(f.label)}${f.required ? ' *' : ''}</span>${input}</label>`;
   }
 
-  const nextNr = (list) => String(list.reduce((m, x) => Math.max(m, parseInt(x.nr, 10) || 0), 0) + 1);
+  /* ---------- freie Nummern vorschlagen ---------- */
+
+  // Freie Nummern: zuerst Lücken (z. B. 1.44 fehlt), dann die nächste nach der höchsten.
+  // Parzellen sind "Block.Nr" (1.01 … / 2.01 …), Kästen und Tanks einfache Zahlen.
+  function freeNrs(list, block) {
+    const used = new Set();
+    list.forEach((x) => {
+      const m = String(x.nr || '').trim().match(block == null ? /^(\d+)/ : /^(\d+)\.(\d+)/);
+      if (!m) return;
+      if (block == null) used.add(+m[1]);
+      else if (+m[1] === +block) used.add(+m[2]);
+    });
+    const max = used.size ? Math.max(...used) : 0;
+    const out = [];
+    for (let n = 1; n <= max + 1; n++) if (!used.has(n)) out.push(block == null ? String(n) : `${block}.${String(n).padStart(2, '0')}`);
+    return out;
+  }
+  const parcelBlocks = () => {
+    const b = new Set(S.data.parcels.map((p) => (String(p.nr).match(/^(\d+)\./) || [])[1]).filter(Boolean).map(Number));
+    if (!b.size) b.add(1);
+    return [...b].sort((x, y) => x - y);
+  };
+  // Vorschläge passend zur Eingabe: "1" / "1." / "1.4" → freie Nummern aus diesem Block
+  function suggestParcelNr(typed) {
+    const t = String(typed || '').trim();
+    const firsts = parcelBlocks().map((b) => freeNrs(S.data.parcels, b)[0]);
+    // ganze, noch freie Nummer eingetragen → sie plus je Block die erste freie anbieten
+    if (firsts.includes(t) || (t && !S.findParcelByNr(t) && /^\d+\.\d{2}/.test(t))) return [t, ...firsts.filter((x) => x !== t)];
+    const m = t.match(/^(\d+)(?:\.(\d*))?$/);
+    if (m && parcelBlocks().includes(+m[1])) {
+      const rest = m[2] || '';
+      const free = freeNrs(S.data.parcels, +m[1]);
+      const nrOf = (x) => x.split('.')[1];
+      let fit = free;
+      if (rest) {
+        fit = free.filter((x) => nrOf(x).startsWith(rest) || nrOf(x).replace(/^0/, '').startsWith(rest));
+        if (!fit.length) fit = free.filter((x) => +nrOf(x) >= +rest);
+      }
+      return (fit.length ? fit : free).slice(0, 4);
+    }
+    return firsts;
+  }
+  const suggestSimpleNr = (list) => () => freeNrs(list, null).slice(0, 4);
+  const nextNr = (list) => freeNrs(list, null)[0];
+  const nextParcelNr = () => suggestParcelNr('')[0];
+
+  // Chips "Frei: 1.44 · 1.46" unter dem Eingabefeld, aktualisiert beim Tippen
+  // when(wert): nur dann anzeigen (z. B. bei bestehender Parzelle nur, wenn die Nummer vergeben ist)
+  function attachSuggest(input, suggest, when) {
+    if (!input) return;
+    const box = document.createElement('div');
+    box.className = 'nr-suggest';
+    input.closest('.field').appendChild(box);
+    const update = () => {
+      const list = when && !when(input.value) ? [] : suggest(input.value).filter(Boolean);
+      const taken = list.length && !list.includes(input.value.trim()) && input.value.trim() !== '';
+      box.innerHTML = list.length ? `<span>${taken ? 'Noch frei:' : 'Frei:'}</span>${list.map((n) =>
+        `<button type="button" class="chip${n === input.value.trim() ? ' is-active' : ''}" data-nr="${h(n)}">${h(n)}</button>`).join('')}` : '';
+    };
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-nr]'); if (!b) return;
+      input.value = b.dataset.nr; update(); input.focus();
+    });
+    input.addEventListener('input', update);
+    update();
+  }
 
   /* ---------- Geometrie für Teilen / Verbinden (Kartenpixel) ---------- */
 
@@ -281,6 +347,8 @@
             <h4>Auf der Karte zeigen</h4>
             ${cb('boxes', `${ICON.strom} Stromkästen`)}
             ${cb('tanks', `${ICON.gas} Gastanks`)}
+            ${cb('places', '<span class="legend-emoji">📍</span> Orte / Gebäude')}
+            ${cb('todos', '<span class="pb pb-todo">✓1</span> Offene To-Dos')}
             ${cb('ww', '<span class="pb pb-ww">WW</span> Winterwasser')}
             ${cb('persons', `<span class="pb pb-icons pb-person">${MapView.icons.person}</span> Bewohner`)}
             ${cb('dogs', `<span class="pb pb-icons pb-dog">${MapView.icons.dog}</span> Hunde`)}
@@ -324,10 +392,11 @@
           <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Abbrechen</button>`;
       } else if (MapView.editMode) {
         bar.innerHTML = `
-          <span class="grow">Bearbeitungsmodus – Kästen und Tanks lassen sich verschieben</span>
+          <span class="grow">Bearbeitungsmodus – Kästen, Tanks und Orte lassen sich verschieben</span>
           <button type="button" class="btn btn-ghost btn-sm" data-act="add-parcel">${ICON.plus} Parzelle</button>
           <button type="button" class="btn btn-ghost btn-sm" data-act="add-box">${ICON.plus} Stromkasten</button>
           <button type="button" class="btn btn-ghost btn-sm" data-act="add-tank">${ICON.plus} Gastank</button>
+          <button type="button" class="btn btn-ghost btn-sm" data-act="add-place">${ICON.plus} Ort</button>
           <button type="button" class="btn btn-sm btn-dark" data-act="done">Fertig</button>`;
       } else {
         bar.hidden = true;
@@ -349,6 +418,7 @@
         case 'add-parcel': Actions.newParcelOnMap(); break;
         case 'add-box': Actions.newBox(true); break;
         case 'add-tank': Actions.newTank(true); break;
+        case 'add-place': Actions.editPlace(null); break;
       }
     },
 
@@ -374,6 +444,12 @@
         S.tanksSorted().forEach((t) => {
           if (`tank ${t.nr}`.includes(q) || `gastank ${t.nr}`.includes(q) || `t${t.nr}` === q) {
             res.push({ type: 'tank', id: t.id, html: `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>T${h(t.nr)}</span></span><strong>Gastank ${h(t.nr)}</strong>` });
+          }
+        });
+        S.placesSorted().forEach((o) => {
+          const kind = S.PLACE_KINDS[o.kind];
+          if (`${o.name} ${kind.label}`.toLowerCase().includes(q)) {
+            res.push({ type: 'place', id: o.id, html: `<span class="pin pin-place" style="transform:none"><i>${kind.icon}</i></span><span><strong>${h(o.name || kind.label)}</strong><br><span class="muted small">${h(kind.label)}</span></span>` });
           }
         });
         box.innerHTML = res.length
@@ -403,6 +479,7 @@
       if (type === 'parcel') html = this.parcelPanel(S.parcel(id));
       else if (type === 'box') html = this.boxPanel(S.box(id));
       else if (type === 'tank') html = this.tankPanel(S.tank(id));
+      else if (type === 'place') html = this.placePanel(S.place(id));
       if (!html) { this.hidePanel(); return; }
       panel.innerHTML = '<div class="sheet-handle"></div>' + html;
       panel.hidden = false;
@@ -441,6 +518,7 @@
           <div class="section-title">Zähler</div>
           ${meters.length ? `<ul class="meter-list">${meters.map((m) => this.meterItem(m, 'parcel')).join('')}</ul>` : '<p class="muted small">Keine Zähler hinterlegt.</p>'}
           ${p.notes ? `<div class="section-title">Notizen</div><p class="small" style="margin:0;white-space:pre-line">${h(p.notes)}</p>` : ''}
+          ${todoSection('parcel', p.id)}
           ${MapView.editMode ? `<div class="section-title">Umriss bearbeiten</div>
             <div class="card-actions" style="margin-top:0">
               <button class="btn btn-ghost btn-sm" data-action="drawParcel" data-id="${p.id}">${ICON.pen} Neu zeichnen</button>
@@ -495,6 +573,7 @@
         <div class="panel-body">
           <div class="section-title">${meters.length} Stromzähler in diesem Kasten</div>
           ${meters.length ? `<ul class="meter-list">${meters.map((m) => this.meterItem(m, 'box')).join('')}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
+          ${todoSection('box', b.id)}
         </div>
         <div class="panel-actions">
           <a class="btn" href="#/ablesung?typ=strom&gruppe=${b.id}">Zählerstände erfassen</a>
@@ -520,10 +599,31 @@
           ${t.notes ? `<p class="notice" style="margin-top:0">${h(t.notes)}</p>` : ''}
           <div class="section-title">${parcels.length} angeschlossene Parzelle${parcels.length === 1 ? '' : 'n'}</div>
           ${parcels.length ? `<ul class="meter-list">${items}</ul>` : '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
+          ${todoSection('tank', t.id)}
         </div>
         <div class="panel-actions">
           <a class="btn" href="#/ablesung?typ=gas&gruppe=${t.id}">Zählerstände erfassen</a>
           <button class="btn btn-ghost" data-action="editTank" data-id="${t.id}">${ICON.edit} Bearbeiten</button>
+        </div>`;
+    },
+
+    placePanel(o) {
+      if (!o) return '';
+      const kind = S.PLACE_KINDS[o.kind] || S.PLACE_KINDS.sonstiges;
+      return `
+        <div class="panel-head">
+          <span class="pin pin-place" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i></span>
+          <div class="title"><h2>${h(o.name || kind.label)}</h2><span class="muted small">${h(kind.label)}</span></div>
+          <button class="close" aria-label="Schließen">${ICON.close}</button>
+        </div>
+        <div class="panel-body">
+          ${o.notes ? `<p class="small" style="margin:0;white-space:pre-line">${h(o.notes)}</p>` : ''}
+          ${todoSection('place', o.id, true)}
+          ${MapView.editMode ? '<p class="muted small">Im Bearbeitungsmodus lässt sich das Symbol auf der Karte verschieben.</p>' : ''}
+        </div>
+        <div class="panel-actions">
+          <button class="btn" data-goto="#/todo/neu?ziel=place:${o.id}&${backParam()}">${ICON.plus} To-Do</button>
+          <button class="btn btn-ghost" data-action="editPlace" data-id="${o.id}">${ICON.edit} Bearbeiten</button>
         </div>`;
     },
   };
@@ -540,7 +640,7 @@
       formDialog({
         title: b ? `Stromkasten ${b.nr} bearbeiten` : 'Neuer Stromkasten',
         fields: [
-          { name: 'nr', label: 'Kasten-Nr.', value: b ? b.nr : nextNr(S.data.boxes), required: true },
+          { name: 'nr', label: 'Kasten-Nr.', value: b ? b.nr : nextNr(S.data.boxes), required: true, suggest: b ? null : suggestSimpleNr(S.data.boxes) },
           { name: 'location', label: 'Standort / Hinweis', value: b ? b.location : '', placeholder: 'z. B. am Hauptweg, hinter Parzelle 12' },
         ],
         extra: b ? `<button type="button" class="btn btn-danger btn-sm" data-del style="justify-self:start">${ICON.trash} Kasten löschen</button>` : '',
@@ -565,7 +665,7 @@
       formDialog({
         title: t ? `Gastank ${t.nr} bearbeiten` : 'Neuer Gastank',
         fields: [
-          { name: 'nr', label: 'Tank-Nr.', value: t ? t.nr : nextNr(S.data.tanks), required: true },
+          { name: 'nr', label: 'Tank-Nr.', value: t ? t.nr : nextNr(S.data.tanks), required: true, suggest: suggestSimpleNr(S.data.tanks), suggestWhen: t ? (v) => S.data.tanks.some((x) => x.nr === v.trim() && x !== t) : null },
           { name: 'capacity', label: 'Größe / Füllmenge', value: t ? t.capacity : '', placeholder: 'z. B. 2.900 l' },
           { name: 'notes', label: 'Notizen', type: 'textarea', value: t ? t.notes : '' },
         ],
@@ -615,6 +715,61 @@
       }, 50);
     },
     placeBox(id) { const b = S.box(id); if (b) this._place(b, `Stromkasten ${b.nr}`, 'box'); },
+
+    // Ort (Spielplatz, Grillhütte, Sanitärgebäude …) anlegen / bearbeiten
+    editPlace(id) {
+      if (blockIfMissing()) return;
+      const o = id ? S.place(id) : null;
+      formDialog({
+        title: o ? `${o.name || 'Ort'} bearbeiten` : 'Neuer Ort auf der Karte',
+        fields: [
+          { name: 'kind', label: 'Art', type: 'select', value: o ? o.kind : 'sanitaer', options: Object.entries(S.PLACE_KINDS).map(([k, v]) => [k, `${v.icon} ${v.label}`]) },
+          { name: 'name', label: 'Name', value: o ? o.name : '', placeholder: 'z. B. Sanitärgebäude 2', required: true },
+          { name: 'notes', label: 'Notizen', type: 'textarea', value: o ? o.notes : '' },
+        ],
+        submitLabel: o ? 'Speichern' : 'Weiter: auf Karte setzen',
+        extra: o ? `<div class="card-actions" style="margin:0">
+            <button type="button" class="btn btn-ghost btn-sm" data-move>Neu platzieren</button>
+            <button type="button" class="btn btn-danger btn-sm" data-del>${ICON.trash} Ort löschen</button></div>` : '',
+        onSubmit: (v) => {
+          const data = { kind: v.kind, name: v.name.trim(), notes: v.notes.trim() };
+          if (o) { Object.assign(o, data); S.save(); toast('Gespeichert'); return; }
+          const neu = { id: S.uid('o'), pos: null, ...data };
+          if (!location.hash.startsWith('#/karte')) location.hash = '#/karte';
+          setTimeout(() => {
+            MapView.startPlace((pt) => {
+              neu.pos = pt; S.data.places.push(neu); S.save();
+              go(`#/karte/place/${neu.id}`);
+              toast(`${neu.name} platziert`);
+            });
+            MapView.mode.label = `${neu.name} platzieren`;
+            MapUI.renderModebar();
+          }, 50);
+        },
+      });
+      // Namen aus der Art vorschlagen, solange noch nichts eingetragen ist
+      const dlg = $('#dialog');
+      const kind = $('[name=kind]', dlg), name = $('[name=name]', dlg);
+      if (!o) {
+        const suggest = () => {
+          const base = S.PLACE_KINDS[kind.value].label.split(' /')[0];
+          const n = S.data.places.filter((x) => x.kind === kind.value).length;
+          return n ? `${base} ${n + 1}` : base;
+        };
+        let auto = suggest();
+        name.value = auto;
+        kind.onchange = () => { if (!name.value || name.value === auto) { auto = suggest(); name.value = auto; } };
+      }
+      const del = $('[data-del]', dlg);
+      if (del) del.onclick = () => {
+        const n = S.todosOf('place', o.id, true).length;
+        if (!confirm(`${o.name || 'Ort'} wirklich löschen?${n ? `\n${n} To-Do(s) bleiben erhalten (als allgemeine To-Dos).` : ''}`)) return;
+        S.deletePlace(o.id); S.save(); dlg.close(); toast('Ort gelöscht');
+        if (location.hash.startsWith('#/karte')) location.hash = '#/karte';
+      };
+      const mv = $('[data-move]', dlg);
+      if (mv) mv.onclick = () => { dlg.close(); this._place(o, o.name || 'Ort', 'place'); };
+    },
     placeTank(id) { const t = S.tank(id); if (t) this._place(t, `Gastank ${t.nr}`, 'tank'); },
 
     drawParcel(id) {
@@ -650,7 +805,7 @@
             title: `Parzelle ${p.nr} teilen`,
             fields: [
               { name: 'nrA', label: 'Nummer Teil 1 (behält Mieter & Zähler)', value: p.nr, required: true },
-              { name: 'nrB', label: 'Nummer Teil 2 (neue, freie Parzelle)', value: p.nr + suffix, required: true },
+              { name: 'nrB', label: 'Nummer Teil 2 (neue, freie Parzelle)', value: p.nr + suffix, required: true, suggest: (v) => [p.nr + suffix, ...suggestParcelNr(String(p.nr).split('.')[0] + '.')].filter((x, i, a) => a.indexOf(x) === i).slice(0, 4) },
             ],
             submitLabel: 'Teilen',
             onSubmit: (v) => {
@@ -708,7 +863,7 @@
       formDialog({
         title: 'Neue Parzelle einzeichnen',
         fields: [
-          { name: 'nr', label: 'Parzellen-Nr.', value: nextNr(S.data.parcels), required: true },
+          { name: 'nr', label: 'Parzellen-Nr.', value: nextParcelNr(), required: true, suggest: suggestParcelNr },
           { name: 'status', label: 'Status', type: 'select', value: 'leer', options: Object.entries(S.STATUS).map(([k, v]) => [k, v.label]) },
         ],
         submitLabel: 'Weiter: Umriss zeichnen',
@@ -911,6 +1066,7 @@
               ${p.gas === 'tank' && !gas.length ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
             </section>
             ${p.notes ? `<section class="card span-all"><h2>Notizen</h2><p style="margin:0;white-space:pre-line">${h(p.notes)}</p></section>` : ''}
+            <section class="card span-all todo-card">${todoSection('parcel', p.id)}</section>
             <section class="card span-all">
               <h2>Zählerstände</h2>
               ${hist.length ? `<div class="table-wrap"><table class="table-cards">
@@ -925,6 +1081,7 @@
           </div>
         </div>`;
       $$('[data-draw]', root).forEach((b) => b.onclick = () => Actions.drawParcel(p.id));
+      $$('[data-goto]', root).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
     },
   };
 
@@ -974,7 +1131,7 @@
   const Edit = {
     render(root, id) {
       const isNew = !id;
-      const p = isNew ? newParcel(nextNr(S.data.parcels), 'leer') : S.parcel(id);
+      const p = isNew ? newParcel(nextParcelNr(), 'leer') : S.parcel(id);
       if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p></div>'; return; }
       const blankMeter = (type) => ({ id: null, type, number: '', boxId: '', inHouse: false, purpose: '', label: '', location: '' });
       // Arbeitskopie der Zähler
@@ -1059,6 +1216,7 @@
         return other;
       };
       f.nr.addEventListener('input', checkNr);
+      attachSuggest(f.nr, suggestParcelNr, isNew ? null : () => !!checkNr());
       f.objectType.addEventListener('change', () => {
         $('#rent-label', root).textContent = `${S.OBJECT_TYPES[f.objectType.value].rentLabel} (€)`;
       });
@@ -1280,6 +1438,8 @@
         S.deleteBox(b.id); S.save(); toast('Kasten gelöscht');
         location.hash = '#/technik';
       };
+
+      attachSuggest(form.elements.nr, suggestSimpleNr(S.data.boxes), (v) => S.data.boxes.some((x) => x.nr === v.trim() && x.id !== b.id));
 
       form.onsubmit = (e) => {
         e.preventDefault();
@@ -1908,6 +2068,379 @@
      ROUTER
      ====================================================================== */
 
+  /* ======================================================================
+     TO-DOS
+     ====================================================================== */
+
+  const todoStatus = (t) => S.TODO_STATUS[t.status] || S.TODO_STATUS.offen;
+  const fmtDateTime = (v) => {
+    if (!v) return '–';
+    const [d, tm] = v.split('T');
+    return tm && tm !== '00:00' ? `${fmtDate(d)}, ${tm.slice(0, 5)} Uhr` : fmtDate(d);
+  };
+  // Datenbank-Update 5 noch nicht ausgeführt?
+  const todosMissing = () => S.mode === 'cloud' && window.Cloud && (Cloud.missing.has('todos') || Cloud.missing.has('places'));
+  const missingNotice = () => (todosMissing()
+    ? `<p class="notice"><strong>Datenbank-Update nötig:</strong> Damit To-Dos und Orte gespeichert werden, bitte einmal
+       <code>supabase/update-5.sql</code> im Supabase „SQL Editor“ ausführen und die App neu laden.</p>` : '');
+  function blockIfMissing() {
+    if (!todosMissing()) return false;
+    alert('Die Datenbank kennt To-Dos und Orte noch nicht.\n\nBitte im Supabase „SQL Editor“ einmal das Skript supabase/update-5.sql ausführen und die App danach neu laden.');
+    return true;
+  }
+
+  // offene zuerst (nach Deadline, ohne Deadline zuletzt), erledigte zuletzt (neueste oben)
+  function todoSort(a, b) {
+    const da = a.status === 'erledigt', db = b.status === 'erledigt';
+    if (da !== db) return da ? 1 : -1;
+    if (da) return (b.doneAt || '').localeCompare(a.doneAt || '');
+    const ka = a.deadline || '9999-99-99', kb = b.deadline || '9999-99-99';
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return (b.createdAt || '').localeCompare(a.createdAt || '');
+  }
+
+  // Rücksprung-Ziel (z. B. Karte mit offenem Infofenster)
+  const backParam = (hash) => `zurueck=${encodeURIComponent(hash || location.hash || '#/todos')}`;
+  const safeBack = (v) => (v && /^#\/[\w\-/.?=&%:]*$/.test(v) ? v : '#/todos');
+
+  function deadlineHtml(t) {
+    if (!t.deadline) return '';
+    if (S.isOverdue(t, today())) return `<span class="state state-over">überfällig seit ${fmtDate(t.deadline)}</span>`;
+    if (t.status !== 'erledigt' && t.deadline <= addDays(today(), 3)) return `<span class="state state-near">fällig ${fmtDate(t.deadline)}</span>`;
+    return `<span>fällig ${fmtDate(t.deadline)}</span>`;
+  }
+  function addDays(iso, n) {
+    const d = new Date(iso + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // kompakte Liste für Infofenster / Karteikarte
+  function todoSection(type, id, noAdd) {
+    const list = S.todosOf(type, id).sort(todoSort);
+    const done = S.todosOf(type, id, true).length - list.length;
+    const back = backParam();
+    return `
+      <div class="section-title">To-Dos${list.length ? ` · ${list.length} offen` : ''}</div>
+      ${list.length ? `<ul class="todo-mini">${list.map((t) => `
+        <li data-goto="#/todo/${t.id}?${back}" tabindex="0">
+          <span class="dot" style="background:${todoStatus(t).color}" title="${h(todoStatus(t).label)}"></span>
+          <span class="t">${h(t.title)}</span>
+          <span class="d">${t.deadline ? (S.isOverdue(t, today()) ? `<span class="warn">${fmtDate(t.deadline)}</span>` : fmtDate(t.deadline)) : ''}</span>
+        </li>`).join('')}</ul>` : `<p class="muted small" style="margin:0 0 6px">Keine offenen To-Dos${done ? ` (${done} erledigt)` : ''}.</p>`}
+      <div class="card-actions" style="margin-top:6px">
+        ${noAdd ? '' : `<button type="button" class="btn btn-ghost btn-sm" data-goto="#/todo/neu?ziel=${type}:${id}&${back}">${ICON.plus} To-Do</button>`}
+        ${list.length || done ? `<button type="button" class="btn btn-ghost btn-sm" data-goto="#/todos?ziel=${type}:${id}">Alle anzeigen</button>` : ''}
+      </div>`;
+  }
+
+  // Auswahlliste "Ort" für das To-Do-Formular
+  function targetOptions(cur) {
+    const opt = (v, l) => `<option value="${h(v)}"${v === cur ? ' selected' : ''}>${h(l)}</option>`;
+    const group = (label, items) => (items.length ? `<optgroup label="${h(label)}">${items.join('')}</optgroup>` : '');
+    return opt('', 'Allgemein / anderer Ort')
+      + group('Orte auf dem Platz', S.placesSorted().map((o) => opt(`place:${o.id}`, `${S.PLACE_KINDS[o.kind].icon} ${o.name || S.PLACE_KINDS[o.kind].label}`)))
+      + group('Parzellen', S.parcelsSorted().map((p) => opt(`parcel:${p.id}`, `Parzelle ${p.nr}${p.tenant.name ? ' – ' + p.tenant.name : ''}`)))
+      + group('Stromkästen', S.boxesSorted().map((b) => opt(`box:${b.id}`, `Stromkasten ${b.nr}${b.location ? ' – ' + b.location : ''}`)))
+      + group('Gastanks', S.tanksSorted().map((t) => opt(`tank:${t.id}`, `Gastank ${t.nr}`)));
+  }
+  const assignees = () => [...new Set(S.data.todos.map((t) => t.assignee.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+
+  // Ziel des To-Dos als Link (Karte) oder Text
+  function targetLink(t) {
+    const txt = h(S.todoTargetText(t));
+    const o = S.target(t);
+    if (!o) return `<span>📍 ${txt}</span>`;
+    const icon = t.targetType === 'place' ? S.PLACE_KINDS[o.kind].icon : t.targetType === 'box' ? ICON.strom : t.targetType === 'tank' ? ICON.gas : ICON.map;
+    return `<span>${icon} ${txt}</span>`;
+  }
+
+  // Updates des Zähler-Symbols im Menü
+  function renderTodoBadge() {
+    const el = $('#todo-badge');
+    if (!el || !S.data) return;
+    const open = S.data.todos.filter((t) => t.status !== 'erledigt');
+    const over = open.filter((t) => S.isOverdue(t, today())).length;
+    el.hidden = !open.length;
+    el.textContent = open.length;
+    el.classList.toggle('is-over', over > 0);
+    el.title = `${open.length} offen${over ? `, ${over} überfällig` : ''}`;
+  }
+
+  const Todos = {
+    status: 'offen', kind: 'alle', who: 'alle', q: '', ziel: '',
+
+    render(root, params) {
+      this.ziel = params.get('ziel') || '';
+      const zielTodo = this.ziel ? { targetType: this.ziel.split(':')[0], targetId: this.ziel.split(':')[1] } : null;
+      const who = assignees();
+      if (this.who !== 'alle' && this.who !== '__none' && !who.includes(this.who)) this.who = 'alle';
+      const open = S.data.todos.filter((t) => t.status !== 'erledigt');
+      const weekEnd = addDays(today(), 7);
+      root.innerHTML = `
+        <div class="page">
+          <div class="page-head">
+            <h1>To-Dos</h1>
+            <a class="btn" href="#/todo/neu${this.ziel ? `?ziel=${h(this.ziel)}` : ''}">${ICON.plus} To-Do</a>
+          </div>
+          ${missingNotice()}
+          <div class="summary summary-4">
+            <div class="stat"><div class="v">${open.length}</div><div class="l">offen</div></div>
+            <div class="stat"><div class="v${open.some((t) => S.isOverdue(t, today())) ? ' warn' : ''}">${open.filter((t) => S.isOverdue(t, today())).length}</div><div class="l">überfällig</div></div>
+            <div class="stat"><div class="v">${open.filter((t) => t.status === 'arbeit').length}</div><div class="l">in Arbeit</div></div>
+            <div class="stat"><div class="v">${open.filter((t) => t.appointment && t.appointment.slice(0, 10) >= today() && t.appointment.slice(0, 10) <= weekEnd).length}</div><div class="l">Termine (7 Tage)</div></div>
+          </div>
+          ${zielTodo ? `<p class="notice">Gefiltert auf <strong>${h(S.todoTargetText(zielTodo))}</strong> · <a href="#/todos">alle To-Dos zeigen</a></p>` : ''}
+          <div class="filters filters-todo">
+            <div class="search">${ICON.search}<input type="search" id="t-q" placeholder="Titel, Beschreibung, Ort…" value="${h(this.q)}" aria-label="To-Dos durchsuchen"></div>
+            <select id="t-kind" aria-label="Ort filtern">
+              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['allgemein', 'Allgemein']]
+                .map(([k, l]) => `<option value="${k}"${this.kind === k ? ' selected' : ''}>${l}</option>`).join('')}
+            </select>
+            <select id="t-who" aria-label="Zuständig filtern">
+              <option value="alle">Alle Zuständigen</option>
+              ${who.map((n) => `<option value="${h(n)}"${this.who === n ? ' selected' : ''}>${h(n)}</option>`).join('')}
+              <option value="__none"${this.who === '__none' ? ' selected' : ''}>Niemand zugeordnet</option>
+            </select>
+          </div>
+          <div class="chips" id="t-status" role="group" aria-label="Status filtern">
+            ${[['offen', 'Alle offenen'], ...Object.entries(S.TODO_STATUS).filter(([k]) => k !== 'offen').map(([k, v]) => [k, v.short]), ['ohne', 'Ohne Status'], ['alle', 'Alle']]
+              .map(([k, l]) => `<button type="button" class="chip${this.status === k ? ' is-active' : ''}" data-s="${k}">${S.TODO_STATUS[k] && k !== 'offen' ? `<span class="dot" style="background:${S.TODO_STATUS[k].color}"></span>` : ''}${h(l)}</button>`).join('')}
+          </div>
+          <div class="result-count" id="t-count"></div>
+          <ul class="card-list" id="t-list"></ul>
+        </div>`;
+      $('#t-q', root).addEventListener('input', (e) => { this.q = e.target.value; this.renderList(); });
+      $('#t-kind', root).addEventListener('change', (e) => { this.kind = e.target.value; this.renderList(); });
+      $('#t-who', root).addEventListener('change', (e) => { this.who = e.target.value; this.renderList(); });
+      $$('#t-status .chip', root).forEach((c) => c.addEventListener('click', () => {
+        this.status = c.dataset.s;
+        $$('#t-status .chip', root).forEach((x) => x.classList.toggle('is-active', x === c));
+        this.renderList();
+      }));
+      this.renderList();
+    },
+
+    renderList() {
+      const q = this.q.trim().toLowerCase();
+      const [zt, zi] = this.ziel.split(':');
+      const list = S.data.todos.filter((t) => {
+        if (this.ziel && !(t.targetType === zt && t.targetId === zi)) return false;
+        if (this.status === 'offen' && t.status === 'erledigt') return false;
+        if (this.status === 'ohne' && t.status !== 'offen') return false;
+        if (['planung', 'arbeit', 'erledigt'].includes(this.status) && t.status !== this.status) return false;
+        if (this.kind === 'allgemein' && t.targetType) return false;
+        if (!['alle', 'allgemein'].includes(this.kind) && t.targetType !== this.kind) return false;
+        if (this.who === '__none' && t.assignee.trim()) return false;
+        if (!['alle', '__none'].includes(this.who) && t.assignee.trim() !== this.who) return false;
+        if (!q) return true;
+        return [t.title, t.description, t.assignee, S.todoTargetText(t)].join(' ').toLowerCase().includes(q);
+      }).sort(todoSort);
+      $('#t-count').textContent = `${list.length} To-Do${list.length === 1 ? '' : 's'}`;
+      const back = backParam('#/todos');
+      $('#t-list').innerHTML = list.length ? list.map((t) => {
+        const st = todoStatus(t);
+        return `<li><a class="card-row todo-row${t.status === 'erledigt' ? ' is-done' : ''}" href="#/todo/${t.id}?${back}" style="--c:${st.color}">
+          ${t.photos.length ? `<img class="todo-thumb" data-thumb="${t.id}" alt="" loading="lazy">` : ''}
+          <div class="main">
+            <div class="name">${h(t.title || '(ohne Titel)')}</div>
+            <div class="meta">
+              ${targetLink(t)}
+              ${t.status === 'erledigt' ? (t.doneAt ? `<span>erledigt am ${fmtDate(t.doneAt)}</span>` : '') : deadlineHtml(t)}
+              ${t.appointment && t.status !== 'erledigt' ? `<span>📅 Termin ${fmtDateTime(t.appointment)}</span>` : ''}
+              ${t.assignee ? `<span>${ICON.user}${h(t.assignee)}</span>` : ''}
+              ${t.photos.length > 1 ? `<span>📷 ${t.photos.length}</span>` : ''}
+            </div>
+          </div>
+          <div class="side"><span class="badge"><span class="dot" style="background:${st.color}"></span>${h(st.label)}</span><span class="muted small">erstellt ${fmtDate((t.createdAt || '').slice(0, 10))}</span></div>
+        </a></li>`;
+      }).join('') : `<li class="muted" style="padding:20px;text-align:center">${S.data.todos.length ? 'Keine passenden To-Dos.' : 'Noch keine To-Dos – oben rechts eines anlegen.'}</li>`;
+      // Vorschaubilder nachladen
+      const withPhoto = list.filter((t) => t.photos.length);
+      if (withPhoto.length) {
+        Photos.urls(withPhoto.map((t) => t.photos[0]), true).then((urls) => {
+          withPhoto.forEach((t) => { const img = $(`[data-thumb="${t.id}"]`); if (img && urls[t.photos[0].id]) img.src = urls[t.photos[0].id]; });
+        }).catch((e) => console.warn('Vorschaubilder', e));
+      }
+    },
+  };
+
+  const TodoEdit = {
+    render(root, id, params) {
+      const isNew = !id;
+      const orig = isNew ? null : S.todo(id);
+      if (!isNew && !orig) { root.innerHTML = '<div class="page"><p>To-Do nicht gefunden.</p><a href="#/todos">Zur Liste</a></div>'; return; }
+      const back = safeBack(params.get('zurueck'));
+      const ziel = params.get('ziel') || '';
+      const t = isNew
+        ? { id: S.uid('d'), title: '', description: '', targetType: ziel.split(':')[0] || '', targetId: ziel.split(':')[1] || '', location: '',
+            status: 'offen', deadline: '', appointment: '', assignee: '', photos: [], createdAt: '', doneAt: '' }
+        : JSON.parse(JSON.stringify(orig));
+      const added = [];     // neu hochgeladen (bei Abbruch wieder löschen)
+      const removed = [];   // entfernt (beim Speichern endgültig löschen)
+      const places = [...new Set(S.data.todos.map((x) => x.location).filter(Boolean))];
+
+      root.innerHTML = `
+        <div class="page">
+          <a class="back" href="${h(back)}" data-cancel>${ICON.back} Zurück</a>
+          <div class="page-head"><h1>${isNew ? 'Neues To-Do' : 'To-Do bearbeiten'}</h1></div>
+          ${missingNotice()}
+          <form id="todo-form" novalidate>
+            <div class="cards">
+              <section class="card">
+                <h2>Was ist zu tun?</h2>
+                <div class="form-grid">
+                  ${fieldHtml({ name: 'title', label: 'Titel', value: t.title, required: true, full: true, placeholder: 'z. B. Dusche reparieren', autocomplete: 'off' })}
+                  <label class="field full"><span>Ort</span><select name="target">${targetOptions(t.targetType ? `${t.targetType}:${t.targetId}` : '')}</select></label>
+                  <label class="field full" id="loc-field"><span>Ort (frei)</span><input name="location" list="loc-list" value="${h(t.location)}" placeholder="z. B. Sanitärgebäude 2, Hauptweg …" autocomplete="off">
+                    <datalist id="loc-list">${places.map((x) => `<option value="${h(x)}">`).join('')}</datalist></label>
+                  <label class="field full"><span>Beschreibung</span><textarea name="description" rows="4" placeholder="Details, Material, Ansprechpartner …">${h(t.description)}</textarea></label>
+                </div>
+              </section>
+              <section class="card">
+                <h2>Stand &amp; Termine</h2>
+                <div class="field full"><span>Status</span>
+                  <div class="chips todo-status-pick" role="radiogroup" aria-label="Status">
+                    ${Object.entries(S.TODO_STATUS).map(([k, v]) => `<button type="button" role="radio" aria-checked="${t.status === k}" class="chip${t.status === k ? ' is-active' : ''}" data-st="${k}"><span class="dot" style="background:${v.color}"></span>${h(v.label)}</button>`).join('')}
+                  </div>
+                </div>
+                <div class="form-grid" style="margin-top:12px">
+                  ${fieldHtml({ name: 'deadline', label: 'Erledigen bis (Deadline)', type: 'date', value: t.deadline })}
+                  <label class="field"><span>Termin (optional)</span><input type="datetime-local" name="appointment" value="${h(t.appointment)}"></label>
+                  <label class="field full"><span>Zuständig</span><input name="assignee" list="who-list" value="${h(t.assignee)}" placeholder="Name oder Firma" autocomplete="off">
+                    <datalist id="who-list">${assignees().map((x) => `<option value="${h(x)}">`).join('')}</datalist></label>
+                </div>
+                <p class="muted small" style="margin:10px 0 0">${isNew ? 'Erstellt wird mit heutigem Datum.' : `Erstellt am ${fmtDate((t.createdAt || '').slice(0, 10))}${t.doneAt ? ` · erledigt am ${fmtDate(t.doneAt)}` : ''}`}</p>
+              </section>
+              <section class="card span-all">
+                <h2>Fotos</h2>
+                <div class="photo-grid" id="photo-grid"></div>
+                <label class="btn btn-ghost btn-sm photo-add">${ICON.plus} Foto hinzufügen
+                  <input type="file" accept="image/*" multiple hidden id="photo-input"></label>
+              </section>
+            </div>
+            <div class="form-footer">
+              ${isNew ? '' : `<button type="button" class="btn btn-danger" data-delete style="margin-right:auto" aria-label="To-Do löschen">${ICON.trash}<span class="btn-text">Löschen</span></button>`}
+              <a class="btn btn-ghost" href="${h(back)}" data-cancel>Abbrechen</a>
+              <button type="submit" class="btn">Speichern</button>
+            </div>
+          </form>
+        </div>`;
+
+      const form = $('#todo-form', root);
+      const f = form.elements;
+      let status = t.status;
+      let saved = false;
+      const syncLoc = () => { $('#loc-field', root).hidden = !!f.target.value; };
+      f.target.addEventListener('change', syncLoc);
+      syncLoc();
+      $$('[data-st]', root).forEach((b) => b.addEventListener('click', () => {
+        status = b.dataset.st;
+        $$('[data-st]', root).forEach((x) => { x.classList.toggle('is-active', x === b); x.setAttribute('aria-checked', String(x === b)); });
+      }));
+
+      // Fotos
+      const grid = $('#photo-grid', root);
+      let uploading = 0;
+      const renderPhotos = async () => {
+        grid.innerHTML = t.photos.map((p) => `<div class="photo" data-id="${p.id}"><img alt="Foto"><button type="button" class="photo-del" aria-label="Foto entfernen">${ICON.close}</button></div>`).join('')
+          + Array.from({ length: uploading }, () => '<div class="photo is-loading"><span>lädt …</span></div>').join('')
+          + (t.photos.length || uploading ? '' : '<p class="muted small" style="margin:0">Noch keine Fotos. Auf dem Handy kann direkt die Kamera genutzt werden.</p>');
+        $$('.photo-del', grid).forEach((b) => b.onclick = () => {
+          const pid = b.closest('.photo').dataset.id;
+          const p = t.photos.find((x) => x.id === pid);
+          t.photos = t.photos.filter((x) => x.id !== pid);
+          if (added.includes(p)) { added.splice(added.indexOf(p), 1); Photos.remove([p]); } else removed.push(p);
+          renderPhotos();
+        });
+        $$('.photo img', grid).forEach((img) => img.onclick = () => showPhoto(t.photos, img.closest('.photo').dataset.id));
+        try {
+          const urls = await Photos.urls(t.photos, true);
+          $$('.photo[data-id]', grid).forEach((el) => { const u = urls[el.dataset.id]; if (u) $('img', el).src = u; });
+        } catch (e) { console.warn('Fotos laden', e); }
+      };
+      renderPhotos();
+      $('#photo-input', root).addEventListener('change', async (e) => {
+        const files = [...e.target.files];
+        e.target.value = '';
+        if (!files.length || blockIfMissing()) return;
+        uploading += files.length;
+        renderPhotos();
+        for (const file of files) {
+          try {
+            const p = await Photos.add(t.id, file);
+            t.photos.push(p);
+            added.push(p);
+          } catch (err) {
+            console.error(err);
+            alert(`Foto konnte nicht gespeichert werden:\n${err.message || err}`);
+          }
+          uploading--;
+          renderPhotos();
+        }
+      });
+
+      // Abbrechen: neu hochgeladene Fotos wieder entfernen
+      const discard = () => { if (!saved && added.length) { Photos.remove(added.splice(0)); } };
+      $$('[data-cancel]', root).forEach((a) => a.addEventListener('click', discard));
+      window.addEventListener('hashchange', discard, { once: true });
+
+      const del = $('[data-delete]', root);
+      if (del) del.onclick = () => {
+        if (!confirm(`To-Do „${orig.title}“ wirklich löschen?`)) return;
+        saved = true;
+        Photos.remove([...orig.photos, ...added]);
+        S.deleteTodo(orig.id); S.save(); toast('To-Do gelöscht');
+        location.hash = back.startsWith(`#/todo/${orig.id}`) ? '#/todos' : back;
+      };
+
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        if (uploading) { toast('Bitte warten, Fotos werden noch hochgeladen …'); return; }
+        const title = f.title.value.trim();
+        if (!title) { toast('Bitte einen Titel angeben'); f.title.focus(); return; }
+        if (blockIfMissing()) return;
+        const [tt, ti] = f.target.value ? f.target.value.split(':') : ['', ''];
+        Object.assign(t, {
+          title, description: f.description.value.trim(),
+          targetType: tt, targetId: ti, location: tt ? '' : f.location.value.trim(),
+          status, deadline: f.deadline.value || '', appointment: f.appointment.value || '', assignee: f.assignee.value.trim(),
+        });
+        if (status === 'erledigt') t.doneAt = t.doneAt || today(); else t.doneAt = '';
+        saved = true;
+        if (isNew) { t.createdAt = new Date().toISOString(); S.data.todos.push(t); } else Object.assign(orig, t);
+        S.save();
+        if (removed.length) Photos.remove(removed);
+        toast(isNew ? 'To-Do angelegt' : 'Gespeichert');
+        location.hash = back;
+      };
+      if (isNew && window.matchMedia('(min-width: 861px)').matches) f.title.focus();
+    },
+  };
+
+  // Foto groß anzeigen (wischen/Pfeile für weitere)
+  async function showPhoto(photos, id) {
+    const dlg = $('#dialog');
+    let i = Math.max(0, photos.findIndex((p) => p.id === id));
+    dlg.innerHTML = `<div class="lightbox"><img alt="Foto"><div class="lightbox-bar">
+      ${photos.length > 1 ? '<button type="button" class="btn btn-ghost btn-sm" data-prev>‹</button><span class="muted small" data-pos></span><button type="button" class="btn btn-ghost btn-sm" data-next>›</button>' : ''}
+      <span class="grow"></span><button type="button" class="btn btn-sm" data-close>Schließen</button></div></div>`;
+    dlg.classList.add('dialog-photo');
+    dlg.addEventListener('close', () => dlg.classList.remove('dialog-photo'), { once: true });
+    const img = $('img', dlg);
+    let urls = {};
+    const show = () => {
+      img.src = urls[photos[i].id] || '';
+      const pos = $('[data-pos]', dlg); if (pos) pos.textContent = `${i + 1} / ${photos.length}`;
+    };
+    $('[data-close]', dlg).onclick = () => dlg.close();
+    const prev = $('[data-prev]', dlg), next = $('[data-next]', dlg);
+    if (prev) prev.onclick = () => { i = (i + photos.length - 1) % photos.length; show(); };
+    if (next) next.onclick = () => { i = (i + 1) % photos.length; show(); };
+    dlg.showModal();
+    try { urls = await Photos.urls(photos, false); show(); } catch (e) { toast('Foto konnte nicht geladen werden'); }
+  }
+
   function route() {
     const raw = location.hash.replace(/^#\/?/, '') || 'karte';
     const [path, query] = raw.split('?');
@@ -1915,7 +2448,7 @@
     const params = new URLSearchParams(query || '');
     const viewMap = $('#view-karte');
     const viewPage = $('#view-page');
-    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', technik: 'technik', kasten: 'technik', ablesung: 'ablesung', verbrauch: 'ablesung', auslastung: 'ablesung', daten: 'daten' }[parts[0]] || 'karte';
+    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', todos: 'todos', todo: 'todos', technik: 'technik', kasten: 'technik', ablesung: 'ablesung', verbrauch: 'ablesung', auslastung: 'ablesung', daten: 'daten' }[parts[0]] || 'karte';
     $$('.tabbar a').forEach((a) => a.classList.toggle('is-active', a.dataset.nav === nav));
 
     if (nav === 'karte') {
@@ -1923,7 +2456,7 @@
       viewMap.hidden = false;
       MapView.invalidate();
       const [, type, id] = parts;
-      if (type && id && ['parcel', 'box', 'tank'].includes(type)) {
+      if (type && id && ['parcel', 'box', 'tank', 'place'].includes(type)) {
         const changed = !MapView.selected || MapView.selected.id !== id;
         MapView.select(type, id, { focus: changed });
         MapUI.showPanel(type, id);
@@ -1940,7 +2473,7 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { kasten: 'Stromkasten', kartei: 'Kartei', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Technik', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
+    const titles = { todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Kartei', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Technik', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
     switch (parts[0]) {
@@ -1950,6 +2483,8 @@
         else Detail.render(viewPage, parts[1]);
         break;
       case 'neu': Edit.render(viewPage, null); break;
+      case 'todos': Todos.render(viewPage, params); break;
+      case 'todo': TodoEdit.render(viewPage, parts[1] === 'neu' ? null : parts[1], params); break;
       case 'technik': Technik.render(viewPage); break;
       case 'kasten': BoxEdit.render(viewPage, parts[1]); break;
       case 'ablesung': Ablesung.render(viewPage, params); break;
@@ -1996,11 +2531,12 @@
   async function refreshIfIdle() {
     if (S.mode !== 'cloud' || S.hasPending || S.sync.state === 'error') return;
     if (Date.now() - S.lastFetch < 30000) return;
-    if (/^#\/(neu|parzelle\/[^/]+\/bearbeiten)/.test(location.hash)) return;
+    if (/^#\/(neu|todo\/|parzelle\/[^/]+\/bearbeiten)/.test(location.hash)) return;
     if (Object.keys(Ablesung.draft).length || MapView.mode || $('#dialog').open) return;
     try {
       if (!(await S.refresh())) return;
       MapView.render();
+      renderTodoBadge();
       route();
     } catch (e) {
       console.warn('Aktualisieren fehlgeschlagen', e);
@@ -2034,7 +2570,10 @@
       const sel = MapView.selected;
       if (!$('#view-karte').hidden && sel) MapUI.showPanel(sel.type, sel.id);
       if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'));
+      if (!$('#view-page').hidden && location.hash.startsWith('#/todos')) Todos.renderList();
+      renderTodoBadge();
     });
+    renderTodoBadge();
 
     window.addEventListener('hashchange', route);
     window.addEventListener('resize', () => MapView.invalidate());
