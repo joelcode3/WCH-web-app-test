@@ -61,6 +61,14 @@ lassen sich gefahrlos mehrfach ausführen. Wer neu einrichtet, braucht nur `sche
 `update-5.sql` (To-Dos & Orte) legt zusätzlich den privaten Foto-Speicher **todo-fotos** an –
 unter „Storage“ muss dafür nichts von Hand eingerichtet werden.
 
+### Pausieren verhindern (kostenloses Supabase-Paket)
+
+Supabase pausiert kostenlose Projekte nach 7 Tagen ohne Nutzung. Die GitHub-Aufgabe
+`.github/workflows/supabase-wachhalten.yml` fragt deshalb alle 3 Tage kurz bei der Datenbank an
+(ohne Daten zu lesen). Läuft automatisch; unter GitHub → **Actions** sieht man die Durchläufe.
+Hinweis: GitHub stoppt geplante Aufgaben, wenn im Repository 60 Tage lang nichts passiert
+(GitHub schickt vorher eine E-Mail) – dann unter Actions einmal „Enable workflow“ klicken.
+
 ## 6. Zugangsdaten in die App eintragen
 
 **Project Settings → API Keys** (oder oben der Button **„Connect“**):

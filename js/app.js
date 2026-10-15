@@ -297,7 +297,11 @@
      ====================================================================== */
 
   const MapUI = {
-    legendCollapsed: window.matchMedia('(max-width: 860px)').matches,
+    // eingeklappt? Wahl wird gemerkt; ohne gemerkte Wahl am Handy eingeklappt
+    legendCollapsed: (() => {
+      try { const v = localStorage.getItem('wch-legend'); if (v) return v === 'zu'; } catch (_) { /* egal */ }
+      return window.matchMedia('(max-width: 860px)').matches;
+    })(),
 
     init() {
       MapView.init($('#map'), {
@@ -357,7 +361,11 @@
             ${CFG.map.aerial ? cb('aerial', 'Luftbild als Hintergrund') : ''}
           </div>
         </div>`;
-      $('.legend-toggle', el).onclick = () => { this.legendCollapsed = !this.legendCollapsed; this.renderLegend(); };
+      $('.legend-toggle', el).onclick = () => {
+        this.legendCollapsed = !this.legendCollapsed;
+        try { localStorage.setItem('wch-legend', this.legendCollapsed ? 'zu' : 'auf'); } catch (_) { /* egal */ }
+        this.renderLegend();
+      };
       $$('[data-layer]', el).forEach((box) => box.onchange = () => {
         if (box.dataset.layer === 'aerial') { MapView.setAerial(box.checked); return; }
         sh[box.dataset.layer] = box.checked;
@@ -540,6 +548,7 @@
         const b = S.box(m.boxId);
         const where = m.type === 'strom'
           ? (m.inHouse ? 'im Haus' : b ? `<button class="link-btn" data-goto="#/karte/box/${b.id}">Kasten ${h(b.nr)}</button>` : '<span class="warn">kein Kasten</span>')
+            + (S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : '')
           : h(m.location || 'Ort nicht angegeben');
         return `<li class="meter-item">${ICON[m.type]}<div class="body">
           <div class="line1">${m.type === 'strom' ? 'Strom' : 'Gas'} · <span class="mono">${h(m.number || '—')}</span></div>
@@ -550,14 +559,14 @@
         return `<li class="meter-item">${serviceBadge()}
           <div class="body">
             <div class="line1">${h(S.purposeText(m))} <span class="badge">Betrieb</span></div>
-            <div class="line2"><span class="mono">${h(m.number || '—')}</span>${context === 'service' ? ` · ${h(S.meterPlace(m) || 'ohne Kasten')}` : ''} · ${lastTxt}</div>
+            <div class="line2"><span class="mono">${h(m.number || '—')}</span>${context === 'service' ? ` · ${h(S.meterPlace(m) || 'ohne Kasten')}` : ''}${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
           </div></li>`;
       }
       return `<li class="meter-item is-link" data-goto="#/karte/parcel/${p.id}" tabindex="0">
         ${nrBadge(p, 'nr-sm')}
         <div class="body">
           <div class="line1">${h(tenantName(p))}</div>
-          <div class="line2"><span class="mono">${h(m.number || '—')}</span> · ${lastTxt}</div>
+          <div class="line2"><span class="mono">${h(m.number || '—')}</span>${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
         </div></li>`;
     },
 
@@ -1002,6 +1011,7 @@
           <dt>Zähler-Nr.</dt><dd class="mono">${h(m.number || '—')}</dd>
           ${m.type === 'strom' ? `<dt>Zählerort</dt><dd>${m.inHouse ? 'im Haus des Mieters' : b ? `<a href="#/karte/box/${b.id}">Kasten ${h(b.nr)}</a>${b.location ? ` <span class="muted small">(${h(b.location)})</span>` : ''}` : '<span class="warn">nicht zugeordnet</span>'}</dd>`
             : `<dt>Ort</dt><dd>${h(m.location || '–')}</dd>`}
+          ${m.type === 'strom' ? `<dt>Sicherung${(m.fuses || []).length > 1 ? 'en' : ''}</dt><dd>${S.fusesText(m) ? `${h(S.fusesText(m))}${m.inHouse && S.box(m.fuseBoxId) ? ` <span class="muted small">(Kasten ${h(S.box(m.fuseBoxId).nr)})</span>` : ''}` : '–'}</dd>` : ''}
           <dt>Letzter Stand</dt><dd>${last ? `${fmtNum(last.value)} ${unit(m.type)} <span class="muted small">(${fmtDate(last.date)})</span>` : '–'}</dd>
         </dl>`;
       };
@@ -1104,7 +1114,63 @@
       if (other) { out.set(i, `Diese Zählernummer ist schon vergeben: ${meterOwner(other)}`); return; }
       if (list.some((x, k) => k !== i && norm(x.number) === n)) out.set(i, 'Diese Zählernummer steht hier doppelt.');
     });
+    // Sicherungen: pro Kasten jede Nummer nur einmal
+    list.forEach((m, i) => {
+      const box = S.fuseBoxOf(m);
+      if (!box) return;
+      const msgs = [];
+      (m.fuses || []).forEach((f) => {
+        const n = S.normFuse(f.nr);
+        if (!n) return;
+        const b = S.box(box);
+        const other = S.data.meters.find((x) => !exclude.includes(x.id) && S.fuseBoxOf(x) === box && (x.fuses || []).some((g) => S.normFuse(g.nr) === n));
+        const twice = list.some((x, k) => S.fuseBoxOf(x) === box && (x.fuses || []).some((g, gi) => S.normFuse(g.nr) === n && (k !== i || g !== f)));
+        if (other) msgs.push(`Sicherung ${f.nr} ist in Kasten ${b ? b.nr : '?'} schon belegt: ${meterOwner(other)}`);
+        else if (twice) msgs.push(`Sicherung ${f.nr} ist in Kasten ${b ? b.nr : '?'} doppelt eingetragen.`);
+      });
+      if (msgs.length) out.set(i, [out.get(i), ...msgs].filter(Boolean).join(' · '));
+    });
     return out;
+  }
+
+  // Eingabe der Sicherungen eines Stromzählers (Nummer + Bezeichnung, beliebig viele)
+  const fusesMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missingCols.has('meters.fuses');
+  function fuseEditor(m, boxSelectOpts) {
+    if (m.type !== 'strom') return '';
+    if (fusesMissing()) return '<p class="fuse-edit muted small">Sicherungen: erst nach dem Datenbank-Update (supabase/update-6.sql) verfügbar.</p>';
+    const box = S.box(S.fuseBoxOf(m));
+    return `<div class="fuse-edit">
+      <div class="fuse-head"><span>Sicherung${(m.fuses || []).length === 1 ? '' : 'en'}${box ? ` in Kasten ${h(box.nr)}` : ''}</span>
+        ${boxSelectOpts ? `<select data-k="fuseBox" aria-label="Kasten der Sicherung">${boxSelectOpts.map(([v, l]) => `<option value="${h(v)}"${v === m.fuseBoxId ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>` : ''}</div>
+      ${(m.fuses || []).map((f, j) => `<div class="fuse-row" data-j="${j}">
+        <input type="text" data-fk="nr" value="${h(f.nr)}" placeholder="Nr., z. B. F3" aria-label="Sicherungsnummer" autocomplete="off">
+        <input type="text" data-fk="label" value="${h(f.label)}" placeholder="Bezeichnung, z. B. 16 A Haus" aria-label="Bezeichnung der Sicherung" autocomplete="off">
+        <button type="button" class="close" data-fdel="${j}" aria-label="Sicherung entfernen" title="Sicherung entfernen">${ICON.close}</button></div>`).join('')}
+      <button type="button" class="link-btn" data-fadd>${ICON.plus} Sicherung</button>
+    </div>`;
+  }
+  // Ereignisse der Sicherungsfelder; rerender nach Hinzufügen/Entfernen, warn() nach Tippen
+  function bindFuseEditors(container, meters, rerender, warn) {
+    $$('.fuse-edit', container).forEach((ed) => {
+      const row = ed.closest('[data-i]');
+      if (!row) return;
+      const m = meters[+row.dataset.i];
+      $$('[data-fk]', ed).forEach((inp) => inp.addEventListener('input', () => {
+        m.fuses[+inp.closest('[data-j]').dataset.j][inp.dataset.fk] = inp.value;
+        warn();
+      }));
+      $$('[data-fdel]', ed).forEach((b) => b.onclick = () => { m.fuses.splice(+b.dataset.fdel, 1); rerender(); });
+      const add = $('[data-fadd]', ed);
+      if (add) add.onclick = () => {
+        m.fuses = m.fuses || [];
+        m.fuses.push({ nr: '', label: '' });
+        rerender();
+        const inputs = $$(`[data-i="${row.dataset.i}"] .fuse-row input[data-fk=nr]`, container);
+        if (inputs.length) inputs[inputs.length - 1].focus();
+      };
+      const sel = $('[data-k=fuseBox]', ed);
+      if (sel) sel.onchange = () => { m.fuseBoxId = sel.value; rerender(); };
+    });
   }
 
   // Warnhinweise unter den Zählernummer-Feldern aktualisieren (ohne Neuaufbau → Fokus bleibt)
@@ -1125,7 +1191,7 @@
     const dups = meterDuplicates(list, removedIds);
     if (!dups.size) return true;
     const lines = [...dups.entries()].map(([i, msg]) => `• ${list[i].number}: ${msg}`).join('\n');
-    return confirm(`Achtung, doppelte Zählernummer:\n${lines}\n\nTrotzdem speichern?`);
+    return confirm(`Achtung, doppelte Nummer:\n${lines}\n\nTrotzdem speichern?`);
   }
 
   const Edit = {
@@ -1133,9 +1199,10 @@
       const isNew = !id;
       const p = isNew ? newParcel(nextParcelNr(), 'leer') : S.parcel(id);
       if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p></div>'; return; }
-      const blankMeter = (type) => ({ id: null, type, number: '', boxId: '', inHouse: false, purpose: '', label: '', location: '' });
+      const blankMeter = (type) => ({ id: null, type, number: '', boxId: '', inHouse: false, purpose: '', label: '', location: '', fuses: [], fuseBoxId: '' });
       // Arbeitskopie der Zähler
-      const meters = isNew ? [blankMeter('strom')] : S.metersOf(p.id).map((m) => ({ ...m }));
+      const meters = isNew ? [blankMeter('strom')] : S.metersOf(p.id).map((m) => ({ ...m, fuses: (m.fuses || []).map((f) => ({ ...f })) }));
+      const fuseBoxOpts = [['', '– Kasten der Sicherung –'], ...S.boxesSorted().map((b) => [b.id, `Kasten ${b.nr}`])];
       const removed = [];
 
       const boxOpts = [['', '– bitte wählen –'], ['__haus', 'Im Haus des Mieters (kein Kasten)'],
@@ -1233,15 +1300,19 @@
                 ? `<label class="field"><span>Wo hängt der Zähler?</span><select data-k="place">${boxOpts.map(([v, l]) => `<option value="${h(v)}"${v === place ? ' selected' : ''}>${h(l)}</option>`).join('')}</select></label>`
                 : `<label class="field"><span>Ort am Grundstück</span><input type="text" data-k="location" value="${h(m.location)}" placeholder="z. B. Hauswand"></label>`}
               <button type="button" class="close meter-remove" data-remove="${i}" aria-label="Zähler entfernen" title="Zähler entfernen">${ICON.trash}</button>
+              ${fuseEditor(m, m.inHouse ? fuseBoxOpts : null)}
               <p class="dup-warn" hidden></p>
             </div>`;
           }).join('') : `<p class="muted small">Kein ${type === 'strom' ? 'Strom' : 'Gas'}zähler.</p>`;
         });
+        bindFuseEditors(root, meters, renderMeters, () => showMeterWarnings(root, meters, removed));
         $$('.meter-edit [data-k]', root).forEach((inp) => inp.addEventListener('input', () => {
           const m = meters[+inp.closest('.meter-edit').dataset.i];
           if (inp.dataset.k === 'place') {
             m.inHouse = inp.value === '__haus';
             m.boxId = m.inHouse ? '' : inp.value;
+            renderMeters();
+            return;
           } else {
             m[inp.dataset.k] = inp.value;
           }
@@ -1325,6 +1396,8 @@
             type: m.type, number: m.number.trim(),
             boxId: strom && !m.inHouse ? m.boxId : '', inHouse: strom && !!m.inHouse,
             location: strom ? '' : (m.location || '').trim(), purpose: '', label: '', parcelId: p.id,
+            fuses: strom ? (m.fuses || []).map((f) => ({ nr: f.nr.trim(), label: f.label.trim() })).filter((f) => f.nr || f.label) : [],
+            fuseBoxId: strom && m.inHouse ? m.fuseBoxId || '' : '',
           };
           if (m.id) Object.assign(S.meter(m.id), clean);
           else if (clean.number || clean.boxId || clean.inHouse) S.data.meters.push({ id: S.uid('m'), notes: '', ...clean });
@@ -1344,7 +1417,7 @@
     render(root, id) {
       const b = S.box(id);
       if (!b) { root.innerHTML = '<div class="page"><p>Stromkasten nicht gefunden.</p><a href="#/technik">Zur Technik</a></div>'; return; }
-      const meters = S.metersInBox(b.id).filter((m) => m.type === 'strom').map((m) => ({ ...m }));
+      const meters = S.metersInBox(b.id).filter((m) => m.type === 'strom').map((m) => ({ ...m, fuses: (m.fuses || []).map((f) => ({ ...f })) }));
       const removed = [];
       const parcelOpts = S.parcelsSorted().map((p) => [`p:${p.id}`, `Parzelle ${p.nr}${p.tenant.name ? ' – ' + p.tenant.name : ''}`]);
       const purposeOpts = Object.entries(S.PURPOSES).map(([k, v]) => [`s:${k}`, v]);
@@ -1398,9 +1471,11 @@
               </select></label>
             <label class="field"${isService ? '' : ' hidden'}><span>Bezeichnung (optional)</span><input type="text" data-k="label" value="${h(m.label)}" placeholder="z. B. Sanitärgebäude Nord"></label>
             <button type="button" class="close meter-remove" data-remove="${i}" aria-label="Zähler entfernen" title="Zähler entfernen">${ICON.trash}</button>
+            ${fuseEditor(m, null)}
             <p class="dup-warn" hidden></p>
           </div>`;
         }).join('') : '<p class="muted small">Noch keine Zähler in diesem Kasten.</p>';
+        bindFuseEditors(list, meters, renderRows, () => showMeterWarnings(list, meters, removed));
 
         $$('[data-k]', list).forEach((inp) => inp.addEventListener('input', () => {
           const m = meters[+inp.closest('[data-i]').dataset.i];
@@ -1426,7 +1501,7 @@
       renderRows();
 
       $('#box-add', root).onclick = () => {
-        meters.push({ id: null, type: 'strom', number: '', parcelId: '', boxId: b.id, inHouse: false, purpose: '', label: '', location: '' });
+        meters.push({ id: null, type: 'strom', number: '', parcelId: '', boxId: b.id, inHouse: false, purpose: '', label: '', location: '', fuses: [], fuseBoxId: '' });
         renderRows();
         const inputs = $$('input[data-k=number]', list);
         inputs[inputs.length - 1].focus();
@@ -1460,6 +1535,7 @@
           const clean = {
             type: 'strom', number: m.number.trim(), boxId: b.id, inHouse: false,
             parcelId: m.parcelId || '', purpose: m.parcelId ? '' : m.purpose, label: m.parcelId ? '' : (m.label || '').trim(),
+            fuses: (m.fuses || []).map((f) => ({ nr: f.nr.trim(), label: f.label.trim() })).filter((f) => f.nr || f.label), fuseBoxId: '',
           };
           if (m.id) Object.assign(S.meter(m.id), clean);
           else S.data.meters.push({ id: S.uid('m'), location: '', notes: '', ...clean });
@@ -1935,18 +2011,23 @@
 
   const Daten = {
     // Weicht der Bestand vom aktuellen Lageplan ab? (z. B. nach Plan-Update)
+    // Abgleich mit dem Lageplan (über die Lage der Parzellen) → Hinweis + Knopf
     planDiff() {
-      const plan = (window.PLAN_DATA && window.PLAN_DATA.parcels) || [];
-      if (!plan.length) return '';
-      const inPlan = new Set(plan.map((p) => p.nr));
-      const inData = new Set(S.data.parcels.map((p) => p.nr));
-      const missing = [...inPlan].filter((nr) => !inData.has(nr));
-      const extra = [...inData].filter((nr) => !inPlan.has(nr));
-      if (!missing.length && !extra.length) return '';
-      const list = (a) => a.sort(S.compareNr).slice(0, 8).join(', ') + (a.length > 8 ? ' …' : '');
-      return `<p class="notice"><strong>Lageplan aktualisiert:</strong> Der Lageplan enthält ${plan.length} Parzellen, der Bestand ${S.data.parcels.length}.
-        ${missing.length ? `Neu im Plan: ${h(list(missing))}.` : ''} ${extra.length ? `Nicht mehr im Plan: ${h(list(extra))}.` : ''}
-        Mit „Parzellen aus Lageplan übernehmen“ (unten) wird der Bestand auf den neuen Plan umgestellt.</p>`;
+      const sync = S.planSync();
+      this._sync = sync;
+      if (!sync.changes.length && !sync.added.length) return '';
+      const list = (a) => a.slice(0, 12).join(', ') + (a.length > 12 ? ' …' : '');
+      const ch = [...sync.changes].sort((x, y) => S.compareNr(x.to, y.to));
+      return `<section class="card plan-sync">
+        <h2>Neue Parzellennummern aus dem Lageplan</h2>
+        <p style="margin-top:0">${sync.changes.length ? `<strong>${sync.changes.length} Parzellen</strong> bekommen eine neue Nummer.` : ''}
+          ${sync.added.length ? `<strong>${sync.added.length}</strong> neue Parzelle${sync.added.length === 1 ? '' : 'n'} kommen dazu (${h(list(sync.added.map((x) => x.nr)))}).` : ''}
+          Mieter, Zähler, Zählerstände und To-Dos bleiben dabei vollständig erhalten – sie hängen an der Parzelle, nicht an der Nummer.</p>
+        ${ch.length ? `<details><summary>Änderungen anzeigen (alt → neu)</summary>
+          <div class="sync-list">${ch.map((c) => `<span>${h(c.from)} → <strong>${h(c.to)}</strong></span>`).join('')}</div></details>` : ''}
+        ${sync.unmatched.length ? `<p class="small warn">Nicht im Lageplan gefunden (bleiben unverändert, z. B. selbst gezeichnet): ${h(list(sync.unmatched.map((u) => u.nr)))}</p>` : ''}
+        <div class="card-actions"><button class="btn" id="d-sync">Neue Nummern übernehmen</button></div>
+      </section>`;
     },
 
     render(root) {
@@ -1999,7 +2080,7 @@
             <section class="card">
               <h2>Zurücksetzen</h2>
               <div class="card-actions" style="margin-top:0">
-                <button class="btn" id="d-plan">Parzellen aus Lageplan übernehmen</button>
+                <button class="btn btn-ghost" id="d-plan">Alles durch leere Lageplan-Parzellen ersetzen</button>
                 <button class="btn btn-ghost" id="d-demo">Demo-Daten laden</button>
                 <button class="btn btn-danger" id="d-clear">Alles leeren</button>
               </div>
@@ -2024,14 +2105,14 @@
       };
       $('#d-csv', root).onclick = () => {
         const rows = [['Parzelle', 'Status', 'Objektart', 'Mieter', 'Telefon', 'E-Mail', 'Anschrift', 'Größe (m²)', 'Pacht/Miete mtl. (€)',
-          'Winterwasser', 'Bewohner', 'Hunde', 'Mietbeginn', 'Frei ab', 'Heizung', 'Gas', 'Gastank', 'Stromzähler', 'Zählerort', 'Gaszähler', 'Notizen']];
+          'Winterwasser', 'Bewohner', 'Hunde', 'Mietbeginn', 'Frei ab', 'Heizung', 'Gas', 'Gastank', 'Stromzähler', 'Zählerort', 'Sicherungen', 'Gaszähler', 'Notizen']];
         S.parcelsSorted().forEach((p) => {
           const ms = S.metersOf(p.id);
           const st = ms.filter((m) => m.type === 'strom');
           const gs = ms.filter((m) => m.type === 'gas');
           rows.push([p.nr, statusOf(p).label, objectOf(p).label, p.tenant.name, p.tenant.phone, p.tenant.email, p.tenant.address, p.size, p.rent,
             p.winterWater ? 'ja' : 'nein', p.residents || 0, p.dogs || 0, p.leaseStart ? fmtDate(p.leaseStart) : '', p.freeFrom ? fmtDate(p.freeFrom) : '', S.HEATING[p.heating] || '', S.GAS[p.gas] || '', S.tank(p.gasTankId)?.nr ?? '',
-            st.map((m) => m.number).join(', '), st.map((m) => S.meterPlace(m)).join(', '),
+            st.map((m) => m.number).join(', '), st.map((m) => S.meterPlace(m)).join(', '), st.map((m) => S.fusesText(m)).filter(Boolean).join('; '),
             gs.map((m) => m.number).join(', '), p.notes]);
         });
         download(`kartei-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
@@ -2041,6 +2122,14 @@
         ? confirm(`${what}?`)
         : (prompt(`${what}?\n\nDas betrifft die zentrale Datenbank für alle Benutzer. Zum Bestätigen LÖSCHEN eingeben:`) || '').trim().toUpperCase() === 'LÖSCHEN';
       $('#d-demo', root).onclick = () => { if (reallyOverwrite('Aktuellen Stand durch Demo-Daten ersetzen')) { S.reset(); toast('Demo-Daten geladen'); this.render(root); } };
+      const syncBtn = $('#d-sync', root);
+      if (syncBtn) syncBtn.onclick = () => {
+        const sync = this._sync;
+        if (!confirm(`${sync.changes.length} Parzellen neu nummerieren${sync.added.length ? ` und ${sync.added.length} neue ergänzen` : ''}?\n\nAlle Einträge (Mieter, Zähler, Zählerstände, To-Dos) bleiben erhalten.`)) return;
+        S.applyPlanSync(sync);
+        toast('Neue Parzellennummern übernommen');
+        this.render(root);
+      };
       $('#d-plan', root).onclick = () => {
         const n = (window.PLAN_DATA && window.PLAN_DATA.parcels.length) || 0;
         if (!reallyOverwrite(`Alle Daten durch die ${n} leeren Parzellen aus dem Lageplan ersetzen (ohne Mieter, Zähler und Kästen)`)) return;
@@ -2522,7 +2611,7 @@
     if (st === 'error' && /column|schema cache/i.test(S.sync.error) && !renderSync.warned) {
       renderSync.warned = true;
       alert('Die Datenbank muss aktualisiert werden, bevor neue Felder gespeichert werden können.\n\n'
-        + 'Bitte im Supabase „SQL Editor“ das Update-Skript (supabase/update-2.sql) ausführen und danach erneut speichern.\n\n'
+        + 'Bitte im Supabase „SQL Editor“ das neueste Update-Skript aus dem Ordner supabase/ ausführen und danach erneut speichern.\n\n'
         + `Technische Meldung: ${S.sync.error}`);
     }
   }
@@ -2585,7 +2674,7 @@
     route();
     if (Daten.planDiff() && !sessionStorage.getItem('wch-plan-hint')) {
       try { sessionStorage.setItem('wch-plan-hint', '1'); } catch (_) { /* egal */ }
-      setTimeout(() => toast('Der Lageplan wurde aktualisiert – Details unter „Daten“'), 800);
+      setTimeout(() => toast('Neue Parzellennummern im Lageplan – unter „Daten“ übernehmen'), 800);
     }
   }
 

@@ -242,8 +242,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--w
 .legend {
   position: absolute; left: 12px; bottom: 12px; z-index: 1000;
   background: rgba(255,253,248,.96); border: 1px solid var(--linie); border-radius: var(--radius);
-  box-shadow: var(--shadow); padding: 10px 12px; font-size: .9rem; max-width: 260px;
+  box-shadow: var(--shadow); padding: 0; font-size: .9rem; max-width: 260px;
+  max-height: calc(100% - 24px); display: flex; flex-direction: column;
 }
+.legend .legend-body { padding: 0 12px 10px; overflow-y: auto; }
+.legend.is-collapsed .legend-body { display: none; }
 .legend h4 { margin: 0 0 6px; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-leise); }
 .legend ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
 .legend li { display: flex; align-items: center; gap: 8px; }
@@ -251,7 +254,9 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--w
 .legend .toggles { border-top: 1px solid var(--linie); margin-top: 8px; padding-top: 8px; display: grid; gap: 4px; }
 .legend label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .legend input { width: 18px; height: 18px; accent-color: var(--wald); }
-.legend-toggle { display: none; }
+.legend-toggle {
+  display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 8px 12px; font: inherit; font-weight: 700; cursor: pointer; color: var(--wald);
+}
 .legend .placeholder-note { margin-top: 8px; font-size: .78rem; color: var(--rinde); font-weight: 600; }
 
 .panel {
@@ -507,12 +512,7 @@ body.is-locked { padding-bottom: 0; }
   .btn-icon { width: 44px; padding: 0; }
   .map-modebar { padding: 8px 10px; font-size: .92rem; }
 
-  .legend { left: 8px; bottom: 8px; padding: 0; max-width: calc(100% - 70px); }
-  .legend-toggle {
-    display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 8px 12px; font-weight: 700; cursor: pointer; color: var(--wald);
-  }
-  .legend .legend-body { padding: 0 12px 10px; }
-  .legend.is-collapsed .legend-body { display: none; }
+  .legend { left: 8px; bottom: 8px; max-width: calc(100% - 70px); }
 
   /* Infofenster als Bottom-Sheet */
   .panel {
@@ -653,3 +653,16 @@ body.is-locked { padding-bottom: 0; }
   #t-status { flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 0 16px 4px; scrollbar-width: none; }
   #t-status .chip { flex: none; }
 }
+.plan-sync { border-color: #e0a526; background: #fffaf0; }
+.plan-sync details { margin: 8px 0; }
+.plan-sync summary { cursor: pointer; font-weight: 600; color: var(--wald); }
+.sync-list { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: .88rem; font-variant-numeric: tabular-nums; }
+/* Sicherungen am Stromzähler */
+.fuse-edit { grid-column: 1 / -1; display: grid; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--linie); }
+.fuse-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: .85rem; font-weight: 600; color: var(--text-leise); }
+.fuse-head select { width: auto; min-width: 180px; padding: 6px 10px; font-size: .9rem; }
+.fuse-row { display: grid; grid-template-columns: minmax(70px, 110px) 1fr auto; gap: 6px; align-items: center; }
+.fuse-row input { padding: 8px 10px; }
+.fuse-row .close { width: 32px; height: 32px; }
+.fuse-edit .link-btn { justify-self: start; display: inline-flex; align-items: center; gap: 4px; }
+.fuse-edit .link-btn svg { width: 16px; height: 16px; }
