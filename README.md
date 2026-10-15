@@ -42,9 +42,9 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
   werden auf der Karte markiert, der Reiter zeigt die Anzahl (rot bei Überfälligem)
 - **Orte** – Sanitärgebäude, Grillhütte, Spielplatz, Rezeption … als Symbole auf der Karte
   (Bearbeiten-Modus → „+ Ort“), jeweils mit eigenen To-Dos
-- **Airbnb** – Ferienunterkünfte (Londonbus, Glampingzelt, Bäckerwagen …) als Polaroid auf der Karte
-  (eigenes Foto oder gezeichnetes Motiv), Punkt grün/rot = heute frei/belegt. Infofenster mit
-  Monatskalender, Link zum Inserat und To-Dos. Reiter „Airbnb“: alle Unterkünfte mit Belegung der
+- **Airbnb** – Ferienunterkünfte (Londonbus, Glampingzelt, Bäckerwagen …) als gezeichnete Draufsicht
+  in Originalgröße auf der Karte (im Bearbeiten-Modus verschieb- und drehbar), Punkt = heute belegt
+  (grün) / frei (weiß) / geblockt (grau). Infofenster mit Foto, Monatskalender, Link zum Inserat und To-Dos. Reiter „Airbnb“: alle Unterkünfte mit Belegung der
   nächsten 9 Wochen. Belegung live aus den Airbnb-Kalendern (Supabase-Funktion `airbnb-kalender`)
 - **Technik** – Stromkästen und Gastanks; pro Kasten alle Zähler verwalten und entweder einer
   Parzelle zuordnen oder als **Betriebsstrom** kennzeichnen (Platzbeleuchtung, Sanitär, Camperstrom …)
@@ -126,7 +126,7 @@ js/cloud.js           Supabase: Laden, Speichern (nur Änderungen), Login
 js/auth.js            Anmeldebildschirm
 js/map.js             Interaktive Karte (Leaflet)
 js/photos.js          Fotos zu To-Dos (verkleinern, Supabase-Speicher „todo-fotos“)
-js/airbnb.js          Ferienunterkünfte: Polaroids, Belegung, Kalender
+js/airbnb.js          Ferienunterkünfte: Draufsichten, Belegung, Kalender
 js/app.js             Ansichten: Karte, Kartei, Technik, Zähler, Daten
 assets/               Lageplan (Platzhalter) & Icon
 supabase/schema.sql   Datenbankschema inkl. Zugriffsregeln (enthält alle Updates)

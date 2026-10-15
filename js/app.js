@@ -42,6 +42,15 @@
     download: '<svg viewBox="0 0 24 24"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/></svg>',
     upload: '<svg viewBox="0 0 24 24"><path d="M12 20V9m-5 5 5-5 5 5M5 4h14"/></svg>',
     pen: '<svg viewBox="0 0 24 24"><path d="M3 21l3-1 12-12-2-2L4 18zM14 6l2-2 4 4-2 2"/></svg>',
+    scissors: '<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.6 20 18M8.6 16.4 20 6"/></svg>',
+    merge: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="8" height="12" rx="1"/><rect x="13" y="6" width="8" height="12" rx="1"/><path d="M9 12h6"/></svg>',
+    pin: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    camera: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+    check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+    rotL: '<svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M4.5 10A8 8 0 1 1 6 17"/></svg>',
+    rotR: '<svg viewBox="0 0 24 24"><path d="M20 4v6h-6"/><path d="M19.5 10A8 8 0 1 0 18 17"/></svg>',
+    house: '<svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h14V10M10 20v-5h4v5"/></svg>',
   };
 
   const statusOf = (p) => S.STATUS[p.status] || S.STATUS.leer;
@@ -351,9 +360,9 @@
             <h4>Auf der Karte zeigen</h4>
             ${cb('boxes', `${ICON.strom} Stromkästen`)}
             ${cb('tanks', `${ICON.gas} Gastanks`)}
-            ${cb('places', '<span class="legend-emoji">📍</span> Orte / Gebäude')}
-            ${cb('airbnb', '<span class="legend-emoji">📷</span> Ferienunterkünfte')}
-            ${cb('todos', '<span class="pb pb-todo">✓1</span> Offene To-Dos')}
+            ${cb('places', `<span class="legend-ico">${ICON.pin}</span> Orte / Gebäude`)}
+            ${cb('airbnb', `<span class="legend-ico">${ICON.house}</span> Ferienunterkünfte`)}
+            ${cb('todos', `<span class="pb pb-todo">${ICON.check}1</span> Offene To-Dos`)}
             ${cb('ww', '<span class="pb pb-ww">WW</span> Winterwasser')}
             ${cb('persons', `<span class="pb pb-icons pb-person">${MapView.icons.person}</span> Bewohner`)}
             ${cb('dogs', `<span class="pb pb-icons pb-dog">${MapView.icons.dog}</span> Hunde`)}
@@ -452,7 +461,7 @@
         });
         S.tanksSorted().forEach((t) => {
           if (`tank ${t.nr}`.includes(q) || `gastank ${t.nr}`.includes(q) || `t${t.nr}` === q) {
-            res.push({ type: 'tank', id: t.id, html: `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>T${h(t.nr)}</span></span><strong>Gastank ${h(t.nr)}</strong>` });
+            res.push({ type: 'tank', id: t.id, html: `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span><strong>Gastank ${h(t.nr)}</strong>` });
           }
         });
         S.placesSorted().forEach((o) => {
@@ -533,8 +542,8 @@
           ${MapView.editMode ? `<div class="section-title">Umriss bearbeiten</div>
             <div class="card-actions" style="margin-top:0">
               <button class="btn btn-ghost btn-sm" data-action="drawParcel" data-id="${p.id}">${ICON.pen} Neu zeichnen</button>
-              <button class="btn btn-ghost btn-sm" data-action="splitParcel" data-id="${p.id}">✂ Teilen</button>
-              <button class="btn btn-ghost btn-sm" data-action="mergeParcel" data-id="${p.id}">⊕ Mit Nachbar verbinden</button>
+              <button class="btn btn-ghost btn-sm" data-action="splitParcel" data-id="${p.id}">${ICON.scissors} Teilen</button>
+              <button class="btn btn-ghost btn-sm" data-action="mergeParcel" data-id="${p.id}">${ICON.merge} Mit Nachbar verbinden</button>
             </div>` : ''}
         </div>
         <div class="panel-actions">
@@ -559,9 +568,10 @@
       }
       // im Kasten / Tank: Parzelle im Vordergrund
       if (!p) {
-        return `<li class="meter-item">${serviceBadge()}
+        const free = S.isFreeMeter(m);
+        return `<li class="meter-item">${free ? '<span class="nr nr-sm nr-free" title="Freier Zähler">F</span>' : serviceBadge()}
           <div class="body">
-            <div class="line1">${h(S.purposeText(m))} <span class="badge">Betrieb</span></div>
+            <div class="line1">${h(S.purposeText(m))} <span class="badge">${free ? 'frei' : 'Betrieb'}</span></div>
             <div class="line2"><span class="mono">${h(m.number || '—')}</span>${context === 'service' ? ` · ${h(S.meterPlace(m) || 'ohne Kasten')}` : ''}${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
           </div></li>`;
       }
@@ -603,7 +613,7 @@
       }).join('');
       return `
         <div class="panel-head">
-          <span class="pin pin-tank" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px">${ICON.gas}<span>T${h(t.nr)}</span></span>
+          <span class="pin pin-tank" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px">${ICON.gas}<span>${h(t.nr)}</span></span>
           <div class="title"><h2>Gastank ${h(t.nr)}</h2><span class="muted small">${h(t.capacity || '')}</span></div>
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
@@ -619,11 +629,10 @@
         </div>`;
     },
 
-    // Ferienunterkunft: Polaroid, Belegung heute, Monatskalender, To-Dos
+    // Ferienunterkunft: Foto/Draufsicht, Monatskalender, To-Dos
     airbnbPanel(o) {
       const kind = S.PLACE_KINDS[o.kind];
       if (!this.calMonth || this.calMonth.id !== o.id) { const d = new Date(); this.calMonth = { id: o.id, y: d.getFullYear(), m: d.getMonth() }; }
-      const st = Airbnb.status(o);
       const listing = S.listingUrl(o);
       return `
         <div class="panel-head">
@@ -633,12 +642,17 @@
         </div>
         <div class="panel-body">
           <div class="airbnb-top">
-            <label class="pol-wrap" title="Foto ändern">${Airbnb.polaroidHtml(o, { big: true, noDot: true })}
-              <span class="pol-change">${o.photo ? 'Foto ändern' : '+ Foto'}</span><input type="file" accept="image/*" hidden data-place-photo></label>
-            <div class="airbnb-status"><span class="state-chip is-${st.cls}"><i class="pol-dot is-${st.cls}"></i>${h(st.text)}</span>
-              ${listing ? `<a class="small" href="${h(listing)}" target="_blank" rel="noopener">Inserat bei Airbnb öffnen ↗</a>` : ''}
+            <label class="tile-wrap" title="Foto ändern">${Airbnb.tileHtml(o, { big: true })}
+              <span class="tile-change">${ICON.camera}${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}</span><input type="file" accept="image/*" hidden data-place-photo></label>
+            <div class="airbnb-status">
+              ${listing ? `<a class="small" href="${h(listing)}" target="_blank" rel="noopener">Inserat bei Airbnb öffnen</a>` : ''}
+              ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
               ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
-              ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}</div>
+              ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
+              ${MapView.editMode ? `<div class="rot-btns"><span class="small muted">Ausrichtung</span>
+                <button type="button" class="btn btn-ghost btn-sm" data-rot="-15" aria-label="Nach links drehen">${ICON.rotL}</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-rot="15" aria-label="Nach rechts drehen">${ICON.rotR}</button></div>` : ''}
+            </div>
           </div>
           <div id="airbnb-cal">${Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m)}</div>
           ${o.notes ? `<p class="small" style="margin:8px 0 0;white-space:pre-line">${h(o.notes)}</p>` : ''}
@@ -659,13 +673,18 @@
         this.calMonth = { id: o.id, y: d.getFullYear(), m: d.getMonth() };
         cal.innerHTML = Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m);
       });
+      $$('[data-rot]', panel).forEach((b) => b.onclick = () => {
+        const p = o.pos || [0, 0];
+        o.pos = [p[0], p[1], (((p[2] || 0) + +b.dataset.rot) % 360 + 360) % 360];
+        S.save();
+      });
       const inp = $('[data-place-photo]', panel);
       if (inp) inp.onchange = async () => {
         const file = inp.files[0];
         inp.value = '';
         if (!file || blockIfMissing()) return;
         if (S.mode === 'cloud' && Cloud.missingCols.has('places.photo')) { alert('Für Fotos bitte zuerst supabase/update-7.sql ausführen.'); return; }
-        $('.pol-change', panel).textContent = 'lädt …';
+        $('.tile-change', panel).textContent = 'lädt …';
         try {
           const old = o.photo;
           o.photo = await Photos.add(`ort-${o.id}`, file);
@@ -676,7 +695,7 @@
           toast('Foto gespeichert');
         } catch (err) {
           alert(`Foto konnte nicht gespeichert werden:\n${err.message || err}`);
-          $('.pol-change', panel).textContent = '+ Foto';
+          $('.tile-change', panel).textContent = 'Foto hinzufügen';
         }
       };
     },
@@ -781,7 +800,8 @@
       if (!location.hash.startsWith('#/karte')) location.hash = '#/karte';
       setTimeout(() => {
         MapView.startPlace((pt) => {
-          obj.pos = pt; S.save();
+          const rot = obj.pos && obj.pos[2];
+          obj.pos = rot ? [pt[0], pt[1], rot] : pt; S.save();
           go(`#/karte/${type}/${obj.id}`);
           toast(`${label} platziert`);
         });
@@ -798,7 +818,7 @@
       formDialog({
         title: o ? `${o.name || 'Ort'} bearbeiten` : 'Neuer Ort auf der Karte',
         fields: [
-          { name: 'kind', label: 'Art', type: 'select', value: o ? o.kind : 'sanitaer', options: Object.entries(S.PLACE_KINDS).map(([k, v]) => [k, `${v.icon} ${v.label}`]) },
+          { name: 'kind', label: 'Art', type: 'select', value: o ? o.kind : 'sanitaer', options: Object.entries(S.PLACE_KINDS).map(([k, v]) => [k, v.airbnb ? `${v.label} (Airbnb)` : v.label]) },
           { name: 'name', label: 'Name', value: o ? o.name : '', placeholder: 'z. B. Sanitärgebäude 2', required: true },
           { name: 'icalUrl', label: 'Airbnb-Kalender-Link (endet auf .ics)', value: o ? o.icalUrl : '', placeholder: 'https://www.airbnb.de/calendar/ical/….ics?t=…' },
           { name: 'notes', label: 'Notizen', type: 'textarea', value: o ? o.notes : '' },
@@ -1056,7 +1076,7 @@
             <div class="meta">
               ${strom.length ? `<span>${ICON.strom}${strom.join(', ')}</span>` : ''}
               ${p.gas !== 'none' ? `<span>${ICON.gas}${gasText(p)}</span>` : ''}
-              ${p.winterWater ? '<span title="Winterwasser">❄ Winterwasser</span>' : ''}
+              ${p.winterWater ? '<span title="Winterwasser"><span class="pb pb-ww">WW</span> Winterwasser</span>' : ''}
               ${p.residents > 0 ? `<span>${residentsText(p)}</span>` : ''}
               ${p.dogs > 0 ? `<span>${dogsText(p)}</span>` : ''}
               ${p.freeFrom ? `<span class="warn">frei ab ${fmtDate(p.freeFrom)}</span>` : ''}
@@ -1178,7 +1198,7 @@
   function meterOwner(m) {
     const p = S.parcel(m.parcelId);
     if (p) return `Parzelle ${p.nr}${p.tenant.name ? ` (${p.tenant.name})` : ''}`;
-    return `Betrieb: ${S.purposeText(m)}`;
+    return S.isFreeMeter(m) ? 'freier Zähler' : `Betrieb: ${S.purposeText(m)}`;
   }
 
   // Doppelte Zählernummern in einer Arbeitsliste finden → Map(index → Meldung)
@@ -1515,7 +1535,7 @@
       const removed = [];
       const parcelOpts = S.parcelsSorted().map((p) => [`p:${p.id}`, `Parzelle ${p.nr}${p.tenant.name ? ' – ' + p.tenant.name : ''}`]);
       const purposeOpts = Object.entries(S.PURPOSES).map(([k, v]) => [`s:${k}`, v]);
-      const assignOf = (m) => (m.parcelId ? `p:${m.parcelId}` : m.purpose ? `s:${m.purpose}` : '');
+      const assignOf = (m) => (m.parcelId ? `p:${m.parcelId}` : m.purpose === 'frei' ? 'f:frei' : m.purpose ? `s:${m.purpose}` : '');
 
       root.innerHTML = `
         <div class="page">
@@ -1560,6 +1580,7 @@
             <label class="field"><span>Zuordnung</span>
               <select data-k="assign">
                 <option value=""${a ? '' : ' selected'}>– bitte wählen –</option>
+                <option value="f:frei"${a === 'f:frei' ? ' selected' : ''}>Frei (nicht zugeordnet)</option>
                 <optgroup label="Betriebsstrom">${purposeOpts.map(([v, l]) => `<option value="${v}"${v === a ? ' selected' : ''}>${h(l)}</option>`).join('')}</optgroup>
                 <optgroup label="Parzelle">${parcelOpts.map(([v, l]) => `<option value="${v}"${v === a ? ' selected' : ''}>${h(l)}</option>`).join('')}</optgroup>
               </select></label>
@@ -1576,7 +1597,7 @@
           if (inp.dataset.k === 'assign') {
             const [kind, val] = [inp.value.slice(0, 1), inp.value.slice(2)];
             m.parcelId = kind === 'p' ? val : '';
-            m.purpose = kind === 's' ? val : '';
+            m.purpose = kind === 's' ? val : kind === 'f' ? 'frei' : '';
             renderRows();
             return;
           }
@@ -1616,7 +1637,7 @@
         if (!nr) { toast('Bitte eine Kasten-Nr. angeben'); return; }
         if (S.data.boxes.some((x) => x.nr === nr && x.id !== b.id)) { alert(`Kasten ${nr} gibt es schon. Bitte eine andere Nummer wählen.`); return; }
         const missing = meters.findIndex((m) => (m.number.trim() || m.id) && !assignOf(m));
-        if (missing >= 0) { alert('Bitte bei jedem Zähler eine Zuordnung wählen (Parzelle oder Betriebsstrom).'); return; }
+        if (missing >= 0) { alert('Bitte bei jedem Zähler eine Zuordnung wählen (Parzelle, Betriebsstrom oder frei).'); return; }
         if (!confirmMeterDuplicates(meters, removed)) return;
 
         b.nr = nr;
@@ -1628,7 +1649,7 @@
           if (!m.id && !m.number.trim() && !assignOf(m)) return; // leere neue Zeile
           const clean = {
             type: 'strom', number: m.number.trim(), boxId: b.id, inHouse: false,
-            parcelId: m.parcelId || '', purpose: m.parcelId ? '' : m.purpose, label: m.parcelId ? '' : (m.label || '').trim(),
+            parcelId: m.parcelId || '', purpose: m.parcelId ? '' : m.purpose, label: m.parcelId || m.purpose === 'frei' ? '' : (m.label || '').trim(),
             fuses: (m.fuses || []).map((f) => ({ nr: f.nr.trim(), label: f.label.trim() })).filter((f) => f.nr || f.label), fuseBoxId: '',
           };
           if (m.id) Object.assign(S.meter(m.id), clean);
@@ -1670,7 +1691,7 @@
                 <p class="muted small" style="margin:-6px 0 10px">${h(b.location || 'kein Standorthinweis')}</p>
                 <div class="small" style="margin-bottom:6px"><strong>${ms.length}</strong> Zähler${ms.length - svc.length ? ' für Parzellen:' : ''}</div>
                 <div class="chips">${ms.map((m) => S.parcel(m.parcelId)).filter(Boolean).map(chip).join('') || (svc.length ? '' : '<span class="muted small">–</span>')}</div>
-                ${svc.length ? `<div class="chips" style="margin-top:6px">${svc.map((m) => `<span class="badge badge-service">B · ${h(S.purposeText(m))}</span>`).join('')}</div>` : ''}
+                ${svc.length ? `<div class="chips" style="margin-top:6px">${svc.map((m) => (S.isFreeMeter(m) ? `<span class="badge">frei · ${h(m.number || 'ohne Nr.')}</span>` : `<span class="badge badge-service">B · ${h(S.purposeText(m))}</span>`)).join('')}</div>` : ''}
                 <div class="card-actions">
                   ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Karte</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Karte platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-box="${b.id}">${ICON.edit} Bearbeiten</button>
@@ -1688,7 +1709,7 @@
             ${tanks.map((t) => {
               const ps = S.parcelsOnTank(t.id);
               return `<section class="card">
-                <h3><span class="pin pin-tank" style="transform:none">${ICON.gas}<span>T${h(t.nr)}</span></span> Gastank ${h(t.nr)}</h3>
+                <h3><span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span> Gastank ${h(t.nr)}</h3>
                 <p class="muted small" style="margin:-6px 0 10px">${h([t.capacity, t.notes].filter(Boolean).join(' · ') || '–')}</p>
                 <div class="small" style="margin-bottom:6px"><strong>${ps.length}</strong> angeschlossene Parzellen:</div>
                 <div class="chips">${ps.map(chip).join('') || '<span class="muted small">–</span>'}</div>
@@ -1800,7 +1821,7 @@
         groups.push({ key: 'ohne', title: 'Ohne Kasten', sub: '', pin: '', meters: meters.filter((m) => !m.inHouse && !S.box(m.boxId)) });
       } else {
         const byTank = (tid) => meters.filter((m) => { const p = S.parcel(m.parcelId); return p && p.gas === 'tank' && p.gasTankId === tid; });
-        S.tanksSorted().forEach((t) => groups.push({ key: t.id, title: `Gastank ${t.nr}`, sub: t.capacity, pin: `<span class="pin pin-tank">${ICON.gas}<span>T${h(t.nr)}</span></span>`, meters: byTank(t.id) }));
+        S.tanksSorted().forEach((t) => groups.push({ key: t.id, title: `Gastank ${t.nr}`, sub: t.capacity, pin: `<span class="pin pin-tank">${ICON.gas}<span>${h(t.nr)}</span></span>`, meters: byTank(t.id) }));
         groups.push({ key: 'ohne', title: 'Ohne Tank', sub: '', pin: '', meters: meters.filter((m) => { const p = S.parcel(m.parcelId); return !p || p.gas !== 'tank' || !S.tank(p.gasTankId); }) });
       }
       groups.forEach((g) => { g.meters = S.sortMeters(g.meters); });
@@ -1866,7 +1887,7 @@
 
     diffHtml(m, st) {
       if (st.diff === null) return st.saved && this.draft[m.id] === undefined ? '<span class="muted small">gespeichert</span>' : '';
-      if (st.warn) return `<span class="warn">${fmtNum(st.diff)} ${unit(m.type)} ⚠</span>`;
+      if (st.warn) return `<span class="warn">${fmtNum(st.diff)} ${unit(m.type)} <span class="warn-ico">!</span></span>`;
       return `+${fmtNum(st.diff)} ${unit(m.type)}`;
     },
 
@@ -1993,7 +2014,7 @@
         const data = [['Parzelle', 'Name', 'Zählernummer', 'Zählerschrank', 'Letzter Zählerstand', 'Datum letzter Stand',
           'Aktueller Zählerstand', 'Datum aktueller Stand', `Differenz (${u})`]];
         rows.forEach((r) => data.push([
-          r.p ? r.p.nr : 'Betrieb', r.p ? r.p.tenant.name : S.purposeText(r.m), r.m.number, this.place(r.m),
+          r.p ? r.p.nr : S.isFreeMeter(r.m) ? 'frei' : 'Betrieb', r.p ? r.p.tenant.name : S.purposeText(r.m), r.m.number, this.place(r.m),
           r.a ? r.a.value : '', r.a ? fmtDate(r.a.date) : '', r.b ? r.b.value : '', r.b ? fmtDate(r.b.date) : '', r.diff ?? '',
         ]));
         const suffix = this.mode === 'last2' ? today() : `${this.from}_${this.to}`;
@@ -2049,7 +2070,7 @@
       const over = boxes.filter((x) => x.state === 'over').length;
       const near = boxes.filter((x) => x.state === 'near').length;
       const kw = (v) => (v / 730).toLocaleString('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-      const stateBadge = (x) => x.state === 'over' ? '<span class="state state-over">⚠ über Warnschwelle</span>'
+      const stateBadge = (x) => x.state === 'over' ? '<span class="state state-over"><span class="warn-ico">!</span> über Warnschwelle</span>'
         : x.state === 'near' ? '<span class="state state-near">▲ über 80 %</span>'
         : x.state === 'ok' ? '<span class="state state-ok">✓ im Rahmen</span>' : '';
 
@@ -2322,7 +2343,7 @@
     const opt = (v, l) => `<option value="${h(v)}"${v === cur ? ' selected' : ''}>${h(l)}</option>`;
     const group = (label, items) => (items.length ? `<optgroup label="${h(label)}">${items.join('')}</optgroup>` : '');
     return opt('', 'Allgemein / anderer Ort')
-      + group('Orte auf dem Platz', S.placesSorted().map((o) => opt(`place:${o.id}`, `${S.PLACE_KINDS[o.kind].icon} ${o.name || S.PLACE_KINDS[o.kind].label}`)))
+      + group('Orte auf dem Platz', S.placesSorted().map((o) => opt(`place:${o.id}`, o.name || S.PLACE_KINDS[o.kind].label)))
       + group('Parzellen', S.parcelsSorted().map((p) => opt(`parcel:${p.id}`, `Parzelle ${p.nr}${p.tenant.name ? ' – ' + p.tenant.name : ''}`)))
       + group('Stromkästen', S.boxesSorted().map((b) => opt(`box:${b.id}`, `Stromkasten ${b.nr}${b.location ? ' – ' + b.location : ''}`)))
       + group('Gastanks', S.tanksSorted().map((t) => opt(`tank:${t.id}`, `Gastank ${t.nr}`)));
@@ -2333,7 +2354,7 @@
   function targetLink(t) {
     const txt = h(S.todoTargetText(t));
     const o = S.target(t);
-    if (!o) return `<span>📍 ${txt}</span>`;
+    if (!o) return `<span>${ICON.pin}${txt}</span>`;
     const icon = t.targetType === 'place' ? S.PLACE_KINDS[o.kind].icon : t.targetType === 'box' ? ICON.strom : t.targetType === 'tank' ? ICON.gas : ICON.map;
     return `<span>${icon} ${txt}</span>`;
   }
@@ -2432,9 +2453,9 @@
             <div class="meta">
               ${targetLink(t)}
               ${t.status === 'erledigt' ? (t.doneAt ? `<span>erledigt am ${fmtDate(t.doneAt)}</span>` : '') : deadlineHtml(t)}
-              ${t.appointment && t.status !== 'erledigt' ? `<span>📅 Termin ${fmtDateTime(t.appointment)}</span>` : ''}
+              ${t.appointment && t.status !== 'erledigt' ? `<span>${ICON.calendar}Termin ${fmtDateTime(t.appointment)}</span>` : ''}
               ${t.assignee ? `<span>${ICON.user}${h(t.assignee)}</span>` : ''}
-              ${t.photos.length > 1 ? `<span>📷 ${t.photos.length}</span>` : ''}
+              ${t.photos.length > 1 ? `<span>${ICON.camera}${t.photos.length}</span>` : ''}
             </div>
           </div>
           <div class="side"><span class="badge"><span class="dot" style="background:${st.color}"></span>${h(st.label)}</span><span class="muted small">erstellt ${fmtDate((t.createdAt || '').slice(0, 10))}</span></div>
@@ -2669,19 +2690,20 @@
           ${notice}
           ${units.length ? `
           <div class="ab-cards">${units.map((o) => {
-            const s1 = Airbnb.status(o);
             const occ = Airbnb.hasData(o) ? Math.round(Airbnb.occupancy(o, t.getFullYear(), t.getMonth()) * 100) : null;
             const open = S.todosOf('place', o.id).length;
             return `<a class="ab-card" href="#/karte/place/${o.id}">
-              ${Airbnb.polaroidHtml(o, { noDot: true })}
+              ${Airbnb.tileHtml(o)}
               <div class="ab-info"><strong>${h(o.name)}</strong>
-                <span class="state-chip is-${s1.cls}"><i class="pol-dot is-${s1.cls}"></i>${h(s1.text)}</span>
+                <span class="muted small">${h(S.PLACE_KINDS[o.kind].label)}</span>
+                ${Airbnb.errors[o.id] ? `<span class="small warn">${h(Airbnb.errors[o.id])}</span>` : ''}
+                ${!o.icalUrl ? '<span class="small muted">kein Kalender-Link hinterlegt</span>' : ''}
                 ${occ !== null ? `<span class="muted small">${occ} % belegt im ${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][t.getMonth()]}</span>` : ''}
                 ${open ? `<span class="small warn">${open} offene${open > 1 ? '' : 's'} To-Do${open > 1 ? 's' : ''}</span>` : ''}</div></a>`;
           }).join('')}</div>
           <section class="card span-all" style="margin-top:14px">
             <div class="card-title-row"><h2>Belegung der nächsten ${this.weeks} Wochen</h2>
-              <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>gesperrt</span><span><i class="free"></i>frei</span></div></div>
+              <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>geblockt</span><span><i class="free"></i>frei</span></div></div>
             ${Airbnb.timelineHtml(units, start, this.weeks * 7)}
           </section>` : '<p class="muted">Noch keine Ferienunterkunft angelegt. Auf der Karte unter „Bearbeiten“ → „+ Ort“ eine Unterkunft (Londonbus, Glampingzelt, Bäckerwagen …) anlegen.</p>'}
         </div>`;
