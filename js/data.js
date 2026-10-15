@@ -59,31 +59,32 @@
     erledigt: { label: 'Erledigt',    short: 'Erledigt',   color: '#2b8a3e' },
   };
 
-  // Orte auf der Karte (Gebäude, Spielplatz …), an denen To-Dos hängen können
+  // Orte auf der Karte (Gebäude, Spielplatz …), an denen To-Dos hängen können. icon = Linien-Symbol (SVG)
   const PLACE_KINDS = {
-    sanitaer:   { label: 'Sanitärgebäude', icon: '🚻' },
-    grill:      { label: 'Grillhütte',     icon: '🔥' },
-    spielplatz: { label: 'Spielplatz',     icon: '🛝' },
-    rezeption:  { label: 'Rezeption / Büro', icon: '🏠' },
-    gebaeude:   { label: 'Gebäude / Halle', icon: '🏚️' },
-    wiese:      { label: 'Camperwiese',    icon: '🏕️' },
-    muell:      { label: 'Müllplatz',      icon: '🗑️' },
-    wasser:     { label: 'Wasser / Brunnen', icon: '🚰' },
-    sonstiges:  { label: 'Sonstiger Ort',  icon: '📍' },
-    // Ferienunterkünfte (Airbnb): Polaroid auf der Karte, Kalender mit Belegung
-    londonbus:    { label: 'Londonbus',     icon: '🚌', airbnb: true },
-    glamping:     { label: 'Glampingzelt',  icon: '⛺', airbnb: true },
-    baeckerwagen: { label: 'Bäckerwagen',   icon: '🥨', airbnb: true },
-    unterkunft:   { label: 'Ferienunterkunft (sonstige)', icon: '🏡', airbnb: true },
+    sanitaer: { label: 'Sanitärgebäude', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M7 3h4v7H7z M5 10h14a5 5 0 0 1-5 5h-4l-1 6h6"/></svg>' },
+    grill: { label: 'Grillhütte', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M4 10h16a8 8 0 0 1-16 0z M8 21l2-4 M16 21l-2-4 M9 7c0-1.5 1.5-1.5 1.5-3 M14 7c0-1.5 1.5-1.5 1.5-3"/></svg>' },
+    spielplatz: { label: 'Spielplatz', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 21 L8 4 L13 21 M5.5 13h5 M16 21V9 M14 9h4 M16 13l4 8"/></svg>' },
+    rezeption: { label: 'Rezeption / Büro', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 11l9-7 9 7 M5 10v10h14V10 M10 20v-5h4v5"/></svg>' },
+    gebaeude: { label: 'Gebäude / Halle', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 20V9l9-5 9 5v11 M3 20h18 M8 20v-6h8v6"/></svg>' },
+    wiese: { label: 'Camperwiese', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 3l-6 9h4l-4 6h12l-4-6h4z M12 18v3"/></svg>' },
+    muell: { label: 'Müllplatz', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6"/></svg>' },
+    wasser: { label: 'Wasser / Brunnen', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 3c3 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 9 7 12 3z"/></svg>' },
+    sonstiges: { label: 'Sonstiger Ort', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>' },
+    // Ferienunterkünfte (Airbnb): Draufsicht auf der Karte, Kalender mit Belegung
+    londonbus: { label: 'Londonbus', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M5 3h14a1 1 0 0 1 1 1v13H4V4a1 1 0 0 1 1-1z M4 10h16 M7 20v-3 M17 20v-3 M7 13.5h.01 M17 13.5h.01"/></svg>', airbnb: true },
+    glamping: { label: 'Glampingzelt', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 20L12 4l9 16z M12 4v16 M9 20l3-6 3 6"/></svg>', airbnb: true },
+    baeckerwagen: { label: 'Bäckerwagen', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M4 7q8-4 16 0v9H4z M8 10h3v3H8z M1 15l3-1 M7.5 18.5a1.5 1.5 0 1 0 .01 0 M16.5 18.5a1.5 1.5 0 1 0 .01 0"/></svg>', airbnb: true },
+    unterkunft: { label: 'Ferienunterkunft (sonstige)', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 11l9-7 9 7 M5 10v10h14V10 M10 20v-5h4v5"/></svg>', airbnb: true },
   };
+
 
   // Startplätze der Ferienunterkünfte (große Wiese), später im Bearbeiten-Modus verschiebbar
   const AIRBNB_DEFAULTS = [
-    { name: 'Londonbus 1', kind: 'londonbus', pos: [1230, 760] },
-    { name: 'Londonbus 2', kind: 'londonbus', pos: [1320, 760] },
-    { name: 'Glampingzelt 1', kind: 'glamping', pos: [1410, 760] },
-    { name: 'Glampingzelt 2', kind: 'glamping', pos: [1500, 760] },
-    { name: 'Bäckerwagen', kind: 'baeckerwagen', pos: [1365, 870] },
+    { name: 'Londonbus 1', kind: 'londonbus', pos: [1200, 740] },
+    { name: 'Londonbus 2', kind: 'londonbus', pos: [1330, 740] },
+    { name: 'Glampingzelt 1', kind: 'glamping', pos: [1450, 740] },
+    { name: 'Glampingzelt 2', kind: 'glamping', pos: [1560, 740] },
+    { name: 'Bäckerwagen', kind: 'baeckerwagen', pos: [1380, 880] },
   ];
 
   // Farbschema "Versorgung" auf der Karte
@@ -565,8 +566,10 @@
     serviceMeters() { return this.sortMeters(this.data.meters.filter((m) => !this.parcel(m.parcelId))); },
     isService(m) { return !this.parcel(m.parcelId); },
     // "Betrieb: Sanitäranlagen – Sanitärgebäude"
+    // freier Zähler: im Kasten, aber (noch) keiner Parzelle und keinem Betrieb zugeordnet
+    isFreeMeter: (m) => m.purpose === 'frei' && !m.parcelId,
     purposeText(m) {
-      const base = PURPOSES[m.purpose] || 'Betrieb';
+      const base = m.purpose === 'frei' ? 'Frei (nicht zugeordnet)' : PURPOSES[m.purpose] || 'Betrieb';
       return m.label ? `${base} – ${m.label}` : base;
     },
     // Wo hängt der Zähler?

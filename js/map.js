@@ -73,7 +73,7 @@
         zoomDelta: 1,
         scrollWheelZoom: false,   // eigene Steuerung: Mausrad zoomt, Trackpad verschiebt (s. _initWheel)
         attributionControl: false,
-        maxBounds: bounds.pad(0.02),      // nicht über den Kartenrand hinaus verschieben
+        maxBounds: bounds.pad(0.5),       // wird je Zoomstufe angepasst (_updateBounds)
         maxBoundsViscosity: 1,
         doubleClickZoom: false,
       });
@@ -111,6 +111,7 @@
         draw: L.layerGroup().addTo(this.map),
       };
 
+      this.map.on('zoomend', () => this._updateBounds());
       this.map.on('click', (e) => this._onMapClick(e));
       this.map.on('mousemove', (e) => this._onMouseMove(e));
       this._initWheel(el);
@@ -129,6 +130,17 @@
       if (!size.x || !size.y) return;
       const z = this.map.getBoundsZoom(this.bounds, false, L.point(16, 16));
       if (Math.abs(z - this.map.getMinZoom()) > 0.001) this.map.setMinZoom(z);
+      this._updateBounds();
+    },
+
+    // Verschieben: jeder Rand des Plans darf bis zur Bildschirmmitte gezogen werden
+    // (Kartenrand je nach Zoomstufe um eine halbe Bildschirmbreite/-höhe erweitert)
+    _updateBounds() {
+      const size = this.map.getSize();
+      if (!size.x || !size.y) return;
+      const k = Math.pow(2, this.map.getZoom());
+      const px = size.x / 2 / k, py = size.y / 2 / k;
+      this.map.setMaxBounds(L.latLngBounds([-py, -px], [H + py, W + px]));
     },
 
     invalidate() {
@@ -148,8 +160,8 @@
       // Grundgröße je Zoomstufe; während einer Geste skaliert die ganze Ebene mit
       c.style.setProperty('--lbl-s', (px / LABEL_FONT).toFixed(3));
       // Kästen/Tanks: ab Zoom 0.5 volle Größe, darunter kleiner (mind. 28 %)
-      // Polaroids: etwas größer als die Kasten-Symbole, aber auch kleiner beim Rauszoomen
-      c.style.setProperty('--pol-s', Math.max(0.4, Math.min(1.15, 0.62 * Math.pow(2, z * 0.7) + 0.08)).toFixed(3));
+      // Unterkünfte in Originalgröße (1 Kartenpixel = 0,2 m), beim Rauszoomen nicht kleiner als 75 %
+      c.style.setProperty('--unit-s', Math.max(0.75, Math.pow(2, z)).toFixed(3));
       c.style.setProperty('--pin-s', Math.max(0.28, Math.min(1, 0.55 * Math.pow(2, z * 0.8) + 0.05)).toFixed(3));
       const flags = { 'labels-hidden': px < LABEL_MIN, 'labels-small': z < -0.4, 'labels-tiny': z < -1.1 };
       Object.entries(flags).forEach(([cls, on]) => { if (c.classList.contains(cls) !== on) c.classList.toggle(cls, on); });
@@ -251,7 +263,7 @@
           const m = L.marker(toLL(t.pos), {
             icon: L.divIcon({
               className: '',
-              html: `<div class="pin pin-tank${isSel ? ' is-selected' : ''}" title="Gastank ${t.nr}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-3-1-5 0-8z"/></svg><span>T${escapeHtml(t.nr)}</span>${todoDot('tank', t.id)}</div>`,
+              html: `<div class="pin pin-tank${isSel ? ' is-selected' : ''}" title="Gastank ${t.nr}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-3-1-5 0-8z"/></svg><span>${escapeHtml(t.nr)}</span>${todoDot('tank', t.id)}</div>`,
               iconSize: [50, 28],
               iconAnchor: [25, 14],
             }),
@@ -278,7 +290,7 @@
             icon: L.divIcon({
               className: '',
               html: airbnb
-                ? `<div class="pin-polaroid${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}">${window.Airbnb.polaroidHtml(o)}${todoDot('place', o.id)}</div>`
+                ? window.Airbnb.markerHtml(o, { selected: isSel, extra: todoDot('place', o.id) })
                 : `<div class="pin pin-place${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
               iconSize: [0, airbnb ? 0 : 28],
               iconAnchor: [0, airbnb ? 0 : 14],
@@ -288,7 +300,7 @@
             title: name,
           });
           m.on('click', (e) => { if (this.mode) return; L.DomEvent.stopPropagation(e); this.handlers.onSelect('place', o.id); });
-          m.on('dragend', () => { o.pos = fromLL(m.getLatLng()); Store.save(); });
+          m.on('dragend', () => { const rot = o.pos && o.pos[2]; o.pos = fromLL(m.getLatLng()); if (rot) o.pos.push(rot); Store.save(); });
           m.addTo(L_.places);
         });
       }
@@ -304,7 +316,7 @@
       if (sh.miet && p.objectType === 'miet') badges.push('<span class="pb pb-miet" title="Mietobjekt">M</span>');
       if (sh.pacht && p.objectType === 'pacht') badges.push('<span class="pb pb-pacht" title="Pachtgrundstück">P</span>');
       const nTodo = this._todoCounts && this._todoCounts.get(`parcel:${p.id}`);
-      if (nTodo) badges.push(`<span class="pb pb-todo" title="${nTodo} offene To-Do${nTodo > 1 ? 's' : ''}">✓${nTodo}</span>`);
+      if (nTodo) badges.push(`<span class="pb pb-todo" title="${nTodo} offene To-Do${nTodo > 1 ? 's' : ''}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>${nTodo}</span>`);
       const free = Store.movingOut(p) ? `<span class="pl-free">frei ab ${escapeHtml(p.freeFrom.split('-').reverse().join('.'))}</span>` : '';
       return `<span class="pl"><span class="pl-nr">${escapeHtml(p.nr)}</span>${free}${badges.length ? `<span class="pl-badges">${badges.join('')}</span>` : ''}</span>`;
     },

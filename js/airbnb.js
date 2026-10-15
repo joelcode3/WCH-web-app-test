@@ -1,5 +1,5 @@
 /*
- * Ferienunterkünfte (Airbnb): Polaroid-Motive, Belegung aus den Airbnb-Kalendern,
+ * Ferienunterkünfte (Airbnb): Draufsichten für die Karte, Belegung aus den Airbnb-Kalendern,
  * Monatskalender (Infofenster) und Belegungsübersicht (Reiter "Airbnb").
  *
  * Die Kalender holt die Supabase-Funktion "airbnb-kalender" (der Browser darf Airbnb nicht
@@ -16,51 +16,40 @@
   const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
   const WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
-  /* ---------- Motive für das Polaroid (bis ein echtes Foto hochgeladen ist) ---------- */
-  const SKY = '<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bfe0ef"/><stop offset="1" stop-color="#e8f3f4"/></linearGradient></defs>'
-    + '<rect width="120" height="90" fill="url(#sky)"/><circle cx="98" cy="18" r="8" fill="#f6d77a"/>'
-    + '<path d="M0 62 Q30 56 60 60 T120 58 V90 H0Z" fill="#9cc27a"/><path d="M0 70 Q40 66 120 70 V90 H0Z" fill="#86b265"/>'
-    + '<g fill="#4f7d45"><circle cx="8" cy="56" r="9"/><circle cx="18" cy="52" r="8"/><circle cx="112" cy="54" r="9"/></g>';
-  const ART = {
-    londonbus: `<svg viewBox="0 0 120 90" aria-hidden="true">${SKY}
-      <rect x="14" y="20" width="92" height="50" rx="7" fill="#c8322d"/>
-      <rect x="14" y="44" width="92" height="4" fill="#efe3c6"/>
-      <g fill="#2c3b44"><rect x="20" y="26" width="13" height="12" rx="2"/><rect x="36" y="26" width="13" height="12" rx="2"/><rect x="52" y="26" width="13" height="12" rx="2"/><rect x="68" y="26" width="13" height="12" rx="2"/><rect x="84" y="26" width="16" height="12" rx="2"/>
-      <rect x="20" y="51" width="13" height="10" rx="2"/><rect x="36" y="51" width="13" height="10" rx="2"/><rect x="52" y="51" width="13" height="10" rx="2"/><rect x="68" y="51" width="13" height="10" rx="2"/><rect x="88" y="51" width="12" height="16" rx="2"/></g>
-      <g fill="#bfe0ef" opacity=".35"><rect x="21" y="27" width="5" height="10"/><rect x="37" y="27" width="5" height="10"/><rect x="53" y="27" width="5" height="10"/><rect x="69" y="27" width="5" height="10"/><rect x="85" y="27" width="6" height="10"/></g>
-      <rect x="40" y="40" width="34" height="3" rx="1" fill="#f3d36b"/>
-      <g fill="#222"><circle cx="32" cy="71" r="7"/><circle cx="88" cy="71" r="7"/></g><g fill="#999"><circle cx="32" cy="71" r="3"/><circle cx="88" cy="71" r="3"/></g></svg>`,
-    glamping: `<svg viewBox="0 0 120 90" aria-hidden="true">${SKY}
-      <path d="M60 14 L100 50 V68 H20 V50 Z" fill="#f2ead8" stroke="#b9a681" stroke-width="1.5"/>
-      <path d="M20 50 H100" stroke="#b9a681" stroke-width="1.5"/>
-      <g stroke="#d9cdb1" stroke-width="1"><path d="M60 14 L40 50 M60 14 L80 50 M60 14 L60 50"/></g>
-      <path d="M60 30 L74 68 H46 Z" fill="#8d6b45"/><path d="M60 30 L67 68 H60 Z" fill="#a8835a"/>
-      <circle cx="60" cy="12" r="2.5" fill="#7a5a3a"/><path d="M60 14 V9" stroke="#7a5a3a" stroke-width="2"/>
-      <g stroke="#a9997a" stroke-width=".8"><path d="M20 52 L8 68 M100 52 L112 68"/></g>
-      <g fill="#f6d77a"><circle cx="34" cy="62" r="1.5"/><circle cx="86" cy="62" r="1.5"/></g></svg>`,
-    baeckerwagen: `<svg viewBox="0 0 120 90" aria-hidden="true">${SKY}
-      <path d="M16 30 Q60 10 104 30 V36 H16 Z" fill="#5d3b1f"/>
-      <rect x="18" y="34" width="84" height="32" fill="#c08a52"/>
-      <g stroke="#9c6a38" stroke-width="1.2"><path d="M30 34 V66 M42 34 V66 M54 34 V66 M66 34 V66 M78 34 V66 M90 34 V66"/></g>
-      <rect x="28" y="40" width="20" height="14" rx="2" fill="#f3e3b5" stroke="#5d3b1f" stroke-width="2"/>
-      <path d="M33 47 q3 -4 5 0 q2 4 5 0" stroke="#a5652a" stroke-width="2" fill="none"/>
-      <rect x="70" y="40" width="16" height="24" rx="2" fill="#7a4e2a"/><circle cx="83" cy="53" r="1.2" fill="#f3d36b"/>
-      <rect x="88" y="16" width="5" height="12" fill="#444"/>
-      <path d="M102 62 L116 70" stroke="#5d3b1f" stroke-width="3"/>
-      <g fill="#3a2a1a"><circle cx="34" cy="68" r="8"/><circle cx="86" cy="68" r="8"/></g>
-      <g stroke="#c9a46a" stroke-width="1.2"><path d="M34 60 V76 M26 68 H42 M86 60 V76 M78 68 H94"/></g></svg>`,
-    unterkunft: `<svg viewBox="0 0 120 90" aria-hidden="true">${SKY}
-      <path d="M24 42 L60 18 L96 42 Z" fill="#7a4e2a"/><rect x="30" y="42" width="60" height="26" fill="#d9b98a"/>
-      <rect x="54" y="50" width="12" height="18" fill="#7a4e2a"/><rect x="36" y="48" width="12" height="10" fill="#f3e3b5"/><rect x="72" y="48" width="12" height="10" fill="#f3e3b5"/></svg>`,
+  /* ---------- Draufsichten (Maßstab: 1 Einheit = 0,2 m, wie der Lageplan) ---------- */
+  const TOP = {
+    // Doppeldecker ca. 9,5 × 2,5 m, Front rechts
+    londonbus: { w: 48, h: 13, svg: `<svg viewBox="0 0 96 26" aria-hidden="true">
+      <rect x="1" y="1" width="94" height="24" rx="5" fill="#c8322d" stroke="#7d1c18" stroke-width="1.5"/>
+      <rect x="5" y="4.5" width="83" height="17" rx="3" fill="#d84a3f"/>
+      <rect x="88" y="4" width="5" height="18" rx="2" fill="#2c3b44"/>
+      <rect x="18" y="8.5" width="10" height="9" rx="1.5" fill="#9e2621"/><rect x="60" y="8.5" width="10" height="9" rx="1.5" fill="#9e2621"/>
+      <path d="M36 13 H52" stroke="#efe3c6" stroke-width="2.5" stroke-linecap="round"/></svg>` },
+    // Glockenzelt ca. 5 m Durchmesser, Eingang unten
+    glamping: { w: 27, h: 27, svg: `<svg viewBox="0 0 54 54" aria-hidden="true">
+      <circle cx="27" cy="27" r="25" fill="#f2ead8" stroke="#a8946c" stroke-width="1.5"/>
+      <g stroke="#cfc09c" stroke-width="1"><path d="M27 2 V52 M2 27 H52 M9.3 9.3 L44.7 44.7 M44.7 9.3 L9.3 44.7"/></g>
+      <path d="M27 27 L19 50 A25 25 0 0 0 35 50 Z" fill="#c9b48a"/>
+      <circle cx="27" cy="27" r="4" fill="#8d6b45"/></svg>` },
+    // Zirkus-/Bäckerwagen ca. 6 × 2,4 m mit Deichsel links
+    baeckerwagen: { w: 38, h: 13, svg: `<svg viewBox="0 0 76 26" aria-hidden="true">
+      <path d="M1 13 L14 6 M1 13 L14 20" stroke="#5d3b1f" stroke-width="2" stroke-linecap="round"/>
+      <rect x="13" y="1" width="62" height="24" rx="4" fill="#8a5a32" stroke="#4e3119" stroke-width="1.5"/>
+      <path d="M15 13 H73" stroke="#b98552" stroke-width="2"/>
+      <g stroke="#6f4626" stroke-width="1"><path d="M23 2 V24 M33 2 V24 M43 2 V24 M53 2 V24 M63 2 V24"/></g>
+      <circle cx="66" cy="7" r="2.6" fill="#333" stroke="#111" stroke-width=".8"/></svg>` },
+    // sonstige Unterkunft: Hütte mit Satteldach
+    unterkunft: { w: 30, h: 22, svg: `<svg viewBox="0 0 60 44" aria-hidden="true">
+      <rect x="1" y="1" width="58" height="42" rx="2" fill="#9a6b40" stroke="#5d3b1f" stroke-width="1.5"/>
+      <path d="M1 22 H59" stroke="#c49461" stroke-width="2.5"/><path d="M1 1 L59 43 M59 1 L1 43" stroke="#7d5432" stroke-width=".8" opacity=".5"/></svg>` },
   };
-  const art = (kind) => ART[kind] || ART.unterkunft;
-
-  // leichte, aber feste Schräglage je Unterkunft (-4° … 4°)
-  const tilt = (id) => { let n = 0; for (const c of String(id)) n = (n * 31 + c.charCodeAt(0)) % 997; return (n % 9) - 4; };
+  const top = (kind) => TOP[kind] || TOP.unterkunft;
+  // fester Zufallswert je Unterkunft (für die Beispiel-Belegung im Testmodus)
+  const hash = (id) => { let n = 0; for (const c of String(id)) n = (n * 31 + c.charCodeAt(0)) % 997; return n; };
 
   /* ---------- Belegung ---------- */
   const Airbnb = {
-    art, tilt,
+    top,
     events: {},          // Ort-ID → [{ start, end, type }]
     errors: {},          // Ort-ID → Fehlermeldung
     state: 'idle',       // idle | loading | ok | demo | missing | needsUpdate | error
@@ -103,7 +92,7 @@
     _demo() {
       this.events = {};
       window.Store.airbnbs().forEach((o) => {
-        let seed = tilt(o.id) + 7 + o.name.length * 13;
+        let seed = hash(o.id) + 7 + o.name.length * 13;
         const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
         const out = [];
         let d = addDays(todayIso(), -20 + Math.floor(rnd() * 5));
@@ -135,7 +124,7 @@
         let end = cur.end, next;
         while ((next = this.eventOn(o, end)) && next.type === cur.type) end = next.end;
         return cur.type === 'blocked'
-          ? { cls: 'blk', busy: true, text: `gesperrt bis ${fmtShort(end)}` }
+          ? { cls: 'blk', busy: true, text: `geblockt bis ${fmtShort(end)}` }
           : { cls: 'busy', busy: true, text: `belegt bis ${fmtShort(end)}` };
       }
       const next = (this.events[o.id] || []).find((e) => e.start > t);
@@ -180,7 +169,7 @@
           <strong>${MONTHS[m]} ${y}</strong>${occ !== null ? `<span class="muted small">${occ} % belegt</span>` : ''}
           <button type="button" class="cal-nav" data-cal="1" aria-label="Nächster Monat">›</button></div>
         <div class="cal-grid">${WD.map((w) => `<span class="cal-wd">${w}</span>`).join('')}${cells}</div>
-        <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>gesperrt</span><span><i class="free"></i>frei</span></div>
+        <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>geblockt</span><span><i class="free"></i>frei</span></div>
       </div>`;
     },
 
@@ -200,27 +189,38 @@
         return `<span class="tl-day${wd >= 5 ? ' is-we' : ''}${d === t ? ' is-today' : ''}"><small>${WD[wd]}</small>${+d.slice(8)}</span>`;
       }).join('');
       const rows = units.map((o) => {
-        const k = window.Store.PLACE_KINDS[o.kind];
         const cells = days.map((d) => {
           const wd = (new Date(d + 'T12:00:00').getDay() + 6) % 7;
           const ev = this.eventOn(o, d);
-          const title = ev ? `${ev.type === 'blocked' ? 'gesperrt' : 'belegt'} ${fmtShort(ev.start)}–${fmtShort(ev.end)}` : 'frei';
+          const title = ev ? `${ev.type === 'blocked' ? 'geblockt' : 'belegt'} ${fmtShort(ev.start)}–${fmtShort(ev.end)}` : 'frei';
           return `<span class="tl-cell ${this._dayCls(o, d)}${wd >= 5 ? ' is-we' : ''}${d === t ? ' is-today' : ''}" title="${h(o.name)}: ${fmtShort(d)} ${title}"></span>`;
         }).join('');
-        return `<a class="tl-name" href="#/karte/place/${o.id}"><span>${k.icon}</span>${h(o.name)}</a>${cells}`;
+        return `<a class="tl-name" href="#/karte/place/${o.id}">${h(o.name)}</a>${cells}`;
       }).join('');
       return `<div class="tl-wrap"><div class="tl" style="grid-template-columns: var(--tl-name) repeat(${n}, var(--tl-col))">
         <span class="tl-corner"></span>${months}<span class="tl-corner"></span>${head}${rows}</div></div>`;
     },
 
-    // Polaroid (Karte, Infofenster, Übersicht)
-    polaroidHtml(o, opts = {}) {
+    // Kartensymbol: Draufsicht in Originalgröße (gedreht), darunter Name mit Belegungspunkt
+    markerHtml(o, opts = {}) {
+      const t = top(o.kind);
       const st = this.status(o);
+      const rot = (o.pos && o.pos[2]) || 0;
+      // halbe Höhe/Breite der gedrehten Form → Abstand für Namen und To-Do-Zähler
+      const a = rot * Math.PI / 180;
+      const ry = (Math.abs(t.w * Math.sin(a)) + Math.abs(t.h * Math.cos(a))) / 2;
+      const rx = (Math.abs(t.w * Math.cos(a)) + Math.abs(t.h * Math.sin(a))) / 2;
+      return `<div class="unit-mk${opts.selected ? ' is-selected' : ''}" style="--w:${t.w}px;--h:${t.h}px;--r:${ry.toFixed(1)}px;--rx:${rx.toFixed(1)}px;--rot:${rot}deg">
+        <div class="unit-shape">${t.svg}</div>
+        <span class="unit-name"><i class="pol-dot is-${st.cls}"></i>${h(o.name)}</span>${opts.extra || ''}</div>`;
+    },
+
+    // Kachel: eigenes Foto oder Draufsicht (Infofenster, Übersicht)
+    tileHtml(o, opts = {}) {
       const url = o.photo ? (o.photo.tdata || o.photo.data || this.photoUrls[o.id]) : '';
-      const inner = url ? `<img src="${h(url)}" alt="" draggable="false">` : art(o.kind);
-      return `<div class="polaroid${opts.big ? ' is-big' : ''}" style="--tilt:${opts.flat ? 0 : tilt(o.id)}deg">
-        <div class="pol-photo">${inner}</div>
-        <div class="pol-cap">${opts.noDot ? '' : `<i class="pol-dot is-${st.cls}" title="${h(st.text)}"></i>`}${h(o.name)}</div></div>`;
+      if (url) return `<div class="unit-tile${opts.big ? ' is-big' : ''}"><img src="${h(url)}" alt="" draggable="false"></div>`;
+      const t = top(o.kind);
+      return `<div class="unit-tile is-drawing${opts.big ? ' is-big' : ''}"><div class="unit-tile-art" style="aspect-ratio:${t.w} / ${t.h}">${t.svg}</div></div>`;
     },
   };
 
