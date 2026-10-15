@@ -61,6 +61,24 @@ lassen sich gefahrlos mehrfach ausführen. Wer neu einrichtet, braucht nur `sche
 `update-5.sql` (To-Dos & Orte) legt zusätzlich den privaten Foto-Speicher **todo-fotos** an –
 unter „Storage“ muss dafür nichts von Hand eingerichtet werden.
 
+### Airbnb-Kalender einrichten (Ferienunterkünfte)
+
+Die App zeigt die Belegung der Unterkünfte live aus den Airbnb-Kalendern. Weil der Browser Airbnb
+nicht direkt abfragen darf, holt eine kleine Supabase-Funktion die Kalender ab (einmal einrichten):
+
+1. `supabase/update-7.sql` im **SQL Editor** ausführen (falls noch nicht geschehen).
+2. Im Supabase-Dashboard links **Edge Functions** → **Deploy a new function** → **Via Editor**.
+3. Als Namen genau `airbnb-kalender` eintragen.
+4. Den vorhandenen Beispieltext löschen und den kompletten Inhalt von
+   `supabase/functions/airbnb-kalender/index.ts` einfügen → **Deploy function**.
+5. Bei der Funktion unter **Details** den Schalter **Verify JWT** ausschalten und speichern.
+   Das ist unbedenklich: Die Funktion liest die Unterkünfte mit dem Login der App, ohne Login
+   und ohne Team-Eintrag gibt sie nichts heraus.
+
+Die Kalender-Links (Airbnb → Inserat → Verfügbarkeit → Kalender verbinden → **Kalender exportieren**)
+trägt man in der App ein: Karte → Unterkunft antippen → **Bearbeiten** → „Airbnb-Kalender-Link“.
+Sie stehen nur in der geschützten Datenbank, nicht im öffentlichen GitHub-Projekt.
+
 ### Pausieren verhindern (kostenloses Supabase-Paket)
 
 Supabase pausiert kostenlose Projekte nach 7 Tagen ohne Nutzung. Die GitHub-Aufgabe

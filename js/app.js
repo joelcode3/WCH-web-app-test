@@ -352,6 +352,7 @@
             ${cb('boxes', `${ICON.strom} Stromkästen`)}
             ${cb('tanks', `${ICON.gas} Gastanks`)}
             ${cb('places', '<span class="legend-emoji">📍</span> Orte / Gebäude')}
+            ${cb('airbnb', '<span class="legend-emoji">📷</span> Ferienunterkünfte')}
             ${cb('todos', '<span class="pb pb-todo">✓1</span> Offene To-Dos')}
             ${cb('ww', '<span class="pb pb-ww">WW</span> Winterwasser')}
             ${cb('persons', `<span class="pb pb-icons pb-person">${MapView.icons.person}</span> Bewohner`)}
@@ -494,7 +495,9 @@
       $('.close', panel).onclick = () => { location.hash = '#/karte'; };
       $$('[data-goto]', panel).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
       $$('[data-action]', panel).forEach((el) => el.addEventListener('click', () => Actions[el.dataset.action](el.dataset.id)));
-      $('.panel-body', panel).scrollTop = 0;
+      if (type === 'place' && S.isAirbnb(S.place(id))) this.bindAirbnbPanel(panel, S.place(id));
+      if (this._panelKey !== type + id) $('.panel-body', panel).scrollTop = 0;
+      this._panelKey = type + id;
     },
 
     hidePanel() { $('#map-panel').hidden = true; },
@@ -616,8 +619,71 @@
         </div>`;
     },
 
+    // Ferienunterkunft: Polaroid, Belegung heute, Monatskalender, To-Dos
+    airbnbPanel(o) {
+      const kind = S.PLACE_KINDS[o.kind];
+      if (!this.calMonth || this.calMonth.id !== o.id) { const d = new Date(); this.calMonth = { id: o.id, y: d.getFullYear(), m: d.getMonth() }; }
+      const st = Airbnb.status(o);
+      const listing = S.listingUrl(o);
+      return `
+        <div class="panel-head">
+          <span class="pin pin-place" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i></span>
+          <div class="title"><h2>${h(o.name || kind.label)}</h2><span class="muted small">${h(kind.label)} · Airbnb</span></div>
+          <button class="close" aria-label="Schließen">${ICON.close}</button>
+        </div>
+        <div class="panel-body">
+          <div class="airbnb-top">
+            <label class="pol-wrap" title="Foto ändern">${Airbnb.polaroidHtml(o, { big: true, noDot: true })}
+              <span class="pol-change">${o.photo ? 'Foto ändern' : '+ Foto'}</span><input type="file" accept="image/*" hidden data-place-photo></label>
+            <div class="airbnb-status"><span class="state-chip is-${st.cls}"><i class="pol-dot is-${st.cls}"></i>${h(st.text)}</span>
+              ${listing ? `<a class="small" href="${h(listing)}" target="_blank" rel="noopener">Inserat bei Airbnb öffnen ↗</a>` : ''}
+              ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
+              ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}</div>
+          </div>
+          <div id="airbnb-cal">${Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m)}</div>
+          ${o.notes ? `<p class="small" style="margin:8px 0 0;white-space:pre-line">${h(o.notes)}</p>` : ''}
+          ${todoSection('place', o.id, true)}
+        </div>
+        <div class="panel-actions">
+          <button class="btn" data-goto="#/todo/neu?ziel=place:${o.id}&${backParam()}">${ICON.plus} To-Do</button>
+          <button class="btn btn-ghost" data-action="editPlace" data-id="${o.id}">${ICON.edit} Bearbeiten</button>
+        </div>`;
+    },
+
+    bindAirbnbPanel(panel, o) {
+      const cal = $('#airbnb-cal', panel);
+      cal.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-cal]');
+        if (!b) return;
+        const d = new Date(this.calMonth.y, this.calMonth.m + +b.dataset.cal, 1);
+        this.calMonth = { id: o.id, y: d.getFullYear(), m: d.getMonth() };
+        cal.innerHTML = Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m);
+      });
+      const inp = $('[data-place-photo]', panel);
+      if (inp) inp.onchange = async () => {
+        const file = inp.files[0];
+        inp.value = '';
+        if (!file || blockIfMissing()) return;
+        if (S.mode === 'cloud' && Cloud.missingCols.has('places.photo')) { alert('Für Fotos bitte zuerst supabase/update-7.sql ausführen.'); return; }
+        $('.pol-change', panel).textContent = 'lädt …';
+        try {
+          const old = o.photo;
+          o.photo = await Photos.add(`ort-${o.id}`, file);
+          delete Airbnb.photoUrls[o.id];
+          S.save();
+          if (old) Photos.remove([old]);
+          await loadPlacePhotos();
+          toast('Foto gespeichert');
+        } catch (err) {
+          alert(`Foto konnte nicht gespeichert werden:\n${err.message || err}`);
+          $('.pol-change', panel).textContent = '+ Foto';
+        }
+      };
+    },
+
     placePanel(o) {
       if (!o) return '';
+      if (S.isAirbnb(o)) return this.airbnbPanel(o);
       const kind = S.PLACE_KINDS[o.kind] || S.PLACE_KINDS.sonstiges;
       return `
         <div class="panel-head">
@@ -734,6 +800,7 @@
         fields: [
           { name: 'kind', label: 'Art', type: 'select', value: o ? o.kind : 'sanitaer', options: Object.entries(S.PLACE_KINDS).map(([k, v]) => [k, `${v.icon} ${v.label}`]) },
           { name: 'name', label: 'Name', value: o ? o.name : '', placeholder: 'z. B. Sanitärgebäude 2', required: true },
+          { name: 'icalUrl', label: 'Airbnb-Kalender-Link (endet auf .ics)', value: o ? o.icalUrl : '', placeholder: 'https://www.airbnb.de/calendar/ical/….ics?t=…' },
           { name: 'notes', label: 'Notizen', type: 'textarea', value: o ? o.notes : '' },
         ],
         submitLabel: o ? 'Speichern' : 'Weiter: auf Karte setzen',
@@ -741,13 +808,21 @@
             <button type="button" class="btn btn-ghost btn-sm" data-move>Neu platzieren</button>
             <button type="button" class="btn btn-danger btn-sm" data-del>${ICON.trash} Ort löschen</button></div>` : '',
         onSubmit: (v) => {
-          const data = { kind: v.kind, name: v.name.trim(), notes: v.notes.trim() };
-          if (o) { Object.assign(o, data); S.save(); toast('Gespeichert'); return; }
+          const ical = S.PLACE_KINDS[v.kind].airbnb ? v.icalUrl.trim() : '';
+          if (ical && !/^https:\/\/[^ ]+\.ics(\?|$)/i.test(ical)) { toast('Der Kalender-Link muss mit https:// beginnen und .ics enthalten'); return false; }
+          const data = { kind: v.kind, name: v.name.trim(), notes: v.notes.trim(), icalUrl: ical };
+          if (o) {
+            const changed = o.icalUrl !== data.icalUrl;
+            Object.assign(o, data); S.save(); toast('Gespeichert');
+            if (changed) setTimeout(() => Airbnb.load(true), 800);   // erst speichern, dann Kalender neu holen
+            return;
+          }
           const neu = { id: S.uid('o'), pos: null, ...data };
           if (!location.hash.startsWith('#/karte')) location.hash = '#/karte';
           setTimeout(() => {
             MapView.startPlace((pt) => {
               neu.pos = pt; S.data.places.push(neu); S.save();
+              if (neu.icalUrl) setTimeout(() => Airbnb.load(true), 800);
               go(`#/karte/place/${neu.id}`);
               toast(`${neu.name} platziert`);
             });
@@ -759,6 +834,10 @@
       // Namen aus der Art vorschlagen, solange noch nichts eingetragen ist
       const dlg = $('#dialog');
       const kind = $('[name=kind]', dlg), name = $('[name=name]', dlg);
+      const icalField = $('[name=icalUrl]', dlg).closest('.field');
+      const syncIcal = () => { icalField.hidden = !S.PLACE_KINDS[kind.value].airbnb; };
+      kind.addEventListener('change', syncIcal);
+      syncIcal();
       if (!o) {
         const suggest = () => {
           const base = S.PLACE_KINDS[kind.value].label.split(' /')[0];
@@ -767,7 +846,7 @@
         };
         let auto = suggest();
         name.value = auto;
-        kind.onchange = () => { if (!name.value || name.value === auto) { auto = suggest(); name.value = auto; } };
+        kind.addEventListener('change', () => { if (!name.value || name.value === auto) { auto = suggest(); name.value = auto; } });
       }
       const del = $('[data-del]', dlg);
       if (del) del.onclick = () => {
@@ -1228,7 +1307,8 @@
                 </div>
               </section>
               <section class="card">
-                <h2>Mieter</h2>
+                <div class="card-title-row"><h2>Mieter</h2>
+                  ${isNew ? '' : '<button type="button" class="btn btn-ghost btn-sm" data-clear-tenant title="Leert alle Mieterangaben – die Parzelle und ihre Zähler bleiben erhalten">Mieter entfernen</button>'}</div>
                 <div class="form-grid">
                   ${fieldHtml({ name: 'name', label: 'Name', value: p.tenant.name, full: true, autocomplete: 'off' })}
                   ${fieldHtml({ name: 'phone', label: 'Telefon', type: 'tel', value: p.tenant.phone, autocomplete: 'off' })}
@@ -1273,6 +1353,17 @@
 
       const form = $('#edit-form', root);
       const f = form.elements;
+
+      // Mieter entfernen: Mieterfelder leeren und Parzelle auf "frei" setzen (wirksam mit "Speichern")
+      const clearBtn = $('[data-clear-tenant]', root);
+      if (clearBtn) clearBtn.onclick = () => {
+        if (!confirm(`Alle Mieterangaben von Parzelle ${p.nr} leeren und die Parzelle auf „frei“ setzen?\n\nDie Parzelle, Zähler und Zählerstände bleiben erhalten. Wirksam erst nach „Speichern“.`)) return;
+        ['name', 'phone', 'email', 'address', 'leaseStart', 'freeFrom'].forEach((k) => { f[k].value = ''; });
+        f.residents.value = '0';
+        f.dogs.value = '0';
+        if (!S.isFree({ status: f.status.value })) f.status.value = 'leer';
+        toast('Mieterangaben geleert – zum Übernehmen „Speichern“ tippen');
+      };
 
       // Parzellen-Nr. sofort prüfen
       const checkNr = () => {
@@ -1352,7 +1443,10 @@
 
       const del = $('[data-delete]', root);
       if (del) del.onclick = () => {
-        if (!confirm(`Parzelle ${p.nr} mit allen Zählern und Ablesungen endgültig löschen?`)) return;
+        // Löschen nur mit Eingabe der Nummer – für "Mieter weg" gibt es "Mieter entfernen"
+        const answer = prompt(`Parzelle ${p.nr} ENDGÜLTIG löschen – die Fläche verschwindet von der Karte, mit allen Zählern und Ablesungen.\n\nNur die Mieterangaben entfernen? Dann abbrechen und oben bei „Mieter“ auf „Mieter entfernen“ tippen.\n\nZum Löschen die Parzellennummer ${p.nr} eingeben:`);
+        if (answer === null) return;
+        if (answer.trim() !== String(p.nr)) { alert('Die Nummer stimmt nicht – es wurde nichts gelöscht.'); return; }
         S.deleteParcel(p.id); S.save(); toast(`Parzelle ${p.nr} gelöscht`);
         location.hash = '#/kartei';
       };
@@ -2283,7 +2377,7 @@
           <div class="filters filters-todo">
             <div class="search">${ICON.search}<input type="search" id="t-q" placeholder="Titel, Beschreibung, Ort…" value="${h(this.q)}" aria-label="To-Dos durchsuchen"></div>
             <select id="t-kind" aria-label="Ort filtern">
-              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['allgemein', 'Allgemein']]
+              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['airbnb', 'Ferienunterkünfte'], ['allgemein', 'Allgemein']]
                 .map(([k, l]) => `<option value="${k}"${this.kind === k ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
             <select id="t-who" aria-label="Zuständig filtern">
@@ -2319,7 +2413,9 @@
         if (this.status === 'ohne' && t.status !== 'offen') return false;
         if (['planung', 'arbeit', 'erledigt'].includes(this.status) && t.status !== this.status) return false;
         if (this.kind === 'allgemein' && t.targetType) return false;
-        if (!['alle', 'allgemein'].includes(this.kind) && t.targetType !== this.kind) return false;
+        if (this.kind === 'airbnb') { if (!(t.targetType === 'place' && S.isAirbnb(S.place(t.targetId)))) return false; }
+        else if (this.kind === 'place') { if (t.targetType !== 'place' || S.isAirbnb(S.place(t.targetId))) return false; }
+        else if (!['alle', 'allgemein'].includes(this.kind) && t.targetType !== this.kind) return false;
         if (this.who === '__none' && t.assignee.trim()) return false;
         if (!['alle', '__none'].includes(this.who) && t.assignee.trim() !== this.who) return false;
         if (!q) return true;
@@ -2530,6 +2626,71 @@
     try { urls = await Photos.urls(photos, false); show(); } catch (e) { toast('Foto konnte nicht geladen werden'); }
   }
 
+
+  /* ======================================================================
+     AIRBNB – Belegung aller Ferienunterkünfte
+     ====================================================================== */
+
+  // Vorschaubilder der Unterkunfts-Fotos (Cloud: zeitlich begrenzte Links)
+  async function loadPlacePhotos() {
+    const need = S.data.places.filter((o) => o.photo && o.photo.path && !Airbnb.photoUrls[o.id]);
+    if (!need.length) return;
+    try {
+      const urls = await Photos.urls(need.map((o) => o.photo), true);
+      need.forEach((o) => { if (urls[o.photo.id]) Airbnb.photoUrls[o.id] = urls[o.photo.id]; });
+      MapView.render();
+      const sel = MapView.selected;
+      if (sel && sel.type === 'place' && !$('#map-panel').hidden) MapUI.showPanel('place', sel.id);
+      if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
+    } catch (e) { console.warn('Fotos der Unterkünfte', e); }
+  }
+
+  const AirbnbView = {
+    weeks: 9,
+    render(root) {
+      const units = S.airbnbs();
+      const st = Airbnb.state;
+      const t = new Date();
+      const monday = new Date(t); monday.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+      const start = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+      const notice = {
+        demo: '<p class="notice"><strong>Testmodus:</strong> Die Belegung ist erfunden. In der echten App kommt sie live aus den Airbnb-Kalendern.</p>',
+        missing: `<p class="notice"><strong>Einmal einrichten:</strong> Die Supabase-Funktion <code>airbnb-kalender</code> fehlt noch. Anleitung in <code>SETUP.md</code> (Abschnitt „Airbnb-Kalender“).</p>`,
+        needsUpdate: '<p class="notice"><strong>Datenbank-Update nötig:</strong> bitte <code>supabase/update-7.sql</code> im Supabase „SQL Editor“ ausführen und die App neu laden.</p>',
+        error: `<p class="notice"><strong>Kalender konnten nicht geladen werden:</strong> ${h(Airbnb.error)}</p>`,
+      }[st] || '';
+      root.innerHTML = `
+        <div class="page">
+          <div class="page-head">
+            <h1>Airbnb</h1>
+            <button class="btn btn-ghost" id="ab-refresh">${st === 'loading' ? 'Lädt …' : 'Aktualisieren'}</button>
+          </div>
+          <p class="muted small" style="margin-top:-6px">Belegung aus den Airbnb-Kalendern (ohne Gästedaten)${Airbnb.fetchedAt ? ` · Stand ${new Date(Airbnb.fetchedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr` : ''}. Airbnb aktualisiert die Kalender mit einigen Stunden Verzögerung.</p>
+          ${notice}
+          ${units.length ? `
+          <div class="ab-cards">${units.map((o) => {
+            const s1 = Airbnb.status(o);
+            const occ = Airbnb.hasData(o) ? Math.round(Airbnb.occupancy(o, t.getFullYear(), t.getMonth()) * 100) : null;
+            const open = S.todosOf('place', o.id).length;
+            return `<a class="ab-card" href="#/karte/place/${o.id}">
+              ${Airbnb.polaroidHtml(o, { noDot: true })}
+              <div class="ab-info"><strong>${h(o.name)}</strong>
+                <span class="state-chip is-${s1.cls}"><i class="pol-dot is-${s1.cls}"></i>${h(s1.text)}</span>
+                ${occ !== null ? `<span class="muted small">${occ} % belegt im ${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][t.getMonth()]}</span>` : ''}
+                ${open ? `<span class="small warn">${open} offene${open > 1 ? '' : 's'} To-Do${open > 1 ? 's' : ''}</span>` : ''}</div></a>`;
+          }).join('')}</div>
+          <section class="card span-all" style="margin-top:14px">
+            <div class="card-title-row"><h2>Belegung der nächsten ${this.weeks} Wochen</h2>
+              <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>gesperrt</span><span><i class="free"></i>frei</span></div></div>
+            ${Airbnb.timelineHtml(units, start, this.weeks * 7)}
+          </section>` : '<p class="muted">Noch keine Ferienunterkunft angelegt. Auf der Karte unter „Bearbeiten“ → „+ Ort“ eine Unterkunft (Londonbus, Glampingzelt, Bäckerwagen …) anlegen.</p>'}
+        </div>`;
+      $('#ab-refresh', root).onclick = () => Airbnb.load(true);
+      Airbnb.load();
+      loadPlacePhotos();
+    },
+  };
+
   function route() {
     const raw = location.hash.replace(/^#\/?/, '') || 'karte';
     const [path, query] = raw.split('?');
@@ -2537,7 +2698,7 @@
     const params = new URLSearchParams(query || '');
     const viewMap = $('#view-karte');
     const viewPage = $('#view-page');
-    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', todos: 'todos', todo: 'todos', technik: 'technik', kasten: 'technik', ablesung: 'ablesung', verbrauch: 'ablesung', auslastung: 'ablesung', daten: 'daten' }[parts[0]] || 'karte';
+    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', todos: 'todos', todo: 'todos', airbnb: 'airbnb', technik: 'technik', kasten: 'technik', ablesung: 'ablesung', verbrauch: 'ablesung', auslastung: 'ablesung', daten: 'daten' }[parts[0]] || 'karte';
     $$('.tabbar a').forEach((a) => a.classList.toggle('is-active', a.dataset.nav === nav));
 
     if (nav === 'karte') {
@@ -2562,7 +2723,7 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Kartei', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Technik', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
+    const titles = { airbnb: 'Airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Kartei', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Technik', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
     switch (parts[0]) {
@@ -2573,6 +2734,7 @@
         break;
       case 'neu': Edit.render(viewPage, null); break;
       case 'todos': Todos.render(viewPage, params); break;
+      case 'airbnb': AirbnbView.render(viewPage); break;
       case 'todo': TodoEdit.render(viewPage, parts[1] === 'neu' ? null : parts[1], params); break;
       case 'technik': Technik.render(viewPage); break;
       case 'kasten': BoxEdit.render(viewPage, parts[1]); break;
@@ -2664,10 +2826,21 @@
     });
     renderTodoBadge();
 
+    // Airbnb-Belegung: beim Start, beim Zurückkehren zur App und alle 30 Minuten
+    Airbnb.onChange(() => {
+      MapView.render();
+      const sel = MapView.selected;
+      if (!$('#view-karte').hidden && sel && sel.type === 'place') MapUI.showPanel('place', sel.id);
+      if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
+    });
+    Airbnb.load();
+    loadPlacePhotos();
+    setInterval(() => Airbnb.load(true), 30 * 60000);
+
     window.addEventListener('hashchange', route);
     window.addEventListener('resize', () => MapView.invalidate());
     window.addEventListener('online', () => S.retry());
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshIfIdle(); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { refreshIfIdle(); Airbnb.load(); } });
     window.addEventListener('beforeunload', (e) => {
       if (Object.keys(Ablesung.draft).length || S.hasPending) { e.preventDefault(); e.returnValue = ''; }
     });

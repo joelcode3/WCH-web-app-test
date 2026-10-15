@@ -66,11 +66,25 @@
     spielplatz: { label: 'Spielplatz',     icon: '🛝' },
     rezeption:  { label: 'Rezeption / Büro', icon: '🏠' },
     gebaeude:   { label: 'Gebäude / Halle', icon: '🏚️' },
-    wiese:      { label: 'Camperwiese',    icon: '⛺' },
+    wiese:      { label: 'Camperwiese',    icon: '🏕️' },
     muell:      { label: 'Müllplatz',      icon: '🗑️' },
     wasser:     { label: 'Wasser / Brunnen', icon: '🚰' },
     sonstiges:  { label: 'Sonstiger Ort',  icon: '📍' },
+    // Ferienunterkünfte (Airbnb): Polaroid auf der Karte, Kalender mit Belegung
+    londonbus:    { label: 'Londonbus',     icon: '🚌', airbnb: true },
+    glamping:     { label: 'Glampingzelt',  icon: '⛺', airbnb: true },
+    baeckerwagen: { label: 'Bäckerwagen',   icon: '🥨', airbnb: true },
+    unterkunft:   { label: 'Ferienunterkunft (sonstige)', icon: '🏡', airbnb: true },
   };
+
+  // Startplätze der Ferienunterkünfte (große Wiese), später im Bearbeiten-Modus verschiebbar
+  const AIRBNB_DEFAULTS = [
+    { name: 'Londonbus 1', kind: 'londonbus', pos: [1230, 760] },
+    { name: 'Londonbus 2', kind: 'londonbus', pos: [1320, 760] },
+    { name: 'Glampingzelt 1', kind: 'glamping', pos: [1410, 760] },
+    { name: 'Glampingzelt 2', kind: 'glamping', pos: [1500, 760] },
+    { name: 'Bäckerwagen', kind: 'baeckerwagen', pos: [1365, 870] },
+  ];
 
   // Farbschema "Versorgung" auf der Karte
   const SUPPLY = {
@@ -222,6 +236,7 @@
       { id: uid('o'), name: 'Sanitärgebäude 1', kind: 'sanitaer', pos: [505, 1435], notes: '' },
       { id: uid('o'), name: 'Grillhütte', kind: 'grill', pos: [1249, 458], notes: 'Schlüssel an der Rezeption' },
       { id: uid('o'), name: 'Spielplatz', kind: 'spielplatz', pos: [877, 807], notes: '' },
+      ...AIRBNB_DEFAULTS.map((a) => ({ id: uid('o'), notes: '', icalUrl: 'demo', photo: null, ...a })),
     ];
     const iso = (d) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
     const todo = (o) => ({ id: uid('d'), title: '', description: '', targetType: '', targetId: '', location: '', status: 'offen',
@@ -240,7 +255,14 @@
   /* ---------- Store ---------- */
 
   const Store = {
-    STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, supplyOf, uid, compareNr,
+    STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, AIRBNB_DEFAULTS, supplyOf, uid, compareNr,
+    isAirbnb: (o) => !!(o && (PLACE_KINDS[o.kind] || {}).airbnb),
+    airbnbs() { return this.data.places.filter((o) => this.isAirbnb(o)).sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })); },
+    // Inserats-Link aus dem Kalender-Link ableiten (…/calendar/ical/123.ics → …/rooms/123)
+    listingUrl(o) {
+      const m = String(o.icalUrl || '').match(/^https:\/\/(www\.airbnb\.[a-z.]+)\/calendar\/ical\/(\d+)\.ics/);
+      return m ? `https://${m[1]}/rooms/${m[2]}` : '';
+    },
     // Bewohnt, aber Auszug steht fest?
     movingOut: (p) => !!p.freeFrom && (p.status === 'fest' || p.status === 'wochenende'),
     isFree: (p) => !!(STATUS[p.status] || STATUS.leer).free,
@@ -299,6 +321,8 @@
         o.name = o.name || '';
         if (!PLACE_KINDS[o.kind]) o.kind = 'sonstiges';
         o.notes = o.notes || '';
+        o.icalUrl = o.icalUrl || '';
+        o.photo = o.photo && (o.photo.path || o.photo.data) ? o.photo : null;
       });
       d.todos.forEach((t) => {
         ['title', 'description', 'targetType', 'targetId', 'location', 'deadline', 'appointment', 'assignee', 'doneAt'].forEach((k) => { t[k] = t[k] || ''; });
