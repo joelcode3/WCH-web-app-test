@@ -1017,17 +1017,17 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head">
-            <h1>Mieter</h1>
+            <h1>Parzellen</h1>
             <a class="btn" href="#/neu">${ICON.plus} Parzelle</a>
           </div>
           <div class="filters">
-            <div class="search">${ICON.search}<input type="search" id="k-q" placeholder="Nr., Name, Telefon, Zählernummer…" value="${h(this.q)}" aria-label="Mieter durchsuchen"></div>
+            <div class="search">${ICON.search}<input type="search" id="k-q" placeholder="Nr., Name, Telefon, Zählernummer…" value="${h(this.q)}" aria-label="Parzellen durchsuchen"></div>
             <select id="k-supply" aria-label="Versorgung filtern">
               <option value="alle">Alle Versorgungsarten</option>
               ${Object.entries(S.SUPPLY).map(([k, v]) => `<option value="${k}"${this.supply === k ? ' selected' : ''}>${h(v.label)}</option>`).join('')}
             </select>
             <select id="k-extra" aria-label="Weitere Filter">
-              ${[['alle', 'Alle Objekte'], ['pacht', 'Nur Pachtgrundstücke'], ['miet', 'Nur Mietobjekte'], ['ww1', 'Mit Winterwasser'], ['ww0', 'Ohne Winterwasser'], ['dogs', 'Mit Hund(en)'], ['auszug', 'Auszug geplant (frei ab)']]
+              ${[['alle', 'Alle Objekte'], ['pacht', 'Nur Pachtgrundstücke'], ['miet', 'Nur Mietobjekte'], ['ww1', 'Mit Winterwasser'], ['ww0', 'Ohne Winterwasser'], ['dogs', 'Mit Hund(en)'], ['auszug', 'wird frei']]
                 .map(([k, l]) => `<option value="${k}"${this.extra === k ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
           </div>
@@ -1096,7 +1096,7 @@
   const Detail = {
     render(root, id) {
       const p = S.parcel(id);
-      if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p><a href="#/kartei">Zur Mieterliste</a></div>'; return; }
+      if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p><a href="#/kartei">Zur Parzellenliste</a></div>'; return; }
       const meters = S.metersOf(p.id);
       const strom = meters.filter((m) => m.type === 'strom');
       const gas = meters.filter((m) => m.type === 'gas');
@@ -1141,7 +1141,7 @@
 
       root.innerHTML = `
         <div class="page">
-          <a class="back" href="#/kartei">${ICON.back} Mieter</a>
+          <a class="back" href="#/kartei">${ICON.back} Parzellen</a>
           <div class="detail-head">
             ${nrBadge(p, 'nr-lg')}
             <div class="title"><h1>Parzelle ${h(p.nr)}</h1>${statusBadge(p)}</div>
@@ -1315,7 +1315,7 @@
 
       root.innerHTML = `
         <div class="page">
-          <a class="back" href="${backHref}">${ICON.back} ${isNew ? 'Mieter' : 'Zurück'}</a>
+          <a class="back" href="${backHref}">${ICON.back} ${isNew ? 'Parzellen' : 'Zurück'}</a>
           <div class="page-head"><h1>${isNew ? 'Neue Parzelle' : `Parzelle ${h(p.nr)} bearbeiten`}</h1></div>
           <form id="edit-form" novalidate>
             <div class="cards">
@@ -1671,7 +1671,8 @@
      ====================================================================== */
 
   const Technik = {
-    render(root) {
+    // typ: 'strom' (Stromkästen, Zähler im Haus) | 'gas' (Gastanks, Gasflaschen)
+    render(root, typ = 'strom') {
       const boxes = S.boxesSorted();
       const tanks = S.tanksSorted();
       const unassigned = S.data.meters.filter((m) => m.type === 'strom' && !m.inHouse && !S.box(m.boxId));
@@ -1689,7 +1690,8 @@
       root.innerHTML = `
         <div class="page">
           <div class="page-head"><h1>Infrastruktur</h1></div>
-          ${infraTabs('technik')}
+          ${infraTabs(typ === 'gas' ? 'gas' : 'technik')}
+          ${typ === 'strom' ? `
           ${unassigned.length ? `<p class="notice">${unassigned.length} Stromzähler sind keinem Kasten zugeordnet: ${unassigned.map((m) => { const p = S.parcel(m.parcelId); return p ? chip(p) : h(S.purposeText(m)); }).join(' ')}</p>` : ''}
           <div class="page-head section-head">
             <h2>Stromkästen</h2>
@@ -1721,6 +1723,7 @@
             </section>
           </div>
 
+          ` : `
           <div class="page-head section-head">
             <h2>Gastanks</h2>
             <button class="btn btn-sm" data-new="tank">${ICON.plus} Gastank</button>
@@ -1747,11 +1750,13 @@
             <p class="small muted" style="margin:0 0 8px">Parzellen, die mit Gasflaschen versorgt werden (kein Zähler)</p>
             ${rows(S.parcelsSorted().filter((p) => p.gas === 'bottle')) || '<p class="muted small">–</p>'}
           </div>
+          `}
         </div>`;
 
       const rerender = () => this.render(root);
-      $('[data-new=box]', root).onclick = () => Actions.newBox(false);
-      $('[data-new=tank]', root).onclick = () => Actions.newTank(false);
+      const nb = $('[data-new=box]', root), nt = $('[data-new=tank]', root);
+      if (nb) nb.onclick = () => Actions.newBox(false);
+      if (nt) nt.onclick = () => Actions.newTank(false);
       $$('[data-edit-box]', root).forEach((b) => b.onclick = () => Actions.editBox(b.dataset.editBox));
       $$('[data-edit-tank]', root).forEach((b) => b.onclick = () => Actions.editTank(b.dataset.editTank));
       $$('[data-place-box]', root).forEach((b) => b.onclick = () => Actions.placeBox(b.dataset.placeBox));
@@ -2041,7 +2046,8 @@
   }
 
   const infraTabs = (active) => `<div class="tabs">
-    <a href="#/technik"${active === 'technik' ? ' class="is-active"' : ''}>Kästen &amp; Tanks</a>
+    <a href="#/technik"${active === 'technik' ? ' class="is-active"' : ''}>Strom</a>
+    <a href="#/technik/gas"${active === 'gas' ? ' class="is-active"' : ''}>Gas</a>
     <a href="#/ablesung"${active === 'ablesung' ? ' class="is-active"' : ''}>Ablesen</a>
     <a href="#/verbrauch"${active === 'verbrauch' ? ' class="is-active"' : ''}>Verbrauch</a>
     <a href="#/auslastung"${active === 'auslastung' ? ' class="is-active"' : ''}>Auslastung</a></div>`;
@@ -2180,7 +2186,7 @@
               <h2>Export (Excel)</h2>
               <div class="card-actions" style="margin-top:0">
                 <button class="btn" id="d-readings">${ICON.download} Zählerstände</button>
-                <button class="btn btn-ghost" id="d-csv">${ICON.download} Mieterliste</button>
+                <button class="btn btn-ghost" id="d-csv">${ICON.download} Parzellenliste</button>
               </div>
               <p class="small muted">Zählerstände: Parzelle, Mieter, Zählernummer, die letzten beiden Stände mit Ablesedatum und die Differenz.</p>
             </section>
@@ -2253,7 +2259,7 @@
             st.map((m) => m.number).join(', '), st.map((m) => S.meterPlace(m)).join(', '), st.map((m) => S.fusesText(m)).filter(Boolean).join('; '),
             gs.map((m) => m.number).join(', '), p.notes]);
         });
-        download(`mieterliste-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
+        download(`parzellen-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
       };
       // In der Datenbank nur nach ausdrücklicher Bestätigung überschreiben
       const reallyOverwrite = (what) => S.mode !== 'cloud'
@@ -2763,7 +2769,7 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Mieter', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
+    const titles = { airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Parzellen', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
     switch (parts[0]) {
@@ -2776,7 +2782,7 @@
       case 'todos': Todos.render(viewPage, params); break;
       case 'airbnb': AirbnbView.render(viewPage); break;
       case 'todo': TodoEdit.render(viewPage, parts[1] === 'neu' ? null : parts[1], params); break;
-      case 'technik': Technik.render(viewPage); break;
+      case 'technik': Technik.render(viewPage, parts[1] === 'gas' ? 'gas' : 'strom'); break;
       case 'kasten': BoxEdit.render(viewPage, parts[1]); break;
       case 'ablesung': Ablesung.render(viewPage, params); break;
       case 'verbrauch': Verbrauch.render(viewPage); break;
@@ -2862,7 +2868,7 @@
       MapView.render();
       const sel = MapView.selected;
       if (!$('#view-karte').hidden && sel) MapUI.showPanel(sel.type, sel.id);
-      if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'));
+      if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'), location.hash.startsWith('#/technik/gas') ? 'gas' : 'strom');
       if (!$('#view-page').hidden && location.hash.startsWith('#/todos')) Todos.renderList();
       renderTodoBadge();
     });

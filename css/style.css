@@ -686,7 +686,7 @@ body.is-locked { padding-bottom: 0; }
 .unit-mk .pin-todo { top: calc(-1 * var(--r) * var(--unit-s, 1) - 8px); right: auto; left: calc(var(--rx) * var(--unit-s, 1) - 6px); }
 .labels-small .unit-name, .labels-hidden .unit-name { font-size: 0; gap: 0; }
 .pol-dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1.5px #8a918b; }
-.pol-dot.is-busy { background: #3f9a4f; box-shadow: 0 0 0 1.5px #fff; }
+.pol-dot.is-busy { background: #9b3b3b; box-shadow: 0 0 0 1.5px #fff; }
 .pol-dot.is-blk { background: #9a9ea6; box-shadow: 0 0 0 1.5px #fff; }
 .pol-dot.is-unk { background: #e6e3da; }
 
@@ -718,7 +718,7 @@ body.is-locked { padding-bottom: 0; }
 .cal-nav { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--linie); background: var(--papier); font-size: 1.2rem; line-height: 1; cursor: pointer; color: var(--wald); }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .cal-wd { text-align: center; font-size: .72rem; color: var(--text-leise); font-weight: 700; padding-bottom: 2px; }
-.cal-day { --res: #3f9a4f; --blk: #9a9ea6; --free: #fff; text-align: center; font-size: .85rem; padding: 6px 0; border-radius: 6px; background: var(--free); box-shadow: inset 0 0 0 1px #e3e1d8; font-variant-numeric: tabular-nums; }
+.cal-day { --res: #9b3b3b; --blk: #9a9ea6; --free: #fff; text-align: center; font-size: .85rem; padding: 6px 0; border-radius: 6px; background: var(--free); box-shadow: inset 0 0 0 1px #e3e1d8; font-variant-numeric: tabular-nums; }
 .cal-day.is-empty { background: none; box-shadow: none; }
 .cal-day.is-past { opacity: .5; }
 .cal-day.n-res { background: var(--res); color: #fff; font-weight: 700; box-shadow: none; }
@@ -731,7 +731,7 @@ body.is-locked { padding-bottom: 0; }
 .cal-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .78rem; color: var(--text-leise); margin-top: 6px; }
 .cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .cal-legend i { width: 12px; height: 12px; border-radius: 3px; background: #fff; border: 1px solid #cfccc2; }
-.cal-legend i.n-res { background: #3f9a4f; border-color: #3f9a4f; }
+.cal-legend i.n-res { background: #9b3b3b; border-color: #9b3b3b; }
 .cal-legend i.n-blk { background: #9a9ea6; border-color: #9a9ea6; }
 
 /* Reiter Airbnb */
@@ -749,7 +749,7 @@ body.is-locked { padding-bottom: 0; }
 .tl-day.is-today { background: var(--wald); color: #fff; border-radius: 5px; }
 .tl-name { position: sticky; left: 0; z-index: 1; background: var(--papier); display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 0;
   font-weight: 700; font-size: .9rem; color: inherit; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tl-cell { --res: #3f9a4f; --blk: #9a9ea6; --free: #fff; height: 30px; background: var(--free); border-radius: 3px; box-shadow: inset 0 0 0 1px #e3e1d8; }
+.tl-cell { --res: #9b3b3b; --blk: #9a9ea6; --free: #fff; height: 30px; background: var(--free); border-radius: 3px; box-shadow: inset 0 0 0 1px #e3e1d8; }
 .tl-cell.is-we { --free: #f6f4ee; }
 .tl-cell.n-res, .tl-cell.n-blk { box-shadow: none; }
 .tl-cell.n-res { background: var(--res); }
