@@ -67,15 +67,42 @@
       toRow: (r) => ({ id: r.id, meter_id: r.meterId, date: r.date, value: Number(r.value) }),
       fromRow: (r) => ({ id: r.id, meterId: r.meter_id, date: r.date, value: Number(r.value) }),
     },
+    // Neu mit Update 5 – fehlen die Tabellen noch, läuft die App ohne sie weiter (optional)
+    {
+      key: 'places',
+      optional: true,
+      toRow: (o) => ({ id: o.id, name: o.name || '', kind: o.kind || 'sonstiges', pos: o.pos || null, notes: o.notes || '' }),
+      fromRow: (r) => ({ id: r.id, name: r.name || '', kind: r.kind || 'sonstiges', pos: r.pos, notes: r.notes || '' }),
+    },
+    {
+      key: 'todos',
+      optional: true,
+      toRow: (t) => ({
+        id: t.id, title: t.title || '', description: t.description || '',
+        target_type: t.targetType || '', target_id: t.targetId || '', location: t.location || '',
+        status: t.status || 'offen', deadline: nz(t.deadline), appointment: nz(t.appointment),
+        assignee: t.assignee || '', photos: t.photos || [], created_at: t.createdAt, done_at: nz(t.doneAt),
+      }),
+      fromRow: (r) => ({
+        id: r.id, title: r.title || '', description: r.description || '',
+        targetType: r.target_type || '', targetId: r.target_id || '', location: r.location || '',
+        status: r.status || 'offen', deadline: r.deadline || '', appointment: r.appointment ? String(r.appointment).slice(0, 16) : '',
+        assignee: r.assignee || '', photos: r.photos || [], createdAt: r.created_at, doneAt: r.done_at || '',
+      }),
+    },
   ];
 
   const PAGE = 1000;
+  const BUCKET = 'todo-fotos';
+  // Tabelle fehlt (Datenbank-Update noch nicht ausgeführt)?
+  const isMissingTable = (e) => /PGRST205|42P01|schema cache|does not exist|Could not find the table/i.test(`${e && e.code} ${e && e.message}`);
   const CHUNK = 500;
 
   const Cloud = {
     enabled: !!(cfg.url && cfg.anonKey),
     client: null,
     user: null,
+    missing: new Set(),     // Tabellen, die in der Datenbank noch fehlen (z. B. "todos")
 
     init() {
       if (!this.enabled || this.client) return;
@@ -142,7 +169,10 @@
 
     async fetchAll() {
       const result = { version: 1 };
-      const rows = await Promise.all(TABLES.map((t) => this.fetchTable(t.key)));
+      const rows = await Promise.all(TABLES.map((t) => this.fetchTable(t.key).then((r) => { this.missing.delete(t.key); return r; }, (e) => {
+        if (t.optional && isMissingTable(e)) { this.missing.add(t.key); return []; }
+        throw e;
+      })));
       TABLES.forEach((t, i) => { result[t.key] = rows[i].map(t.fromRow); });
       return result;
     },
@@ -162,7 +192,8 @@
     // Änderungen zwischen "cur" und dem Snapshot "prev" hochladen
     async push(cur, prev) {
       let changes = 0;
-      for (const t of TABLES) {
+      const tables = TABLES.filter((t) => !this.missing.has(t.key));
+      for (const t of tables) {
         const before = prev[t.key];
         const rows = (cur[t.key] || []).map(t.toRow).filter((row) => before.get(row.id) !== JSON.stringify(row));
         for (let i = 0; i < rows.length; i += CHUNK) {
@@ -171,7 +202,7 @@
         }
         changes += rows.length;
       }
-      for (const t of [...TABLES].reverse()) {
+      for (const t of [...tables].reverse()) {
         const ids = new Set((cur[t.key] || []).map((x) => x.id));
         const gone = [...prev[t.key].keys()].filter((id) => !ids.has(id));
         for (let i = 0; i < gone.length; i += CHUNK) {
@@ -181,6 +212,34 @@
         changes += gone.length;
       }
       return changes;
+    },
+  };
+
+  /* ---------- Fotos (Supabase Storage, privater Ordner "todo-fotos") ---------- */
+  const urlCache = new Map();   // Pfad → { url, until }
+  Cloud.photos = {
+    async upload(path, blob) {
+      const { error } = await Cloud.client.storage.from(BUCKET).upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
+      if (error) {
+        if (/bucket not found|not found/i.test(error.message)) throw new Error('Foto-Speicher fehlt – bitte supabase/update-5.sql ausführen.');
+        throw error;
+      }
+    },
+    // zeitlich begrenzte Links (1 Std.), gesammelt abgefragt
+    async urls(paths) {
+      const now = Date.now();
+      const need = [...new Set(paths.filter((p) => p && !(urlCache.get(p) && urlCache.get(p).until > now)))];
+      if (need.length) {
+        const { data, error } = await Cloud.client.storage.from(BUCKET).createSignedUrls(need, 3600);
+        if (error) throw error;
+        data.forEach((d) => { if (d.signedUrl) urlCache.set(d.path, { url: d.signedUrl, until: now + 50 * 60000 }); });
+      }
+      return Object.fromEntries(paths.map((p) => [p, urlCache.get(p) ? urlCache.get(p).url : '']));
+    },
+    async remove(paths) {
+      if (!paths.length) return;
+      const { error } = await Cloud.client.storage.from(BUCKET).remove(paths);
+      if (error) console.warn('Fotos konnten nicht gelöscht werden', error);
     },
   };
 
