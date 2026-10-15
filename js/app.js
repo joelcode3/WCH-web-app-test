@@ -106,6 +106,7 @@
       </form>`;
     const form = $('form', dlg);
     $('[data-cancel]', dlg).onclick = () => dlg.close();
+    fields.filter((f) => f.suggest).forEach((f) => attachSuggest(form.elements[f.name], f.suggest));
     form.onsubmit = (e) => {
       e.preventDefault();
       const values = Object.fromEntries(new FormData(form).entries());
@@ -133,7 +134,72 @@
     return `<label class="field${f.full ? ' full' : ''}"><span>${h(f.label)}${f.required ? ' *' : ''}</span>${input}</label>`;
   }
 
-  const nextNr = (list) => String(list.reduce((m, x) => Math.max(m, parseInt(x.nr, 10) || 0), 0) + 1);
+  /* ---------- freie Nummern vorschlagen ---------- */
+
+  // Freie Nummern: zuerst Lücken (z. B. 1.44 fehlt), dann die nächste nach der höchsten.
+  // Parzellen sind "Block.Nr" (1.01 … / 2.01 …), Kästen und Tanks einfache Zahlen.
+  function freeNrs(list, block) {
+    const used = new Set();
+    list.forEach((x) => {
+      const m = String(x.nr || '').trim().match(block == null ? /^(\d+)/ : /^(\d+)\.(\d+)/);
+      if (!m) return;
+      if (block == null) used.add(+m[1]);
+      else if (+m[1] === +block) used.add(+m[2]);
+    });
+    const max = used.size ? Math.max(...used) : 0;
+    const out = [];
+    for (let n = 1; n <= max + 1; n++) if (!used.has(n)) out.push(block == null ? String(n) : `${block}.${String(n).padStart(2, '0')}`);
+    return out;
+  }
+  const parcelBlocks = () => {
+    const b = new Set(S.data.parcels.map((p) => (String(p.nr).match(/^(\d+)\./) || [])[1]).filter(Boolean).map(Number));
+    if (!b.size) b.add(1);
+    return [...b].sort((x, y) => x - y);
+  };
+  // Vorschläge passend zur Eingabe: "1" / "1." / "1.4" → freie Nummern aus diesem Block
+  function suggestParcelNr(typed) {
+    const t = String(typed || '').trim();
+    const firsts = parcelBlocks().map((b) => freeNrs(S.data.parcels, b)[0]);
+    // ganze, noch freie Nummer eingetragen → sie plus je Block die erste freie anbieten
+    if (firsts.includes(t) || (t && !S.findParcelByNr(t) && /^\d+\.\d{2}/.test(t))) return [t, ...firsts.filter((x) => x !== t)];
+    const m = t.match(/^(\d+)(?:\.(\d*))?$/);
+    if (m && parcelBlocks().includes(+m[1])) {
+      const rest = m[2] || '';
+      const free = freeNrs(S.data.parcels, +m[1]);
+      const nrOf = (x) => x.split('.')[1];
+      let fit = free;
+      if (rest) {
+        fit = free.filter((x) => nrOf(x).startsWith(rest) || nrOf(x).replace(/^0/, '').startsWith(rest));
+        if (!fit.length) fit = free.filter((x) => +nrOf(x) >= +rest);
+      }
+      return (fit.length ? fit : free).slice(0, 4);
+    }
+    return firsts;
+  }
+  const suggestSimpleNr = (list) => () => freeNrs(list, null).slice(0, 4);
+  const nextNr = (list) => freeNrs(list, null)[0];
+  const nextParcelNr = () => suggestParcelNr('')[0];
+
+  // Chips "Frei: 1.44 · 1.46" unter dem Eingabefeld, aktualisiert beim Tippen
+  // when(wert): nur dann anzeigen (z. B. bei bestehender Parzelle nur, wenn die Nummer vergeben ist)
+  function attachSuggest(input, suggest, when) {
+    if (!input) return;
+    const box = document.createElement('div');
+    box.className = 'nr-suggest';
+    input.closest('.field').appendChild(box);
+    const update = () => {
+      const list = when && !when(input.value) ? [] : suggest(input.value).filter(Boolean);
+      const taken = list.length && !list.includes(input.value.trim()) && input.value.trim() !== '';
+      box.innerHTML = list.length ? `<span>${taken ? 'Noch frei:' : 'Frei:'}</span>${list.map((n) =>
+        `<button type="button" class="chip${n === input.value.trim() ? ' is-active' : ''}" data-nr="${h(n)}">${h(n)}</button>`).join('')}` : '';
+    };
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-nr]'); if (!b) return;
+      input.value = b.dataset.nr; update(); input.focus();
+    });
+    input.addEventListener('input', update);
+    update();
+  }
 
   /* ---------- Geometrie für Teilen / Verbinden (Kartenpixel) ---------- */
 
@@ -540,7 +606,7 @@
       formDialog({
         title: b ? `Stromkasten ${b.nr} bearbeiten` : 'Neuer Stromkasten',
         fields: [
-          { name: 'nr', label: 'Kasten-Nr.', value: b ? b.nr : nextNr(S.data.boxes), required: true },
+          { name: 'nr', label: 'Kasten-Nr.', value: b ? b.nr : nextNr(S.data.boxes), required: true, suggest: b ? null : suggestSimpleNr(S.data.boxes) },
           { name: 'location', label: 'Standort / Hinweis', value: b ? b.location : '', placeholder: 'z. B. am Hauptweg, hinter Parzelle 12' },
         ],
         extra: b ? `<button type="button" class="btn btn-danger btn-sm" data-del style="justify-self:start">${ICON.trash} Kasten löschen</button>` : '',
@@ -565,7 +631,7 @@
       formDialog({
         title: t ? `Gastank ${t.nr} bearbeiten` : 'Neuer Gastank',
         fields: [
-          { name: 'nr', label: 'Tank-Nr.', value: t ? t.nr : nextNr(S.data.tanks), required: true },
+          { name: 'nr', label: 'Tank-Nr.', value: t ? t.nr : nextNr(S.data.tanks), required: true, suggest: t ? null : suggestSimpleNr(S.data.tanks) },
           { name: 'capacity', label: 'Größe / Füllmenge', value: t ? t.capacity : '', placeholder: 'z. B. 2.900 l' },
           { name: 'notes', label: 'Notizen', type: 'textarea', value: t ? t.notes : '' },
         ],
@@ -650,7 +716,7 @@
             title: `Parzelle ${p.nr} teilen`,
             fields: [
               { name: 'nrA', label: 'Nummer Teil 1 (behält Mieter & Zähler)', value: p.nr, required: true },
-              { name: 'nrB', label: 'Nummer Teil 2 (neue, freie Parzelle)', value: p.nr + suffix, required: true },
+              { name: 'nrB', label: 'Nummer Teil 2 (neue, freie Parzelle)', value: p.nr + suffix, required: true, suggest: (v) => [p.nr + suffix, ...suggestParcelNr(String(p.nr).split('.')[0] + '.')].filter((x, i, a) => a.indexOf(x) === i).slice(0, 4) },
             ],
             submitLabel: 'Teilen',
             onSubmit: (v) => {
@@ -708,7 +774,7 @@
       formDialog({
         title: 'Neue Parzelle einzeichnen',
         fields: [
-          { name: 'nr', label: 'Parzellen-Nr.', value: nextNr(S.data.parcels), required: true },
+          { name: 'nr', label: 'Parzellen-Nr.', value: nextParcelNr(), required: true, suggest: suggestParcelNr },
           { name: 'status', label: 'Status', type: 'select', value: 'leer', options: Object.entries(S.STATUS).map(([k, v]) => [k, v.label]) },
         ],
         submitLabel: 'Weiter: Umriss zeichnen',
@@ -974,7 +1040,7 @@
   const Edit = {
     render(root, id) {
       const isNew = !id;
-      const p = isNew ? newParcel(nextNr(S.data.parcels), 'leer') : S.parcel(id);
+      const p = isNew ? newParcel(nextParcelNr(), 'leer') : S.parcel(id);
       if (!p) { root.innerHTML = '<div class="page"><p>Parzelle nicht gefunden.</p></div>'; return; }
       const blankMeter = (type) => ({ id: null, type, number: '', boxId: '', inHouse: false, purpose: '', label: '', location: '' });
       // Arbeitskopie der Zähler
@@ -1059,6 +1125,7 @@
         return other;
       };
       f.nr.addEventListener('input', checkNr);
+      attachSuggest(f.nr, suggestParcelNr, isNew ? null : () => !!checkNr());
       f.objectType.addEventListener('change', () => {
         $('#rent-label', root).textContent = `${S.OBJECT_TYPES[f.objectType.value].rentLabel} (€)`;
       });
@@ -1280,6 +1347,8 @@
         S.deleteBox(b.id); S.save(); toast('Kasten gelöscht');
         location.hash = '#/technik';
       };
+
+      attachSuggest(form.elements.nr, suggestSimpleNr(S.data.boxes), (v) => S.data.boxes.some((x) => x.nr === v.trim() && x.id !== b.id));
 
       form.onsubmit = (e) => {
         e.preventDefault();
