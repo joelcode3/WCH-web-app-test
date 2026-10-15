@@ -55,11 +55,13 @@
         id: m.id, type: m.type, number: m.number || '', parcel_id: nz(m.parcelId),
         box_id: nz(m.boxId), location: m.location || '', notes: m.notes || '',
         in_house: !!m.inHouse, purpose: m.purpose || '', label: m.label || '',
+        fuses: (m.fuses || []).filter((f) => f.nr || f.label), fuse_box_id: nz(m.fuseBoxId),
       }),
       fromRow: (r) => ({
         id: r.id, type: r.type, number: r.number, parcelId: r.parcel_id || '',
         boxId: r.box_id || '', location: r.location, notes: r.notes,
         inHouse: !!r.in_house, purpose: r.purpose || '', label: r.label || '',
+        fuses: r.fuses || [], fuseBoxId: r.fuse_box_id || '',
       }),
     },
     {
@@ -92,6 +94,9 @@
     },
   ];
 
+  // Spalten aus späteren Updates: fehlen sie noch, werden sie beim Speichern weggelassen
+  const OPTIONAL_COLS = { meters: ['fuses', 'fuse_box_id'] };
+
   const PAGE = 1000;
   const BUCKET = 'todo-fotos';
   // Tabelle fehlt (Datenbank-Update noch nicht ausgeführt)?
@@ -103,6 +108,14 @@
     client: null,
     user: null,
     missing: new Set(),     // Tabellen, die in der Datenbank noch fehlen (z. B. "todos")
+    missingCols: new Set(), // Spalten, die noch fehlen (z. B. "meters.fuses")
+
+    // Zeile für die Datenbank (ohne noch fehlende Spalten)
+    rowOf(t, x) {
+      const row = t.toRow(x);
+      (OPTIONAL_COLS[t.key] || []).forEach((c) => { if (this.missingCols.has(`${t.key}.${c}`)) delete row[c]; });
+      return row;
+    },
 
     init() {
       if (!this.enabled || this.client) return;
@@ -169,6 +182,12 @@
 
     async fetchAll() {
       const result = { version: 1 };
+      // fehlende Spalten erkennen (Datenbank-Update noch nicht ausgeführt)
+      await Promise.all(Object.entries(OPTIONAL_COLS).flatMap(([table, cols]) => cols.map(async (c) => {
+        const { error } = await this.client.from(table).select(c).limit(1);
+        if (error && /42703|PGRST204|column|schema cache/i.test(`${error.code} ${error.message}`)) this.missingCols.add(`${table}.${c}`);
+        else if (!error) this.missingCols.delete(`${table}.${c}`);
+      })));
       const rows = await Promise.all(TABLES.map((t) => this.fetchTable(t.key).then((r) => { this.missing.delete(t.key); return r; }, (e) => {
         if (t.optional && isMissingTable(e)) { this.missing.add(t.key); return []; }
         throw e;
@@ -182,7 +201,7 @@
       const snap = {};
       TABLES.forEach((t) => {
         snap[t.key] = new Map((data[t.key] || []).map((x) => {
-          const row = t.toRow(x);
+          const row = this.rowOf(t, x);
           return [row.id, JSON.stringify(row)];
         }));
       });
@@ -195,7 +214,7 @@
       const tables = TABLES.filter((t) => !this.missing.has(t.key));
       for (const t of tables) {
         const before = prev[t.key];
-        const rows = (cur[t.key] || []).map(t.toRow).filter((row) => before.get(row.id) !== JSON.stringify(row));
+        const rows = (cur[t.key] || []).map((x) => this.rowOf(t, x)).filter((row) => before.get(row.id) !== JSON.stringify(row));
         for (let i = 0; i < rows.length; i += CHUNK) {
           const { error } = await this.client.from(t.key).upsert(rows.slice(i, i + CHUNK));
           if (error) throw error;

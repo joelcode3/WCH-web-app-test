@@ -29,6 +29,8 @@ Läuft im Browser am PC und auf dem iPhone (hochkant), ohne Installation.
   Frei – bezugsfertig (grün), Frei – noch zu räumen (orange); bewohnt mit Auszugstermin wird
   diagonal zweifarbig mit „frei ab …“ angezeigt
 - **Kartei** zusätzlich: Mietbeginn, Parzelle frei ab, Bewohneranzahl, Hunde
+- **Sicherungen**: je Stromzähler beliebig viele Sicherungen (Nummer + Bezeichnung); jede Nummer
+  darf pro Stromkasten nur einmal vorkommen (Warnung), auf dem Platz insgesamt mehrfach
 - **Karte**: zuschaltbare Symbole (WW Winterwasser, Bewohner und Hunde je nach Anzahl,
   M Mietobjekt, P Pachtgrundstück)
   und Luftbild als Hintergrund
@@ -127,6 +129,8 @@ supabase/update-2.sql Update für bestehende Datenbanken (neue Felder)
 supabase/update-3.sql Update: Reserviert, Hunde, Mietbeginn, frei ab, Warnschwelle
 supabase/update-4.sql Update: Bewohneranzahl
 supabase/update-5.sql Update: To-Dos mit Fotos, Orte auf der Karte
+supabase/update-6.sql Update: Sicherungen je Stromzähler, Wachhalter-Funktion ping()
+.github/workflows/supabase-wachhalten.yml  fragt alle 3 Tage bei Supabase an (gegen Pausieren)
 tools/plan_import.py  Umwandlung AutoCAD-Plan → Kartengrundlage
 js/plan-data.js       Parzellenumrisse aus dem Lageplan (erzeugt)
 vendor/leaflet/       Leaflet 1.9.4 (BSD-2-Clause)

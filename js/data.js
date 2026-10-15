@@ -324,6 +324,8 @@
         m.inHouse = !!m.inHouse;
         m.purpose = m.purpose || '';
         m.label = m.label || '';
+        m.fuses = Array.isArray(m.fuses) ? m.fuses.map((f) => ({ nr: String(f.nr || ''), label: String(f.label || '') })) : [];
+        m.fuseBoxId = m.fuseBoxId || '';
       });
     },
 
@@ -379,6 +381,65 @@
     reset() { this.data = seed(); this.save(); },
 
     // Alle Daten durch die leeren Parzellen aus dem Lageplan ersetzen
+    /*
+     * Abgleich mit dem Lageplan über die Lage (nicht über die Nummer): Jede Parzelle im Bestand
+     * wird der Plan-Parzelle zugeordnet, mit der sie sich am stärksten überdeckt.
+     * → changes: neue Nummer; added: im Plan, aber nicht im Bestand; unmatched: nicht im Plan
+     * (z. B. selbst gezeichnet). Mieter, Zähler, Ablesungen und To-Dos hängen an der Parzelle
+     * (nicht an der Nummer) und bleiben beim Umnummerieren erhalten.
+     */
+    planSync() {
+      const plan = (window.PLAN_DATA && window.PLAN_DATA.parcels) || [];
+      const res = { changes: [], added: [], unmatched: [], matched: 0 };
+      if (!plan.length || !window.polygonClipping) return res;
+      const ring = (g) => [[...g.map((c) => [c[0], c[1]]), [g[0][0], g[0][1]]]];
+      const area = (mp) => mp.reduce((s, poly) => s + poly.reduce((t, r, i) => {
+        let a = 0;
+        for (let k = 0; k < r.length - 1; k++) a += r[k][0] * r[k + 1][1] - r[k + 1][0] * r[k][1];
+        return t + (i === 0 ? 1 : -1) * Math.abs(a / 2);
+      }, 0), 0);
+      const box = (g) => g.reduce((b, c) => [Math.min(b[0], c[0]), Math.min(b[1], c[1]), Math.max(b[2], c[0]), Math.max(b[3], c[1])], [Infinity, Infinity, -Infinity, -Infinity]);
+      const planB = plan.map((pp) => ({ pp, b: box(pp.geometry), a: area([ring(pp.geometry)]) }));
+      const pairs = [];
+      this.data.parcels.forEach((p) => {
+        if (!p.geometry || p.geometry.length < 3) return;
+        const b = box(p.geometry), a = area([ring(p.geometry)]);
+        planB.forEach((q, qi) => {
+          if (q.b[0] > b[2] || q.b[2] < b[0] || q.b[1] > b[3] || q.b[3] < b[1]) return;
+          let inter = 0;
+          try { inter = area(window.polygonClipping.intersection(ring(p.geometry), ring(q.pp.geometry))); } catch (_) { return; }
+          const iou = inter / (a + q.a - inter);
+          if (iou > 0.5) pairs.push({ p, qi, iou });
+        });
+      });
+      pairs.sort((x, y) => y.iou - x.iou);
+      const usedP = new Set(), usedQ = new Set();
+      pairs.forEach(({ p, qi }) => {
+        if (usedP.has(p.id) || usedQ.has(qi)) return;
+        usedP.add(p.id); usedQ.add(qi);
+        res.matched++;
+        if (p.nr !== plan[qi].nr) res.changes.push({ id: p.id, from: p.nr, to: plan[qi].nr });
+      });
+      res.unmatched = this.data.parcels.filter((p) => !usedP.has(p.id)).map((p) => ({ id: p.id, nr: p.nr }));
+      res.added = plan.filter((_, qi) => !usedQ.has(qi));
+      return res;
+    },
+
+    // Nummern aus dem Lageplan übernehmen, neue Plan-Parzellen leer ergänzen
+    applyPlanSync(sync) {
+      const newNrs = new Set([...sync.changes.map((c) => c.to), ...sync.added.map((pp) => pp.nr)]);
+      const byId = new Map(this.data.parcels.map((p) => [p.id, p]));
+      sync.changes.forEach((c) => { const p = byId.get(c.id); if (p) p.nr = c.to; });
+      // nicht zugeordnete Parzellen, deren Nummer jetzt vergeben ist, kenntlich machen
+      sync.unmatched.forEach((u) => {
+        const p = byId.get(u.id);
+        if (p && newNrs.has(p.nr)) p.nr = `${p.nr} (alt)`;
+      });
+      const fresh = planParcels();
+      sync.added.forEach((pp) => { const np = fresh.find((x) => x.nr === pp.nr); if (np) this.data.parcels.push(np); });
+      this.save();
+    },
+
     // Orte und To-Dos bleiben erhalten (To-Dos alter Parzellen werden zu "allgemein")
     resetToPlan() {
       const old = this.data || {};
@@ -451,6 +512,13 @@
         }
       });
     },
+    /* Sicherungen: hängen am Stromzähler; Kasten = Zählerkasten bzw. bei Zähler im Haus eigener Kasten */
+    fuseBoxOf(m) { return m.type === 'strom' ? (m.inHouse ? m.fuseBoxId : m.boxId) || '' : ''; },
+    normFuse: (n) => String(n || '').replace(/\s/g, '').toUpperCase(),
+    fusesText(m) {
+      return (m.fuses || []).filter((f) => f.nr || f.label).map((f) => (f.label ? `${f.nr || '?'} (${f.label})` : f.nr)).join(', ');
+    },
+
     deleteTodo(id) { this.data.todos = this.data.todos.filter((t) => t.id !== id); },
     deletePlace(id) {
       this._detachTodos('place', id);
@@ -534,7 +602,7 @@
     },
     deleteBox(id) {
       this._detachTodos('box', id);
-      this.data.meters.forEach((m) => { if (m.boxId === id) m.boxId = ''; });
+      this.data.meters.forEach((m) => { if (m.boxId === id) m.boxId = ''; if (m.fuseBoxId === id) m.fuseBoxId = ''; });
       this.data.boxes = this.data.boxes.filter((b) => b.id !== id);
     },
     deleteTank(id) {

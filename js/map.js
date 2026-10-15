@@ -73,8 +73,8 @@
         zoomDelta: 1,
         scrollWheelZoom: false,   // eigene Steuerung: Mausrad zoomt, Trackpad verschiebt (s. _initWheel)
         attributionControl: false,
-        maxBounds: bounds.pad(0.25),
-        maxBoundsViscosity: 0.8,
+        maxBounds: bounds.pad(0.02),      // nicht über den Kartenrand hinaus verschieben
+        maxBoundsViscosity: 1,
         doubleClickZoom: false,
       });
       // Hintergrund (Plan oder Luftbild) als skalierende Ebene
@@ -119,13 +119,23 @@
     },
 
     fit() {
+      this._updateMinZoom();
       this.map.fitBounds(this.bounds, { padding: [8, 8] });
+    },
+
+    // Weiter rauszoomen als "ganzer Plan sichtbar" ist nicht nötig
+    _updateMinZoom() {
+      const size = this.map.getSize();
+      if (!size.x || !size.y) return;
+      const z = this.map.getBoundsZoom(this.bounds, false, L.point(16, 16));
+      if (Math.abs(z - this.map.getMinZoom()) > 0.001) this.map.setMinZoom(z);
     },
 
     invalidate() {
       if (!this.map) return;
       const first = !this._sized;
       this.map.invalidateSize();
+      if (this.map.getSize().x > 0) this._updateMinZoom();
       if (first && this.map.getSize().x > 0) { this._sized = true; this.fit(); }
     },
 
@@ -474,8 +484,12 @@
       const apply = () => {
         g.frame = 0;
         if (g.dx || g.dy) {
-          map._rawPanBy(L.point(g.dx, g.dy));
-          map.fire('move');
+          // nur so weit verschieben, wie die Kartengrenzen erlauben
+          const z = map.getZoom();
+          const c0 = map.project(map.getCenter(), z);
+          const want = map.unproject(c0.add(L.point(g.dx, g.dy)), z);
+          const delta = map.project(map._limitCenter(want, z, map.options.maxBounds), z).subtract(c0).round();
+          if (delta.x || delta.y) { map._rawPanBy(delta); map.fire('move'); }
           g.dx = g.dy = 0;
         }
         if (g.dz) {
@@ -487,7 +501,7 @@
             const ll = map.containerPointToLatLng(g.pt);
             const half = map.getSize().divideBy(2);
             const center = map.unproject(map.project(ll, z).subtract(g.pt.subtract(half)), z);
-            map._move(center, z);
+            map._move(map._limitCenter(center, z, map.options.maxBounds), z);
             g.zoomed = true;
           }
         }

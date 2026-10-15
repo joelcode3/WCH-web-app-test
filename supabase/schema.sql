@@ -259,6 +259,23 @@ create policy todo_fotos_team on storage.objects for all to authenticated
 notify pgrst, 'reload schema';
 
 -- --------------------------------------------------------------------------
+-- Update 6 (Sicherungen je Stromzähler, Wachhalter ping())
+-- --------------------------------------------------------------------------
+alter table public.meters add column if not exists fuses jsonb not null default '[]'::jsonb;
+alter table public.meters add column if not exists fuse_box_id text references public.boxes (id) on delete set null;
+
+-- Wachhalter: harmlose Funktion für die automatische Anfrage (GitHub Actions),
+-- damit Supabase das kostenlose Projekt nicht wegen Inaktivität pausiert. Liest keine Daten.
+create or replace function public.ping()
+returns text
+language sql
+stable
+as $$ select 'ok'::text $$;
+grant execute on function public.ping() to anon, authenticated;
+
+notify pgrst, 'reload schema';
+
+-- --------------------------------------------------------------------------
 -- WICHTIG: eigene E-Mail-Adresse(n) freischalten (Zeile anpassen & ausführen)
 -- --------------------------------------------------------------------------
 -- insert into public.team (email, name) values ('vorname@beispiel.de', 'Vorname Nachname')

@@ -20,6 +20,7 @@ Ausgaben (im Projektordner)
 Benötigt: Python 3, shapely, pillow
 """
 import argparse
+from functools import cmp_to_key
 import json
 import re
 from pathlib import Path
@@ -43,7 +44,7 @@ IMG = (0.184783, 136.76, 88.0)            # Seite = (136.76 + 0.184783*u, 88 + 0
 EXTENT = (1240.0, 120.0, 4750.0, 3650.0)  # minx, miny, maxx, maxy
 SCALE = 0.5                               # Kartenpixel je CAD-Einheit
 INSET = 9.0                               # halbe Lücke zwischen Parzellen (CAD-Einheiten)
-SPLIT_Y = 2300.0                          # oberhalb = Platz 2, unterhalb = Platz 1
+SPLIT_Y = 1600.0                          # oberhalb = Platz 2 (inkl. Reihe über dem Hauptweg), unterhalb = Platz 1
 LINE_GAP = 2.0                            # Lücken zwischen Wegrandlinien bis ~4 Einheiten überbrücken
 ROAD_MIN_AREA = 20000.0                   # kleinere schmale Flächen sind Grasinseln, keine Wege
 
@@ -133,6 +134,16 @@ EDITS = [
     ('cut', (450, 510), [(496, 440), (496, 600)]),
     ('add', (590.0, 380.0, 676.0, 469.0)),                      # neu links neben 2.27 (oben rechts am Wendehammer)
     ('clip', (290, 550), (0, 0, 302.0, 2000)),                 # 2.25 ohne Fortsatz oben, so schmal wie 2.24 unten
+]
+
+# Gebäude zuschneiden (Rechteck x1, y1, x2, y2 in Kartenpixeln)
+BUILDING_CLIPS = [
+    (430.0, 1487.5, 495.0, 1600.0),  # langes Gebäude unten: beginnt erst unter dem gedrehten Gebäude
+]
+
+# Wege, die im CAD-Plan fehlen (Rechteck x1, y1, x2, y2 in Kartenpixeln; nur gezeichnet)
+EXTRA_ROADS = [
+    (992.0, 525.0, 1007.5, 652.0),   # zwischen 2.50/2.51 und 2.55: Schleife oben ↔ Hauptweg unten
 ]
 
 
@@ -248,14 +259,24 @@ def main():
             b = [g['raw'].bounds for g in items]
             return (min(x[0] for x in b), min(x[1] for x in b), max(x[2] for x in b), max(x[3] for x in b))
         tops = cluster([round(-bbox(b)[3]) for b in blocks], 120)
-        blocks.sort(key=lambda b: (tops[round(-bbox(b)[3])], bbox(b)[0]))
+        # Blöcke derselben Höhe von links nach rechts; liegen zwei fast genau übereinander, der obere zuerst
+        def order(a, b):
+            ta, tb = tops[round(-bbox(a)[3])], tops[round(-bbox(b)[3])]
+            if ta != tb:
+                return ta - tb
+            if abs(bbox(a)[0] - bbox(b)[0]) >= 40:
+                return bbox(a)[0] - bbox(b)[0]
+            return bbox(b)[3] - bbox(a)[3]
+        blocks.sort(key=cmp_to_key(order))
         out = []
         for b in blocks:
             x0, y0, x1, y1 = bbox(b)
-            cols = (y1 - y0) > (x1 - x0)
-            edge = (lambda g: round(g['raw'].bounds[0])) if cols else (lambda g: round(-g['raw'].bounds[3]))
-            cl = cluster([edge(g) for g in b], 40)
-            out += sorted(b, key=lambda g: (cl[edge(g)], -g['raw'].bounds[3] if cols else g['raw'].bounds[0]))
+            cols = (y1 - y0) > 1.8 * (x1 - x0)          # nur deutlich hohe Blöcke spaltenweise
+            edge = (lambda g: round(g['poly'].bounds[0])) if cols else (lambda g: round(-g['poly'].bounds[3]))
+            # gleiche Reihe/Spalte, wenn die Kanten weniger als ~60 % einer Parzellentiefe auseinanderliegen
+            sizes = sorted((g['poly'].bounds[2] - g['poly'].bounds[0]) if cols else (g['poly'].bounds[3] - g['poly'].bounds[1]) for g in b)
+            cl = cluster([edge(g) for g in b], max(40, 0.6 * sizes[0]))
+            out += sorted(b, key=lambda g: (cl[edge(g)], -g['poly'].bounds[3] if cols else g['poly'].bounds[0]))
         return out
 
     lower = numbered([g for g in parcels if g['c'].y < SPLIT_Y])
@@ -272,15 +293,18 @@ def main():
             l = LineString(c + [c[0]])
         green.append(l)
     buildings = [p for p in polygonize(unary_union(green)) if p.area > 200]
-    # Überschneidungen: das untere Gebäude endet an der Kante des oberen
-    buildings.sort(key=lambda b: b.centroid.y)
-    clipped = []
-    for i, b in enumerate(buildings):
-        above = [o for o in buildings[i + 1:] if o.centroid.y > b.centroid.y + 50 and o.intersects(b)]
-        if above:
-            b = max(polys_of(b.difference(unary_union(above))), key=lambda g: g.area, default=b)
-        clipped.append(b)
-    buildings = clipped
+    # Überschneidungen: das untere Gebäude endet mit gerader Kante unter dem oberen.
+    # Teilflächen, deren Mittelpunkt im Rechteck liegt, werden auf das Rechteck zugeschnitten.
+    for x1, y1, x2, y2 in BUILDING_CLIPS:
+        (ax, ay), (bx, by) = from_map(x1, y1), from_map(x2, y2)
+        rect = Polygon([(ax, ay), (bx, ay), (bx, by), (ax, by)])
+        out_b = []
+        for p in buildings:
+            if rect.contains(p.representative_point()):
+                out_b += [q for q in polys_of(p.intersection(rect)) if q.area > 20]
+            else:
+                out_b.append(p)
+        buildings = out_b
     boundary_lines = unary_union(L['red'])
     site = max(polygonize(boundary_lines), key=lambda p: p.area)
 
@@ -311,8 +335,13 @@ def main():
            '</defs>',
            f'<rect width="{W}" height="{H}" fill="url(#wald)"/>',
            f'<path d="{svg_path(site)}" fill="url(#gras)" stroke="#9fb58a" stroke-width="2"/>']
-    svg.append('<g fill="#d9d6ce" stroke="#b9b4a8" stroke-width="1.5">')
-    svg += [f'<path d="{svg_path(r)}"/>' for r in roads]
+    extra = []
+    for x1, y1, x2, y2 in EXTRA_ROADS:
+        (ax, ay), (bx, by) = from_map(x1, y1), from_map(x2, y2)
+        extra.append(Polygon([(ax, ay), (bx, ay), (bx, by), (ax, by)]))
+    drawn_roads = polys_of(unary_union(roads + extra)) if extra else roads
+    svg.append('<g fill="#d9d6ce" stroke="#b9b4a8" stroke-width="1.5" fill-rule="evenodd">')
+    svg += [f'<path d="{svg_path(r)}"/>' for r in drawn_roads]
     svg.append('</g>')
     svg.append('<g fill="#c9a66b" stroke="#7a6a4f" stroke-width="1.5">')
     svg += [f'<path d="{svg_path(b)}"/>' for b in buildings]
