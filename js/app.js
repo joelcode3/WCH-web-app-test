@@ -633,7 +633,6 @@
     airbnbPanel(o) {
       const kind = S.PLACE_KINDS[o.kind];
       if (!this.calMonth || this.calMonth.id !== o.id) { const d = new Date(); this.calMonth = { id: o.id, y: d.getFullYear(), m: d.getMonth() }; }
-      const listing = S.listingUrl(o);
       return `
         <div class="panel-head">
           <span class="pin pin-place" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i></span>
@@ -642,10 +641,9 @@
         </div>
         <div class="panel-body">
           <div class="airbnb-top">
-            <label class="tile-wrap" title="Foto ändern">${Airbnb.tileHtml(o, { big: true })}
-              <span class="tile-change">${ICON.camera}${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}</span><input type="file" accept="image/*" hidden data-place-photo></label>
+            <label class="tile-wrap" title="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${Airbnb.tileHtml(o, { big: true })}
+              <span class="tile-change" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}</span><input type="file" accept="image/*" hidden data-place-photo></label>
             <div class="airbnb-status">
-              ${listing ? `<a class="small" href="${h(listing)}" target="_blank" rel="noopener">Inserat bei airbnb öffnen</a>` : ''}
               ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
               ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
               ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
