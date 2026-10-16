@@ -188,40 +188,62 @@
       this.raf = requestAnimationFrame(step);
       return true;
     },
-    // Ton-Ausgabe anlegen bzw. aufwecken; das iPhone erlaubt das nur direkt bei einer Berührung
-    unlockAudio() {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      const ctx = this.audio || (this.audio = new AC());
-      if (ctx.state === 'suspended' && ctx.resume) ctx.resume().catch(() => {});
-      return ctx;
+    // kleine Hupe „tröt tröt“: zwei leicht schnarrende Töne (622 + 740 Hz) mit Klangfilter, zweimal kurz.
+    // Wird einmal im Browser berechnet und wie eine normale Tondatei abgespielt (zuverlässig in
+    // Safari, auf dem iPhone auch bei eingeschaltetem Stumm-Schalter).
+    hornUrl() {
+      if (this._horn) return this._horn;
+      const rate = 44100, dur = 0.16, gap = 0.07;
+      const n = Math.round(rate * dur);
+      // Bandpass-Filter (Biquad)
+      const bandpass = (x, f0, q) => {
+        const w = 2 * Math.PI * f0 / rate, al = Math.sin(w) / (2 * q), a0 = 1 + al;
+        const b0 = al / a0, b2 = -al / a0, a1 = -2 * Math.cos(w) / a0, a2 = (1 - al) / a0;
+        const y = new Float32Array(x.length);
+        let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        for (let i = 0; i < x.length; i++) {
+          const o = b0 * x[i] + b2 * x2 - a1 * y1 - a2 * y2;
+          x2 = x1; x1 = x[i]; y2 = y1; y1 = o; y[i] = o;
+        }
+        return y;
+      };
+      const raw = new Float32Array(n);
+      for (const f of [622, 740]) {
+        let ph = 0;
+        for (let i = 0; i < n; i++) {
+          ph += f * (1 + 0.006 * Math.sin(2 * Math.PI * 28 * i / rate)) / rate;
+          raw[i] += 2 * (ph - Math.floor(ph + 0.5));   // Sägezahn
+        }
+      }
+      const f1 = bandpass(raw, 1300, 1.5), f2 = bandpass(raw, 3200, 3);
+      const beep = new Float32Array(n);
+      let peak = 0;
+      for (let i = 0; i < n; i++) { beep[i] = f1[i] + 0.4 * f2[i]; peak = Math.max(peak, Math.abs(beep[i])); }
+      const att = 0.008 * rate, rel = 0.03 * rate;
+      for (let i = 0; i < n; i++) {
+        const env = Math.min(1, i / att, (n - 1 - i) / rel);
+        beep[i] = Math.tanh(2.5 * beep[i] / (peak || 1)) * env;
+      }
+      const g = Math.round(rate * gap), len = 2 * (n + g);
+      const pcm = new Int16Array(len);
+      let top = 0;
+      for (let i = 0; i < n; i++) top = Math.max(top, Math.abs(beep[i]));
+      for (const start of [0, n + g]) for (let i = 0; i < n; i++) pcm[start + i] = Math.round(beep[i] / (top || 1) * 0.85 * 32767);
+      const buf = new DataView(new ArrayBuffer(44 + len * 2));
+      const w = (o, str) => { for (let i = 0; i < str.length; i++) buf.setUint8(o + i, str.charCodeAt(i)); };
+      w(0, 'RIFF'); buf.setUint32(4, 36 + len * 2, true); w(8, 'WAVEfmt '); buf.setUint32(16, 16, true);
+      buf.setUint16(20, 1, true); buf.setUint16(22, 1, true); buf.setUint32(24, rate, true); buf.setUint32(28, rate * 2, true);
+      buf.setUint16(32, 2, true); buf.setUint16(34, 16, true); w(36, 'data'); buf.setUint32(40, len * 2, true);
+      for (let i = 0; i < len; i++) buf.setInt16(44 + i * 2, pcm[i], true);
+      this._horn = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+      return this._horn;
     },
-    // süße kleine Hupe: zweimal kurz „mip mip“, hoch und weich (wird im Browser erzeugt, keine Tondatei)
     honk() {
       try {
-        const ctx = this.unlockAudio();
-        if (!ctx) return;
-        const t = ctx.currentTime + 0.02;
-        [0, 0.17].forEach((d) => {
-          const out = ctx.createGain();
-          out.gain.setValueAtTime(0.0001, t + d);
-          out.gain.exponentialRampToValueAtTime(0.32, t + d + 0.015);
-          out.gain.setValueAtTime(0.32, t + d + 0.09);
-          out.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.13);
-          out.connect(ctx.destination);
-          // zwei leicht verstimmte Töne klingen wie eine kleine Gummi-Hupe
-          [[880, 'triangle', 1], [1320, 'sine', 0.45]].forEach(([f, type, vol]) => {
-            const o = ctx.createOscillator();
-            const g = ctx.createGain();
-            o.type = type;
-            o.frequency.setValueAtTime(f * 1.06, t + d);
-            o.frequency.exponentialRampToValueAtTime(f, t + d + 0.05);
-            g.gain.value = vol;
-            o.connect(g).connect(out);
-            o.start(t + d);
-            o.stop(t + d + 0.15);
-          });
-        });
+        const a = new Audio(this.hornUrl());
+        a.volume = 1;
+        const pr = a.play();
+        if (pr && pr.catch) pr.catch(() => {});
       } catch (err) { /* ohne Ton weiter */ }
     },
     stop() {
