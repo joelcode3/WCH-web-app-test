@@ -78,8 +78,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   --wm-h: 32px;
   display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-11) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-11) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-12) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-12) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 

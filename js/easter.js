@@ -188,26 +188,47 @@
       this.raf = requestAnimationFrame(step);
       return true;
     },
-    // süße kleine Hupe: zweimal kurz „mip mip“, hoch und weich. Der Ton wird einmal im Browser
-    // berechnet und wie eine normale Tondatei abgespielt (zuverlässig in Safari, auf dem iPhone
-    // auch bei eingeschaltetem Stumm-Schalter).
+    // kleine Hupe „tröt tröt“: zwei leicht schnarrende Töne (622 + 740 Hz) mit Klangfilter, zweimal kurz.
+    // Wird einmal im Browser berechnet und wie eine normale Tondatei abgespielt (zuverlässig in
+    // Safari, auf dem iPhone auch bei eingeschaltetem Stumm-Schalter).
     hornUrl() {
       if (this._horn) return this._horn;
-      const rate = 22050, len = Math.round(rate * 0.34);
-      const pcm = new Int16Array(len);
-      for (const start of [0, 0.17]) {
-        let ph1 = 0, ph2 = 0;
-        for (let i = 0; i < rate * 0.14; i++) {
-          const t = i / rate, j = Math.round((start + t) * rate);
-          if (j >= len) break;
-          const env = t < 0.015 ? t / 0.015 : t < 0.09 ? 1 : Math.max(0, 1 - (t - 0.09) / 0.04);
-          const glide = 1 + 0.06 * Math.max(0, 1 - t / 0.05);
-          ph1 += (880 * glide) / rate; ph2 += (1320 * glide) / rate;
-          const tri = 4 * Math.abs(ph1 - Math.floor(ph1 + 0.5)) - 1;
-          const v = (tri + 0.45 * Math.sin(2 * Math.PI * ph2)) / 1.45 * env * 0.6;
-          pcm[j] = Math.round(v * 32767);
+      const rate = 44100, dur = 0.16, gap = 0.07;
+      const n = Math.round(rate * dur);
+      // Bandpass-Filter (Biquad)
+      const bandpass = (x, f0, q) => {
+        const w = 2 * Math.PI * f0 / rate, al = Math.sin(w) / (2 * q), a0 = 1 + al;
+        const b0 = al / a0, b2 = -al / a0, a1 = -2 * Math.cos(w) / a0, a2 = (1 - al) / a0;
+        const y = new Float32Array(x.length);
+        let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        for (let i = 0; i < x.length; i++) {
+          const o = b0 * x[i] + b2 * x2 - a1 * y1 - a2 * y2;
+          x2 = x1; x1 = x[i]; y2 = y1; y1 = o; y[i] = o;
+        }
+        return y;
+      };
+      const raw = new Float32Array(n);
+      for (const f of [622, 740]) {
+        let ph = 0;
+        for (let i = 0; i < n; i++) {
+          ph += f * (1 + 0.006 * Math.sin(2 * Math.PI * 28 * i / rate)) / rate;
+          raw[i] += 2 * (ph - Math.floor(ph + 0.5));   // Sägezahn
         }
       }
+      const f1 = bandpass(raw, 1300, 1.5), f2 = bandpass(raw, 3200, 3);
+      const beep = new Float32Array(n);
+      let peak = 0;
+      for (let i = 0; i < n; i++) { beep[i] = f1[i] + 0.4 * f2[i]; peak = Math.max(peak, Math.abs(beep[i])); }
+      const att = 0.008 * rate, rel = 0.03 * rate;
+      for (let i = 0; i < n; i++) {
+        const env = Math.min(1, i / att, (n - 1 - i) / rel);
+        beep[i] = Math.tanh(2.5 * beep[i] / (peak || 1)) * env;
+      }
+      const g = Math.round(rate * gap), len = 2 * (n + g);
+      const pcm = new Int16Array(len);
+      let top = 0;
+      for (let i = 0; i < n; i++) top = Math.max(top, Math.abs(beep[i]));
+      for (const start of [0, n + g]) for (let i = 0; i < n; i++) pcm[start + i] = Math.round(beep[i] / (top || 1) * 0.85 * 32767);
       const buf = new DataView(new ArrayBuffer(44 + len * 2));
       const w = (o, str) => { for (let i = 0; i < str.length; i++) buf.setUint8(o + i, str.charCodeAt(i)); };
       w(0, 'RIFF'); buf.setUint32(4, 36 + len * 2, true); w(8, 'WAVEfmt '); buf.setUint32(16, 16, true);
