@@ -21,7 +21,6 @@
 
   --font-head: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-  --font-brand: 'Permanent Marker', 'Inter', sans-serif; /* nur für den Schriftzug */
 
   --radius: 12px;
   --radius-s: 8px;
@@ -71,9 +70,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
   z-index: 1100;
 }
 .brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; min-width: 0; }
-.brand .tree { width: 26px; height: 34px; fill: #fff; stroke: none; }
+.brand .tree { flex: none; width: 29px; height: 34px; fill: #fff; stroke: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
-.brand-text strong { font-family: var(--font-brand); font-size: 1.15rem; font-weight: 400; text-transform: uppercase; white-space: nowrap; letter-spacing: .01em; }
+/* Schriftzug aus dem Original-Logo (assets/wordmark.svg), eingefärbt mit der Textfarbe */
+.wordmark {
+  display: block; height: 19px; aspect-ratio: 1929 / 159; max-width: 100%;
+  background: currentColor;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-7) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-7) left center / contain no-repeat;
+}
 .brand-text small { font-size: .72rem; opacity: .8; letter-spacing: .12em; text-transform: uppercase; margin-top: 3px; }
 
 .tabbar { display: flex; gap: 4px; margin-left: auto; }
@@ -462,8 +467,8 @@ body.is-locked { padding-bottom: 0; }
   box-shadow: 0 20px 60px rgba(0,0,0,.35);
 }
 .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; color: var(--wald); }
-.auth-brand .tree { width: 30px; height: 40px; fill: var(--wald); stroke: none; }
-.auth-brand strong { display: block; font-family: var(--font-brand); font-weight: 400; font-size: 1.3rem; text-transform: uppercase; line-height: 1; }
+.auth-brand .tree { flex: none; width: 34px; height: 40px; fill: var(--wald); stroke: none; }
+.auth-brand .wordmark { height: 22px; }
 .auth-brand small { display: block; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-leise); margin-top: 4px; }
 #auth-body form { display: grid; gap: 14px; }
 #auth-body h2 { margin-bottom: 4px; }
@@ -481,12 +486,11 @@ body.is-locked { padding-bottom: 0; }
 @media (max-width: 860px) {
   :root { --topbar-h: 52px; --tabbar-h: 62px; }
   body { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
-  .brand-text strong { font-size: 1rem; }
+  .wordmark { height: 16px; }
   .sync { margin-left: auto; padding: 4px 10px; }
   .sync.is-ok { padding: 9px; }
   .sync.is-ok span { display: none; }
   .brand { flex: 1; }
-  .brand-text strong { overflow: hidden; text-overflow: ellipsis; }
   .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .stat { padding: 10px; }
   .stat .v { font-size: 1.15rem; }
@@ -806,3 +810,8 @@ body.is-locked { padding-bottom: 0; }
 .leaflet-tooltip.parcel-hover strong { color: var(--wald); margin-right: 4px; }
 .leaflet-tooltip.parcel-hover::before { display: none; }
 .pl-badges + .pl-badges { margin-top: 1px; }
+/* Osterei: Dreirad mit Pritsche */
+.easter-trike { position: relative; width: 0; height: 0; cursor: pointer; }
+.easter-body { position: absolute; left: 0; top: 0; width: 16px; height: 8px; transform-origin: 50% 50%; will-change: transform;
+  filter: drop-shadow(0 1px 1.2px rgba(0,0,0,.45)); }
+.easter-body svg { display: block; width: 100%; height: 100%; stroke: none; }
