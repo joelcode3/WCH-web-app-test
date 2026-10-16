@@ -70,21 +70,21 @@ button, input, select, textarea { font: inherit; color: inherit; }
   z-index: 1100;
 }
 .brand { flex: none; display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; min-width: 0; }
-.brand .tree { flex: none; width: 32px; height: 38px; fill: #fff; stroke: none; }
+.brand .tree { flex: none; width: 28px; height: 33px; fill: #fff; stroke: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 /* Schriftzug aus dem Original-Logo (assets/wordmark.svg), eingefärbt mit der Textfarbe */
 .wordmark {
   /* feste Breite aus der Höhe (Seitenverhältnis 1929 : 159), sonst staucht Safari den Schriftzug */
-  --wm-h: 26px;
+  --wm-h: 22px;
   display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-14) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-14) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-15) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-15) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
 .tabbar { display: flex; gap: 4px; margin-left: auto; }
-.tabbar a {
+.tabbar a { white-space: nowrap;
   display: flex; align-items: center; gap: 8px;
   padding: 8px 14px; border-radius: 999px;
   color: rgba(255,255,255,.85); text-decoration: none; font-weight: 600;
@@ -488,8 +488,8 @@ body.is-locked { padding-bottom: 0; }
 @media (max-width: 860px) {
   :root { --topbar-h: 52px; --tabbar-h: 62px; }
   body { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
-  .wordmark { --wm-h: 20px; }
-  .brand .tree { width: 27px; height: 32px; }
+  .wordmark { --wm-h: 18px; }
+  .brand .tree { width: 25px; height: 30px; }
   .sync { margin-left: auto; padding: 4px 10px; }
   .sync.is-ok { padding: 9px; }
   .sync.is-ok span { display: none; }
@@ -594,7 +594,7 @@ body.is-locked { padding-bottom: 0; }
 /* ==========================================================================
    To-Dos & Orte
    ========================================================================== */
-.tabbar a { position: relative; }
+.tabbar a { white-space: nowrap; position: relative; }
 .nav-badge { position: absolute; top: 2px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
   background: #e3ece8; color: var(--wald); font: 700 .7rem/18px var(--font-body); text-align: center; }
 .nav-badge.is-over { background: var(--gefahr); color: #fff; }
@@ -642,7 +642,7 @@ body.is-locked { padding-bottom: 0; }
 .pin-todo { position: absolute; top: -8px; right: -8px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
   background: #c2410c; color: #fff; border: 2px solid #fff; font: 800 10px/13px var(--font-body); text-align: center; }
 .legend-ico svg { width: 16px; height: 16px; color: var(--wald); vertical-align: -3px; }
-@media (min-width: 861px) and (max-width: 1340px) {
+@media (min-width: 861px) and (max-width: 1240px) {
   .tabbar a span { display: none; }
 }
 @media (max-width: 860px) {
