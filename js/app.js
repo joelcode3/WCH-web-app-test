@@ -2883,6 +2883,8 @@
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
     });
     Airbnb.load();
+    // Daten erst nach dem Start aus der Cloud geladen? Dann Kalender sofort nachholen
+    S.onSync(() => { if (!Airbnb.fetchedAt && S.airbnbs().length) Airbnb.load(); });
     loadPlacePhotos();
     setInterval(() => Airbnb.load(true), 30 * 60000);
 

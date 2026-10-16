@@ -78,8 +78,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   --wm-h: 18px;
   display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-17) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-17) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-19) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-19) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
@@ -687,7 +687,7 @@ body.is-locked { padding-bottom: 0; }
   transform: translate(-50%, -50%) rotate(var(--rot, 0deg)) scale(var(--unit-s, 1)); filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.4)); }
 .unit-shape svg, .unit-tile svg { display: block; width: 100%; height: 100%; stroke: none; }
 .unit-mk.is-selected .unit-shape { filter: drop-shadow(0 0 1.5px #1b2a1e) drop-shadow(0 0 1.5px #1b2a1e) drop-shadow(0 1px 3px rgba(0,0,0,.5)); }
-.unit-name { position: absolute; left: 0; top: calc(var(--r) * var(--unit-s, 1) + 3px); transform: translateX(-50%);
+.unit-name { position: absolute; left: 0; top: calc(var(--r) * var(--unit-s, 1) + clamp(1px, calc(var(--unit-s, 1) * 4px), 3px)); transform: translateX(-50%);
   display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer;
   font: 700 10.5px/1.2 var(--font-head); color: #24302a; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff; }
 .unit-mk .pin-todo { top: calc(-1 * var(--r) * var(--unit-s, 1) - 8px); right: auto; left: calc(var(--rx) * var(--unit-s, 1) - 6px); }
@@ -696,6 +696,10 @@ body.is-locked { padding-bottom: 0; }
 .pol-dot.is-busy { background: #9b3b3b; box-shadow: 0 0 0 1.5px #fff; }
 .pol-dot.is-blk { background: #9a9ea6; box-shadow: 0 0 0 1.5px #fff; }
 .pol-dot.is-unk { background: #e6e3da; }
+/* Belegungspunkt an der Unterkunft wächst/schrumpft mit dem Symbol (beim Rauszoomen ca. 5 px) */
+.unit-name .pol-dot { width: clamp(3px, calc(var(--unit-s, 1) * 9px), 8px); height: clamp(3px, calc(var(--unit-s, 1) * 9px), 8px);
+  box-shadow: 0 0 0 clamp(1px, calc(var(--unit-s, 1) * 2px), 1.5px) #8a918b; }
+.unit-name .pol-dot.is-busy, .unit-name .pol-dot.is-blk { box-shadow: 0 0 0 clamp(1px, calc(var(--unit-s, 1) * 2px), 1.5px) #fff; }
 
 /* Foto bzw. Draufsicht als Kachel (Infofenster, Reiter Airbnb) */
 .unit-tile { width: 96px; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: #e8eedf; flex: none; border: 1px solid var(--linie); }

@@ -81,7 +81,10 @@
         this.state = 'ok';
         this.error = '';
         this.fetchedAt = Date.now();
+        clearTimeout(this._retry); this._retry = null;
       } catch (e) {
+        // einmal nach kurzer Zeit erneut versuchen (z. B. Netz nach dem Aufwecken noch nicht da)
+        if (!this._retry) { this._retry = setTimeout(() => { this._retry = null; this.load(true); }, 20000); }
         this.state = e.message === 'missing' ? 'missing' : 'error';
         this.error = e.status === 401
           ? 'Supabase hat den Aufruf abgelehnt (401). Bitte bei der Funktion „airbnb-kalender“ unter „Details“ die Option „Verify JWT“ ausschalten (siehe SETUP.md).'

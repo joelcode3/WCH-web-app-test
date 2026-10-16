@@ -155,9 +155,13 @@
       L.DomEvent.on(el, 'pointerdown', (e) => { if (e.pointerType === 'mouse') press(e); });
       L.DomEvent.on(el, 'pointerup', (e) => { if (e.pointerType !== 'mouse') press(e); });
       L.DomEvent.on(el, 'click', press);
-      const hide = () => { el.style.visibility = 'hidden'; };
-      const show = () => { el.style.visibility = ''; };
-      map.on('zoomstart', hide).on('zoomend', show);
+      // Zoom-Animation (Knöpfe, Doppeltipp): Zielposition wie bei normalen Markern, die Karte
+      // blendet sanft über (Klasse leaflet-zoom-animated). Beim Zwei-Finger-Zoom folgt es ohnehin jedem Bild.
+      el.classList.add('leaflet-zoom-animated');
+      let anim = null;
+      const onAnim = (e) => { anim = e; };
+      const onEnd = () => { anim = null; };
+      map.on('zoomanim', onAnim).on('zoomend', onEnd);
 
       let angle = null;
       let last = performance.now();
@@ -174,9 +178,11 @@
         last = now;
         if (angle === null) angle = target;
         angle += (((target - angle + 540) % 360) - 180) * (1 - Math.exp(-dt / 0.12));
-        if (!map._animatingZoom) {
-          const z = map.getZoom();
-          const pt = map.project(L.latLng(H - p[1], p[0]), z).subtract(map.getPixelOrigin());
+        {
+          const ll = L.latLng(H - p[1], p[0]);
+          const z = anim && map._animatingZoom ? anim.zoom : map.getZoom();
+          const pt = anim && map._animatingZoom ? map._latLngToNewLayerPoint(ll, anim.zoom, anim.center)
+            : map.project(ll, z).subtract(map.getPixelOrigin());
           const k = Math.max(0.5, Math.pow(2, z));   // echte Größe, beim Rauszoomen nicht kleiner als ca. 8 px
           const w = 16 * k, h = 8 * k;
           if (w !== this._w) { el.style.width = w + 'px'; el.style.height = h + 'px'; el.style.margin = `${-h / 2}px 0 0 ${-w / 2}px`; this._w = w; }
@@ -184,7 +190,7 @@
         }
         this.raf = requestAnimationFrame(step);
       };
-      this.active = { el, off: () => map.off('zoomstart', hide).off('zoomend', show) };
+      this.active = { el, off: () => map.off('zoomanim', onAnim).off('zoomend', onEnd) };
       this._w = 0;
       this.raf = requestAnimationFrame(step);
       return true;
