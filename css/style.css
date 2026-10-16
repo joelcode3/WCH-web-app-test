@@ -70,16 +70,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
   z-index: 1100;
 }
 .brand { flex: none; display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; min-width: 0; }
-.brand .tree { flex: none; width: 37px; height: 44px; fill: #fff; stroke: none; }
+.brand .tree { flex: none; width: 32px; height: 38px; fill: #fff; stroke: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 /* Schriftzug aus dem Original-Logo (assets/wordmark.svg), eingefärbt mit der Textfarbe */
 .wordmark {
   /* feste Breite aus der Höhe (Seitenverhältnis 1929 : 159), sonst staucht Safari den Schriftzug */
-  --wm-h: 32px;
+  --wm-h: 26px;
   display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-13) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-13) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-14) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-14) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
@@ -488,8 +488,8 @@ body.is-locked { padding-bottom: 0; }
 @media (max-width: 860px) {
   :root { --topbar-h: 52px; --tabbar-h: 62px; }
   body { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
-  .wordmark { --wm-h: 22px; }
-  .brand .tree { width: 29px; height: 34px; }
+  .wordmark { --wm-h: 20px; }
+  .brand .tree { width: 27px; height: 32px; }
   .sync { margin-left: auto; padding: 4px 10px; }
   .sync.is-ok { padding: 9px; }
   .sync.is-ok span { display: none; }
@@ -704,9 +704,9 @@ body.is-locked { padding-bottom: 0; }
 .unit-tile-art { width: 78%; max-height: 78%; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); }
 .unit-tile.is-big { width: 150px; }
 .tile-wrap { position: relative; cursor: pointer; flex: none; display: block; }
-.tile-change { position: absolute; right: 5px; bottom: 5px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+.tile-change { position: absolute; right: 4px; bottom: 4px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
   background: rgba(14,58,58,.78); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
-.tile-change svg { width: 14px; height: 14px; }
+.tile-change svg { width: 11px; height: 11px; }
 .tile-wrap:hover .tile-change { background: var(--wald); }
 .rot-btns { display: flex; align-items: center; gap: 6px; }
 .rot-btns .btn { padding: 0 10px; }
