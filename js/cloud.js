@@ -239,7 +239,13 @@
   /* ---------- Airbnb-Kalender (Supabase Edge Function "airbnb-kalender") ---------- */
   // liefert { units: [{ id, events: [{ start, end, type }] | error }], fetchedAt } – wirft bei fehlender Funktion 'missing'
   Cloud.calendars = async function () {
-    const { data, error } = await Cloud.client.functions.invoke('airbnb-kalender', { body: {} });
+    // Anmeldung vorher auffrischen: nach dem Aufwecken der App (v. a. iPhone) ist sie oft gerade abgelaufen
+    try { await Cloud.client.auth.getSession(); } catch (_) { /* weiter versuchen */ }
+    let { data, error } = await Cloud.client.functions.invoke('airbnb-kalender', { body: {} });
+    if (error && error.context && error.context.status === 401) {
+      try { await Cloud.client.auth.refreshSession(); } catch (_) { /* ignorieren */ }
+      ({ data, error } = await Cloud.client.functions.invoke('airbnb-kalender', { body: {} }));
+    }
     if (error) {
       const status = error.context && error.context.status;
       const e = new Error(status === 404 ? 'missing' : (error.message || 'Fehler'));
