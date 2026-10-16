@@ -78,8 +78,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   --wm-h: 32px;
   display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-12) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-12) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-13) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-13) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
@@ -704,9 +704,10 @@ body.is-locked { padding-bottom: 0; }
 .unit-tile-art { width: 78%; max-height: 78%; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); }
 .unit-tile.is-big { width: 150px; }
 .tile-wrap { position: relative; cursor: pointer; flex: none; display: block; }
-.tile-change { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px;
-  background: rgba(14,58,58,.85); color: #fff; font-size: .72rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-.tile-change svg { width: 13px; height: 13px; }
+.tile-change { position: absolute; right: 5px; bottom: 5px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(14,58,58,.78); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.tile-change svg { width: 14px; height: 14px; }
+.tile-wrap:hover .tile-change { background: var(--wald); }
 .rot-btns { display: flex; align-items: center; gap: 6px; }
 .rot-btns .btn { padding: 0 10px; }
 
