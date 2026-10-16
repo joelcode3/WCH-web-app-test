@@ -142,13 +142,18 @@
       const el = L.DomUtil.create('div', 'easter-trike', map.getPane('markerPane'));
       el.innerHTML = SVG;
       L.DomEvent.disableClickPropagation(el);
-      L.DomEvent.on(el, 'pointerup click', (e) => {
+      // Maus: hupen schon beim Drücken (das Dreirad fährt ja weiter); Finger: beim Loslassen,
+      // weil das iPhone Ton erst nach einer vollständigen Berührung erlaubt
+      const press = (e) => {
         L.DomEvent.stop(e);
-        if (e.type === 'click' && this._lastHonk && Date.now() - this._lastHonk < 400) return;
+        if (this._lastHonk && Date.now() - this._lastHonk < 450) return;
         this._lastHonk = Date.now();
         this.honk();
         el.classList.remove('is-honk'); void el.offsetWidth; el.classList.add('is-honk');
-      });
+      };
+      L.DomEvent.on(el, 'pointerdown', (e) => { if (e.pointerType === 'mouse') press(e); });
+      L.DomEvent.on(el, 'pointerup', (e) => { if (e.pointerType !== 'mouse') press(e); });
+      L.DomEvent.on(el, 'click', press);
       const hide = () => { el.style.visibility = 'hidden'; };
       const show = () => { el.style.visibility = ''; };
       map.on('zoomstart', hide).on('zoomend', show);
@@ -246,7 +251,7 @@
       if (logo) logo.addEventListener('click', () => {
         const now = Date.now();
         taps = taps.filter((t) => now - t < 900).concat(now);
-        if (taps.length >= 3) { taps = []; this.unlockAudio(); setTimeout(() => this.run('gross'), 300); }
+        if (taps.length >= 3) { taps = []; this.honk(); setTimeout(() => this.run('gross'), 300); }
       });
       this.schedule(true);
     },
