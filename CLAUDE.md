@@ -41,7 +41,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Bisher: update-2 … update-7 (zuletzt: Kalender-Link/Foto für Orte).
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;
   `tools/render_plan.js` rendert `assets/platzplan.png` (Hintergrund). Eingaben: AutoCAD-PDFs (nicht im Repo).
-  Geänderte Nummern übernimmt die App über „Daten → Neue Nummern übernehmen“ (Zuordnung über die Lage,
+  Danach `tools/parcels_grow.py`: Parzellen etwas größer (Lücke zu Nachbarn ca. 0,6 m, Abstand zu Wegen bleibt).
+  Geänderte Nummern/Umrisse übernimmt die App über „Daten → Neue Nummern/Umrisse übernehmen“ (Zuordnung über die Lage,
   Mieter/Zähler bleiben erhalten). Nie die Daten durch einen leeren Plan ersetzen.
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in

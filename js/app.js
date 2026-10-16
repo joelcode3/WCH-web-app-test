@@ -2144,18 +2144,18 @@
     planDiff() {
       const sync = S.planSync();
       this._sync = sync;
-      if (!sync.changes.length && !sync.added.length) return '';
+      if (!sync.changes.length && !sync.added.length && !sync.shapes.length) return '';
       const list = (a) => a.slice(0, 12).join(', ') + (a.length > 12 ? ' …' : '');
       const ch = [...sync.changes].sort((x, y) => S.compareNr(x.to, y.to));
       return `<section class="card plan-sync">
-        <h2>Neue Parzellennummern aus dem Lageplan</h2>
-        <p style="margin-top:0">${sync.changes.length ? `<strong>${sync.changes.length} Parzellen</strong> bekommen eine neue Nummer.` : ''}
+        <h2>${sync.changes.length || sync.added.length ? 'Neue Parzellennummern aus dem Lageplan' : 'Neue Parzellen-Umrisse aus dem Lageplan'}</h2>
+        <p style="margin-top:0">${sync.shapes.length ? `<strong>${sync.shapes.length} Parzellen</strong> bekommen einen neuen Umriss (etwas größer, kleinere Lücken zu den Nachbarn). ` : ''}${sync.changes.length ? `<strong>${sync.changes.length} Parzellen</strong> bekommen eine neue Nummer.` : ''}
           ${sync.added.length ? `<strong>${sync.added.length}</strong> neue Parzelle${sync.added.length === 1 ? '' : 'n'} kommen dazu (${h(list(sync.added.map((x) => x.nr)))}).` : ''}
-          Mieter, Zähler, Zählerstände und To-Dos bleiben dabei vollständig erhalten – sie hängen an der Parzelle, nicht an der Nummer.</p>
+          Mieter, Zähler, Zählerstände, To-Dos und die eingetragene Größe in m² bleiben dabei vollständig erhalten.</p>
         ${ch.length ? `<details><summary>Änderungen anzeigen (alt → neu)</summary>
           <div class="sync-list">${ch.map((c) => `<span>${h(c.from)} → <strong>${h(c.to)}</strong></span>`).join('')}</div></details>` : ''}
         ${sync.unmatched.length ? `<p class="small warn">Nicht im Lageplan gefunden (bleiben unverändert, z. B. selbst gezeichnet): ${h(list(sync.unmatched.map((u) => u.nr)))}</p>` : ''}
-        <div class="card-actions"><button class="btn" id="d-sync">Neue Nummern übernehmen</button></div>
+        <div class="card-actions"><button class="btn" id="d-sync">${sync.changes.length || sync.added.length ? 'Neue Nummern übernehmen' : 'Neue Umrisse übernehmen'}</button></div>
       </section>`;
     },
 
@@ -2269,9 +2269,12 @@
       const syncBtn = $('#d-sync', root);
       if (syncBtn) syncBtn.onclick = () => {
         const sync = this._sync;
-        if (!confirm(`${sync.changes.length} Parzellen neu nummerieren${sync.added.length ? ` und ${sync.added.length} neue ergänzen` : ''}?\n\nAlle Einträge (Mieter, Zähler, Zählerstände, To-Dos) bleiben erhalten.`)) return;
+        const what = [sync.changes.length ? `${sync.changes.length} Parzellen neu nummerieren` : '', sync.added.length ? `${sync.added.length} neue ergänzen` : '',
+          sync.shapes.length ? `${sync.shapes.length} Umrisse aktualisieren` : ''].filter(Boolean).join(', ');
+        if (!confirm(`${what}?\n\nAlle Einträge (Mieter, Zähler, Zählerstände, To-Dos) bleiben erhalten.`)) return;
         S.applyPlanSync(sync);
-        toast('Neue Parzellennummern übernommen');
+        if (window.MapView && MapView.render) MapView.render();
+        toast('Aus dem Lageplan übernommen');
         this.render(root);
       };
       const refresh = $('#d-refresh', root);

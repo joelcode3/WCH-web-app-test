@@ -420,7 +420,7 @@
      */
     planSync() {
       const plan = (window.PLAN_DATA && window.PLAN_DATA.parcels) || [];
-      const res = { changes: [], added: [], unmatched: [], matched: 0 };
+      const res = { changes: [], added: [], unmatched: [], shapes: [], matched: 0 };
       if (!plan.length || !window.polygonClipping) return res;
       const ring = (g) => [[...g.map((c) => [c[0], c[1]]), [g[0][0], g[0][1]]]];
       const area = (mp) => mp.reduce((s, poly) => s + poly.reduce((t, r, i) => {
@@ -439,16 +439,20 @@
           let inter = 0;
           try { inter = area(window.polygonClipping.intersection(ring(p.geometry), ring(q.pp.geometry))); } catch (_) { return; }
           const iou = inter / (a + q.a - inter);
-          if (iou > 0.5) pairs.push({ p, qi, iou });
+          if (iou > 0.5) pairs.push({ p, qi, iou, inter, a });
         });
       });
       pairs.sort((x, y) => y.iou - x.iou);
       const usedP = new Set(), usedQ = new Set();
-      pairs.forEach(({ p, qi }) => {
+      pairs.forEach(({ p, qi, iou, inter, a }) => {
         if (usedP.has(p.id) || usedQ.has(qi)) return;
         usedP.add(p.id); usedQ.add(qi);
         res.matched++;
         if (p.nr !== plan[qi].nr) res.changes.push({ id: p.id, from: p.nr, to: plan[qi].nr });
+        // Neuer Umriss im Lageplan (z. B. Parzellen vergrößert): nur übernehmen, wenn der alte Umriss
+        // fast ganz im neuen liegt und nur wenig kleiner ist – selbst geteilte/gezeichnete bleiben unberührt
+        const grow = planB[qi].a / a;
+        if (iou < 0.995 && iou > 0.75 && inter / a > 0.98 && grow >= 1 && grow < 1.35) res.shapes.push({ id: p.id, nr: plan[qi].nr, geometry: plan[qi].geometry });
       });
       res.unmatched = this.data.parcels.filter((p) => !usedP.has(p.id)).map((p) => ({ id: p.id, nr: p.nr }));
       res.added = plan.filter((_, qi) => !usedQ.has(qi));
@@ -460,6 +464,7 @@
       const newNrs = new Set([...sync.changes.map((c) => c.to), ...sync.added.map((pp) => pp.nr)]);
       const byId = new Map(this.data.parcels.map((p) => [p.id, p]));
       sync.changes.forEach((c) => { const p = byId.get(c.id); if (p) p.nr = c.to; });
+      (sync.shapes || []).forEach((c) => { const p = byId.get(c.id); if (p) p.geometry = c.geometry.map((xy) => [xy[0], xy[1]]); });
       // nicht zugeordnete Parzellen, deren Nummer jetzt vergeben ist, kenntlich machen
       sync.unmatched.forEach((u) => {
         const p = byId.get(u.id);
