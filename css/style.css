@@ -69,17 +69,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
   gap: 24px;
   z-index: 1100;
 }
-.brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; min-width: 0; }
-.brand .tree { flex: none; width: 29px; height: 34px; fill: #fff; stroke: none; }
+.brand { flex: none; display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; min-width: 0; }
+.brand .tree { flex: none; width: 33px; height: 39px; fill: #fff; stroke: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 /* Schriftzug aus dem Original-Logo (assets/wordmark.svg), eingefärbt mit der Textfarbe */
 .wordmark {
-  display: block; height: 19px; aspect-ratio: 1929 / 159; max-width: 100%;
+  display: block; height: 26px; aspect-ratio: 1929 / 159; max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-7) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-7) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-8) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-8) left center / contain no-repeat;
 }
-.brand-text small { font-size: .72rem; opacity: .8; letter-spacing: .12em; text-transform: uppercase; margin-top: 3px; }
+.brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
 .tabbar { display: flex; gap: 4px; margin-left: auto; }
 .tabbar a {
@@ -486,7 +486,8 @@ body.is-locked { padding-bottom: 0; }
 @media (max-width: 860px) {
   :root { --topbar-h: 52px; --tabbar-h: 62px; }
   body { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
-  .wordmark { height: 16px; }
+  .wordmark { height: 22px; }
+  .brand .tree { width: 29px; height: 34px; }
   .sync { margin-left: auto; padding: 4px 10px; }
   .sync.is-ok { padding: 9px; }
   .sync.is-ok span { display: none; }
@@ -639,7 +640,7 @@ body.is-locked { padding-bottom: 0; }
 .pin-todo { position: absolute; top: -8px; right: -8px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
   background: #c2410c; color: #fff; border: 2px solid #fff; font: 800 10px/13px var(--font-body); text-align: center; }
 .legend-ico svg { width: 16px; height: 16px; color: var(--wald); vertical-align: -3px; }
-@media (min-width: 861px) and (max-width: 1060px) {
+@media (min-width: 861px) and (max-width: 1240px) {
   .tabbar a span { display: none; }
 }
 @media (max-width: 860px) {
