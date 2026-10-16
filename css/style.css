@@ -70,14 +70,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
   z-index: 1100;
 }
 .brand { flex: none; display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; min-width: 0; }
-.brand .tree { flex: none; width: 33px; height: 39px; fill: #fff; stroke: none; }
+.brand .tree { flex: none; width: 37px; height: 44px; fill: #fff; stroke: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 /* Schriftzug aus dem Original-Logo (assets/wordmark.svg), eingefärbt mit der Textfarbe */
 .wordmark {
-  display: block; height: 26px; aspect-ratio: 1929 / 159; max-width: 100%;
+  display: block; height: 32px; aspect-ratio: 1929 / 159; max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-8) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-8) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-9) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-9) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
@@ -640,7 +640,7 @@ body.is-locked { padding-bottom: 0; }
 .pin-todo { position: absolute; top: -8px; right: -8px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px;
   background: #c2410c; color: #fff; border: 2px solid #fff; font: 800 10px/13px var(--font-body); text-align: center; }
 .legend-ico svg { width: 16px; height: 16px; color: var(--wald); vertical-align: -3px; }
-@media (min-width: 861px) and (max-width: 1240px) {
+@media (min-width: 861px) and (max-width: 1340px) {
   .tabbar a span { display: none; }
 }
 @media (max-width: 860px) {
@@ -812,7 +812,9 @@ body.is-locked { padding-bottom: 0; }
 .leaflet-tooltip.parcel-hover::before { display: none; }
 .pl-badges + .pl-badges { margin-top: 1px; }
 /* Osterei: Dreirad mit Pritsche */
-.easter-trike { position: relative; width: 0; height: 0; cursor: pointer; }
-.easter-body { position: absolute; left: 0; top: 0; width: 16px; height: 8px; transform-origin: 50% 50%; will-change: transform;
-  filter: drop-shadow(0 1px 1.2px rgba(0,0,0,.45)); }
-.easter-body svg { display: block; width: 100%; height: 100%; stroke: none; }
+.easter-trike { position: absolute; left: 0; top: 0; z-index: 100000; cursor: pointer; transform-origin: 50% 50%; will-change: transform;
+  filter: drop-shadow(0 1px 1.2px rgba(0,0,0,.45)); -webkit-tap-highlight-color: transparent; touch-action: none; }
+.easter-trike::before { content: ''; position: absolute; inset: -14px; }   /* größere Tippfläche */
+.easter-trike svg { display: block; width: 100%; height: 100%; stroke: none; }
+.easter-trike.is-honk svg { animation: easter-honk .35s ease-out; }
+@keyframes easter-honk { 30% { transform: scale(1.18); } 60% { transform: scale(.95); } }
