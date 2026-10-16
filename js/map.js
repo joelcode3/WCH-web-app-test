@@ -173,8 +173,8 @@
       const pane = this.map.getPane('markerPane');
       // Kästen/Tanks: ab Zoom 0.5 volle Größe, darunter kleiner (mind. 28 %)
       const pin = Math.max(0.28, Math.min(1, 0.55 * Math.pow(2, z * 0.8) + 0.05)).toFixed(3);
-      // Unterkünfte in Originalgröße (1 Kartenpixel = 0,2 m), beim Rauszoomen nicht kleiner als 75 %
-      const unit = Math.max(0.75, Math.pow(2, z)).toFixed(3);
+      // Unterkünfte in Originalgröße (1 Kartenpixel = 0,2 m), beim Rauszoomen nicht kleiner als 40 %
+      const unit = Math.max(0.4, Math.pow(2, z)).toFixed(3);
       if (pane._pinS !== pin) { pane.style.setProperty('--pin-s', pin); pane._pinS = pin; }
       if (pane._unitS !== unit) { pane.style.setProperty('--unit-s', unit); pane._unitS = unit; }
     },

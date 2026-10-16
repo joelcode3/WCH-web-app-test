@@ -122,10 +122,11 @@
 
   const Easter = {
     active: null,
-    run(name = 'gross') {
+    // force: absichtlich gestartet (Tanne) → auch bei „Bewegung reduzieren“ fahren
+    run(name = 'gross', force = false) {
       const MapView = window.MapView;
       if (this.active || !MapView || !MapView.map || document.hidden) return false;
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+      if (!force && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
       const map = MapView.map;
       const route = ROUTES[name] || ROUTES.gross;
       const path = resample(smooth(route.points, 4), 2);
@@ -176,7 +177,7 @@
         if (!map._animatingZoom) {
           const z = map.getZoom();
           const pt = map.project(L.latLng(H - p[1], p[0]), z).subtract(map.getPixelOrigin());
-          const k = Math.max(0.75, Math.pow(2, z));   // echte Größe, beim Rauszoomen nicht kleiner als ca. 12 px
+          const k = Math.max(0.5, Math.pow(2, z));   // echte Größe, beim Rauszoomen nicht kleiner als ca. 8 px
           const w = 16 * k, h = 8 * k;
           if (w !== this._w) { el.style.width = w + 'px'; el.style.height = h + 'px'; el.style.margin = `${-h / 2}px 0 0 ${-w / 2}px`; this._w = w; }
           el.style.transform = `translate3d(${pt.x.toFixed(2)}px, ${pt.y.toFixed(2)}px, 0) rotate(${angle.toFixed(2)}deg)`;
@@ -273,7 +274,7 @@
       if (logo) logo.addEventListener('click', () => {
         const now = Date.now();
         taps = taps.filter((t) => now - t < 900).concat(now);
-        if (taps.length >= 3) { taps = []; this.honk(); setTimeout(() => this.run('gross'), 300); }
+        if (taps.length >= 3) { taps = []; this.honk(); setTimeout(() => this.run('gross', true), 300); }
       });
       this.schedule(true);
     },
