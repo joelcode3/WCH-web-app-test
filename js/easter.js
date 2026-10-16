@@ -5,7 +5,7 @@
  *   Schleifen diagonal über die breite Wiese, den rechten Weg hoch und oben raus.
  * - Kurzer Sprint: nur schnell über den Hauptweg.
  * Erscheint einmal pro Besuch nach ein paar Minuten auf der Map und danach gelegentlich.
- * Sofort starten: dreimal schnell auf das Tannen-Logo oben links tippen.
+ * Sofort starten: dreimal schnell auf das Tannen-Logo oben links tippen. Antippen des Dreirads hupt.
  *
  * Koordinaten in Kartenpixeln des Lageplans (1 Pixel = 0,2 m).
  */
@@ -101,13 +101,12 @@
       const H = window.APP_CONFIG.map.height;
       const ll = (p) => L.latLng(H - p[1], p[0]);
       const marker = L.marker(ll(pts[0]), {
-        icon: L.divIcon({ className: '', html: `<div class="easter-trike" title="Tuk tuk!"><div class="easter-body">${SVG}</div></div>`, iconSize: [0, 0] }),
+        icon: L.divIcon({ className: '', html: `<div class="easter-trike"><div class="easter-body">${SVG}</div></div>`, iconSize: [0, 0] }),
         interactive: true, keyboard: false, zIndexOffset: 2000,
       }).addTo(MapView.map);
       marker.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
-        const t = document.getElementById('toast');
-        if (t) { t.textContent = 'Tuk tuk!'; t.hidden = false; clearTimeout(t._t); t._t = setTimeout(() => { t.hidden = true; }, 1600); }
+        this.honk();
       });
       const t0 = performance.now();
       let angle = null;
@@ -135,6 +134,36 @@
       this.active = { marker };
       this.raf = requestAnimationFrame(step);
       return true;
+    },
+    // süße kleine Hupe: zweimal kurz „mip mip“, hoch und weich (wird im Browser erzeugt, keine Tondatei)
+    honk() {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        const ctx = this.audio || (this.audio = new AC());
+        if (ctx.state === 'suspended' && ctx.resume) ctx.resume().catch(() => {});
+        const t = ctx.currentTime + 0.02;
+        [0, 0.17].forEach((d) => {
+          const out = ctx.createGain();
+          out.gain.setValueAtTime(0.0001, t + d);
+          out.gain.exponentialRampToValueAtTime(0.18, t + d + 0.015);
+          out.gain.setValueAtTime(0.18, t + d + 0.09);
+          out.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.13);
+          out.connect(ctx.destination);
+          // zwei leicht verstimmte Töne klingen wie eine kleine Gummi-Hupe
+          [[880, 'triangle', 1], [1320, 'sine', 0.45]].forEach(([f, type, vol]) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.type = type;
+            o.frequency.setValueAtTime(f * 1.06, t + d);
+            o.frequency.exponentialRampToValueAtTime(f, t + d + 0.05);
+            g.gain.value = vol;
+            o.connect(g).connect(out);
+            o.start(t + d);
+            o.stop(t + d + 0.15);
+          });
+        });
+      } catch (err) { /* ohne Ton weiter */ }
     },
     stop() {
       if (!this.active) return;
