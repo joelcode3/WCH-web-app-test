@@ -188,40 +188,41 @@
       this.raf = requestAnimationFrame(step);
       return true;
     },
-    // Ton-Ausgabe anlegen bzw. aufwecken; das iPhone erlaubt das nur direkt bei einer Berührung
-    unlockAudio() {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      const ctx = this.audio || (this.audio = new AC());
-      if (ctx.state === 'suspended' && ctx.resume) ctx.resume().catch(() => {});
-      return ctx;
+    // süße kleine Hupe: zweimal kurz „mip mip“, hoch und weich. Der Ton wird einmal im Browser
+    // berechnet und wie eine normale Tondatei abgespielt (zuverlässig in Safari, auf dem iPhone
+    // auch bei eingeschaltetem Stumm-Schalter).
+    hornUrl() {
+      if (this._horn) return this._horn;
+      const rate = 22050, len = Math.round(rate * 0.34);
+      const pcm = new Int16Array(len);
+      for (const start of [0, 0.17]) {
+        let ph1 = 0, ph2 = 0;
+        for (let i = 0; i < rate * 0.14; i++) {
+          const t = i / rate, j = Math.round((start + t) * rate);
+          if (j >= len) break;
+          const env = t < 0.015 ? t / 0.015 : t < 0.09 ? 1 : Math.max(0, 1 - (t - 0.09) / 0.04);
+          const glide = 1 + 0.06 * Math.max(0, 1 - t / 0.05);
+          ph1 += (880 * glide) / rate; ph2 += (1320 * glide) / rate;
+          const tri = 4 * Math.abs(ph1 - Math.floor(ph1 + 0.5)) - 1;
+          const v = (tri + 0.45 * Math.sin(2 * Math.PI * ph2)) / 1.45 * env * 0.6;
+          pcm[j] = Math.round(v * 32767);
+        }
+      }
+      const buf = new DataView(new ArrayBuffer(44 + len * 2));
+      const w = (o, str) => { for (let i = 0; i < str.length; i++) buf.setUint8(o + i, str.charCodeAt(i)); };
+      w(0, 'RIFF'); buf.setUint32(4, 36 + len * 2, true); w(8, 'WAVEfmt '); buf.setUint32(16, 16, true);
+      buf.setUint16(20, 1, true); buf.setUint16(22, 1, true); buf.setUint32(24, rate, true); buf.setUint32(28, rate * 2, true);
+      buf.setUint16(32, 2, true); buf.setUint16(34, 16, true); w(36, 'data'); buf.setUint32(40, len * 2, true);
+      for (let i = 0; i < len; i++) buf.setInt16(44 + i * 2, pcm[i], true);
+      this._horn = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+      return this._horn;
     },
-    // süße kleine Hupe: zweimal kurz „mip mip“, hoch und weich (wird im Browser erzeugt, keine Tondatei)
     honk() {
       try {
-        const ctx = this.unlockAudio();
-        if (!ctx) return;
-        const t = ctx.currentTime + 0.02;
-        [0, 0.17].forEach((d) => {
-          const out = ctx.createGain();
-          out.gain.setValueAtTime(0.0001, t + d);
-          out.gain.exponentialRampToValueAtTime(0.32, t + d + 0.015);
-          out.gain.setValueAtTime(0.32, t + d + 0.09);
-          out.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.13);
-          out.connect(ctx.destination);
-          // zwei leicht verstimmte Töne klingen wie eine kleine Gummi-Hupe
-          [[880, 'triangle', 1], [1320, 'sine', 0.45]].forEach(([f, type, vol]) => {
-            const o = ctx.createOscillator();
-            const g = ctx.createGain();
-            o.type = type;
-            o.frequency.setValueAtTime(f * 1.06, t + d);
-            o.frequency.exponentialRampToValueAtTime(f, t + d + 0.05);
-            g.gain.value = vol;
-            o.connect(g).connect(out);
-            o.start(t + d);
-            o.stop(t + d + 0.15);
-          });
-        });
+        const a = new Audio(this.hornUrl());
+        a.volume = 1;
+        const pr = a.play();
+        if (pr && pr.catch) pr.catch(() => {});
       } catch (err) { /* ohne Ton weiter */ }
     },
     stop() {

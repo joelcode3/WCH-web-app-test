@@ -74,10 +74,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 /* Schriftzug aus dem Original-Logo (assets/wordmark.svg), eingefärbt mit der Textfarbe */
 .wordmark {
-  display: block; height: 32px; aspect-ratio: 1929 / 159; max-width: 100%;
+  /* feste Breite aus der Höhe (Seitenverhältnis 1929 : 159), sonst staucht Safari den Schriftzug */
+  --wm-h: 32px;
+  display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-9) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-9) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-10) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-10) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
@@ -468,7 +470,7 @@ body.is-locked { padding-bottom: 0; }
 }
 .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; color: var(--wald); }
 .auth-brand .tree { flex: none; width: 34px; height: 40px; fill: var(--wald); stroke: none; }
-.auth-brand .wordmark { height: 22px; }
+.auth-brand .wordmark { --wm-h: 22px; }
 .auth-brand small { display: block; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--text-leise); margin-top: 4px; }
 #auth-body form { display: grid; gap: 14px; }
 #auth-body h2 { margin-bottom: 4px; }
@@ -486,7 +488,7 @@ body.is-locked { padding-bottom: 0; }
 @media (max-width: 860px) {
   :root { --topbar-h: 52px; --tabbar-h: 62px; }
   body { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
-  .wordmark { height: 22px; }
+  .wordmark { --wm-h: 22px; }
   .brand .tree { width: 29px; height: 34px; }
   .sync { margin-left: auto; padding: 4px 10px; }
   .sync.is-ok { padding: 9px; }
