@@ -27,6 +27,8 @@
     initialize(options, draw) { L.setOptions(this, options); this._draw = draw; },
     onAdd() {
       this._el = L.DomUtil.create('div', 'scale-layer ' + this.options.className, this.getPane());
+      // bei Zoom-Animationen (Knöpfe +/−) wie Parzellen und Symbole sanft mitgleiten statt zu springen
+      if (this._map._zoomAnimated) L.DomUtil.addClass(this._el, 'leaflet-zoom-animated');
       this._reset();
     },
     onRemove() { L.DomUtil.remove(this._el); this._el = null; },

@@ -78,8 +78,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   --wm-h: 18px;
   display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-19) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-19) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-20) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-20) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
@@ -825,3 +825,10 @@ body.is-locked { padding-bottom: 0; }
 .easter-trike svg { display: block; width: 100%; height: 100%; stroke: none; }
 .easter-trike.is-honk svg { animation: easter-honk .35s ease-out; }
 @keyframes easter-honk { 30% { transform: scale(1.18); } 60% { transform: scale(.95); } }
+/* Zoom mit den Knöpfen: Symbolgrößen gleiten im selben Takt wie die Karte (Leaflet: .25s) */
+.leaflet-zoom-anim .unit-shape, .leaflet-zoom-anim .pin-box, .leaflet-zoom-anim .pin-tank, .leaflet-zoom-anim .pin-place {
+  transition: transform .25s cubic-bezier(0, 0, .25, 1); }
+.leaflet-zoom-anim .unit-name, .leaflet-zoom-anim .unit-name .pol-dot, .leaflet-zoom-anim .unit-mk .pin-todo {
+  transition: top .25s cubic-bezier(0, 0, .25, 1), left .25s cubic-bezier(0, 0, .25, 1), width .25s cubic-bezier(0, 0, .25, 1), height .25s cubic-bezier(0, 0, .25, 1); }
+.leaflet-zoom-anim .easter-trike { transition: transform .25s cubic-bezier(0, 0, .25, 1), width .25s cubic-bezier(0, 0, .25, 1),
+  height .25s cubic-bezier(0, 0, .25, 1), margin .25s cubic-bezier(0, 0, .25, 1); }
