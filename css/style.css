@@ -70,16 +70,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
   z-index: 1100;
 }
 .brand { flex: none; display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; min-width: 0; }
-.brand .tree { flex: none; width: 28px; height: 33px; fill: #fff; stroke: none; }
+.brand .tree { flex: none; width: 25px; height: 30px; fill: #fff; stroke: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; min-width: 0; }
 /* Schriftzug aus dem Original-Logo (assets/wordmark.svg), eingefärbt mit der Textfarbe */
 .wordmark {
   /* feste Breite aus der Höhe (Seitenverhältnis 1929 : 159), sonst staucht Safari den Schriftzug */
-  --wm-h: 22px;
+  --wm-h: 18px;
   display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-15) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-15) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261016-16) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261016-16) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
@@ -488,8 +488,8 @@ body.is-locked { padding-bottom: 0; }
 @media (max-width: 860px) {
   :root { --topbar-h: 52px; --tabbar-h: 62px; }
   body { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
-  .wordmark { --wm-h: 18px; }
-  .brand .tree { width: 25px; height: 30px; }
+  .wordmark { --wm-h: 16px; }
+  .brand .tree { width: 23px; height: 27px; }
   .sync { margin-left: auto; padding: 4px 10px; }
   .sync.is-ok { padding: 9px; }
   .sync.is-ok span { display: none; }
