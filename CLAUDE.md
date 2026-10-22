@@ -48,13 +48,26 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.
 
-## Offene Themen (Stand 16.10.2026)
-- **App-Logo und Titel ändern** – wartet auf Titel und Logo-Datei/Beschreibung vom Betreiber.
+## Offene Themen (Stand 22.10.2026) – nur auf Zuruf des Betreibers bauen
+- **App-Logo** erledigt (Tanne + Schriftzug aus dem Original, App-Symbol cremeweiße Tanne). Titel unter dem
+  Home-Bildschirm-Symbol ist noch „Platzverwaltung“ – ändern, falls der Betreiber einen anderen Namen nennt.
+- **Hue-Marderschreck in den Londonbussen** (Plan abgestimmt, noch NICHT bauen – „das dauert noch“):
+  je Bus eine Hue Bridge, Marderschreck an einem Hue Smart Plug. Regel: Bus leer → an; Gäste eingebucht → aus
+  (Vorschlag: aus ab Anreisetag 12 Uhr, wieder an ab Abreisetag 11 Uhr, Zeiten noch bestätigen lassen).
+  Umsetzung: Supabase Edge Function über die Hue Remote API (OAuth je Bridge; Client-ID/Secret trägt der
+  Betreiber selbst als Function-Secrets ein), Supabase Cron alle 15 Min. prüft den airbnb-Kalender.
+  In der App: **Knopf mit Status** (an/aus, zuletzt geschaltet, erreichbar) im airbnb-Fenster auf der Map
+  UND im Reiter airbnb; Handbetrieb (z. B. „bis morgen aus“) anbieten. DB-Update dafür: update-9.
+- **Kalender-Reiter + großer Touchscreen** (Idee, noch nicht bauen): Termine aus To-Dos, airbnb An-/Abreisen,
+  Auszüge/Pachtbeginn, ggf. eigene Termine; Touch-/Kiosk-Ansicht. Betreiber kauft erst einen Monitor
+  (Vorschläge: Samsung Flip Pro WM55B, Optoma N3551K, iiyama TF4339MSC + Mini-PC mit Windows 11 Pro).
+  Vor dem Bau klären: nur Team oder auch Gäste (dann Gästeansicht ohne Namen), Ausrichtung, Gerät.
+- **Versions-Check** („Neue Version verfügbar – neu laden“) angeboten, Betreiber hat noch nicht entschieden.
 - **Eigene Adresse** (z. B. `platz.waldcamping-hesedorf.de` per CNAME auf `joelcode3.github.io`,
   danach Supabase „Site URL“ anpassen) – Betreiber entscheidet noch.
 - **Weitere Benutzer** – Anleitung gegeben (Supabase: Add user + `insert into public.team`); Rollen mit
   eingeschränkten Rechten wären möglich, falls gewünscht.
-- **Wege-Skizze** vom Betreiber für weitere Wege im Lageplan.
-- **Fernauslesung**: Strom über MID-Modbus-Zähler + LoRaWAN, Gastanks über Telemetrie (Lieferant fragen) –
-  App-Anbindung bauen, sobald Hardware feststeht.
-- iPhone: App ging zuletzt nicht auf – Lösungsschritte geschickt, Rückmeldung/Screenshot abwarten.
+- **Weitere Wege und Objekte auf der Map** – Betreiber meldet sich mit Aufgaben (ggf. Wege-Skizze).
+- **Fernauslesung/Fernschalten Stromkästen**: Strom über MID-Zähler (Modbus/LoRaWAN), Schalten z. B. Shelly
+  Pro 4PM (WLAN) oder Komplettsystem (Camping-Strom, Fernauslese.de); Gastanks über Telemetrie (Lieferant
+  fragen) – App-Anbindung erst, wenn Hardware feststeht.
