@@ -56,10 +56,11 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Wasser eingefroren): je Bus eine Hue Bridge. Supabase-Funktion + Cron (alle 5–10 Min.) prüft über die Hue
   Remote API: Bridge erreichbar (= Strom im Bus), Hue Smart Plug im Bad (eigener Stromkreis) erreichbar,
   optional Temperatur über Hue-Bewegungsmelder (Warnung unter ca. 5 °C). Erst nach ca. 15 Min. Ausfall warnen
-  (Router-Neustarts), Entwarnung senden. Benachrichtigung aktiv aufs Handy – bevorzugt **WhatsApp über die
-  offizielle WhatsApp Business Platform** (eigene Nummer, freigegebene Vorlage, wenige Cent/Nachricht);
-  Alternativen Telegram (gratis) oder SMS. In der App Status je Bus (Strom/Temperatur) im airbnb-Fenster und
-  Reiter airbnb. Vor dem Bau klären: Temperatur ja/nein, Empfänger, Internet im Bus (eigener Router oder Platz-WLAN).
+  (Router-Neustarts), Entwarnung senden. Benachrichtigung aktiv aufs Handy – **Betreiber hat sich für SMS
+  entschieden** (deutscher SMS-Dienst, z. B. seven.io oder sipgate; API-Schlüssel trägt der Betreiber selbst als
+  Function-Secret ein; Absendername z. B. „WCHesedorf“). Temperatur: Hue Bewegungsmelder innen (hat Temperaturfühler)
+  im Bad nahe den Leitungen, Lithium-AAA empfehlen, ggf. Außen-Variante bei Dauerfrost; Batteriestand mit warnen. In der App Status je Bus (Strom/Temperatur) im airbnb-Fenster und
+  Reiter airbnb. Vor dem Bau klären: Empfänger (Handynummern), Internet im Bus (eigener Router oder Platz-WLAN).
 - **Kalender-Reiter + großer Touchscreen** (Idee, noch nicht bauen): Termine aus To-Dos, airbnb An-/Abreisen,
   Auszüge/Pachtbeginn, ggf. eigene Termine; Touch-/Kiosk-Ansicht. Betreiber kauft erst einen Monitor
   (Vorschläge: Samsung Flip Pro WM55B, Optoma N3551K, iiyama TF4339MSC + Mini-PC mit Windows 11 Pro).
