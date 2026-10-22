@@ -51,13 +51,15 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 ## Offene Themen (Stand 22.10.2026) – nur auf Zuruf des Betreibers bauen
 - **App-Logo** erledigt (Tanne + Schriftzug aus dem Original, App-Symbol cremeweiße Tanne). Titel unter dem
   Home-Bildschirm-Symbol ist noch „Platzverwaltung“ – ändern, falls der Betreiber einen anderen Namen nennt.
-- **Hue-Marderschreck in den Londonbussen** (Plan abgestimmt, noch NICHT bauen – „das dauert noch“):
-  je Bus eine Hue Bridge, Marderschreck an einem Hue Smart Plug. Regel: Bus leer → an; Gäste eingebucht → aus
-  (Vorschlag: aus ab Anreisetag 12 Uhr, wieder an ab Abreisetag 11 Uhr, Zeiten noch bestätigen lassen).
-  Umsetzung: Supabase Edge Function über die Hue Remote API (OAuth je Bridge; Client-ID/Secret trägt der
-  Betreiber selbst als Function-Secrets ein), Supabase Cron alle 15 Min. prüft den airbnb-Kalender.
-  In der App: **Knopf mit Status** (an/aus, zuletzt geschaltet, erreichbar) im airbnb-Fenster auf der Map
-  UND im Reiter airbnb; Handbetrieb (z. B. „bis morgen aus“) anbieten. DB-Update dafür: update-9.
+- **Hue-Marderschreck** (Steckdose nach airbnb-Belegung schalten) – vom Betreiber erstmal gestrichen.
+- **Stromausfall-/Frostwarnung Londonbusse** (Idee, noch NICHT bauen; Anlass: unbemerkter Stromausfall im Winter,
+  Wasser eingefroren): je Bus eine Hue Bridge. Supabase-Funktion + Cron (alle 5–10 Min.) prüft über die Hue
+  Remote API: Bridge erreichbar (= Strom im Bus), Hue Smart Plug im Bad (eigener Stromkreis) erreichbar,
+  optional Temperatur über Hue-Bewegungsmelder (Warnung unter ca. 5 °C). Erst nach ca. 15 Min. Ausfall warnen
+  (Router-Neustarts), Entwarnung senden. Benachrichtigung aktiv aufs Handy – bevorzugt **WhatsApp über die
+  offizielle WhatsApp Business Platform** (eigene Nummer, freigegebene Vorlage, wenige Cent/Nachricht);
+  Alternativen Telegram (gratis) oder SMS. In der App Status je Bus (Strom/Temperatur) im airbnb-Fenster und
+  Reiter airbnb. Vor dem Bau klären: Temperatur ja/nein, Empfänger, Internet im Bus (eigener Router oder Platz-WLAN).
 - **Kalender-Reiter + großer Touchscreen** (Idee, noch nicht bauen): Termine aus To-Dos, airbnb An-/Abreisen,
   Auszüge/Pachtbeginn, ggf. eigene Termine; Touch-/Kiosk-Ansicht. Betreiber kauft erst einen Monitor
   (Vorschläge: Samsung Flip Pro WM55B, Optoma N3551K, iiyama TF4339MSC + Mini-PC mit Windows 11 Pro).
