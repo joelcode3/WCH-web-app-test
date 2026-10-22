@@ -309,7 +309,7 @@
             icon: L.divIcon({
               className: '',
               html: airbnb
-                ? window.Airbnb.markerHtml(o, { selected: isSel, extra: todoDot('place', o.id) })
+                ? window.Airbnb.markerHtml(o, { selected: isSel, extra: todoDot('place', o.id) + (window.Waechter ? window.Waechter.badgeHtml(o.id) : '') })
                 : `<div class="pin pin-place${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
               iconSize: [0, airbnb ? 0 : 28],
               iconAnchor: [0, airbnb ? 0 : 14],

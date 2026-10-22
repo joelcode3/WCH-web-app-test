@@ -28,17 +28,17 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 ## Technik
 - Statische Web-App (Vanilla JS, Hash-Router), gehostet auf **GitHub Pages**:
   https://joelcode3.github.io/WCH-web-app-test/
-- **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Function `airbnb-kalender`).
+- **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Functions `airbnb-kalender`, `hue-waechter`).
   Zugangsdaten in `js/config.js` (nur der öffentliche Publishable Key – **nie** nach dem Secret-/Service-Key fragen).
   Zugriff nur für E-Mails in der Tabelle `team` (RLS über `is_team_member()`).
 - Dateien: `js/data.js` (Datenmodell, Store), `js/cloud.js` (Supabase-Sync, nur Änderungen),
-  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/photos.js`, `js/auth.js`.
+  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/waechter.js`, `js/photos.js`, `js/auth.js`.
 - **Versionsnummer** `?v=JJJJMMTT-n` an allen CSS/JS-/Plan-Dateien in `index.html` und `js/config.js`
   bei jeder Änderung hochzählen (sonst zeigt der Browser alte Dateien).
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-8 (zuletzt: Tabelle `asmus_eintraege` für die Projektliste des Spiels, getrennt von den Platzdaten).
+  Bisher: update-2 … update-9 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue).
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;
   `tools/render_plan.js` rendert `assets/platzplan.png` (Hintergrund). Eingaben: AutoCAD-PDFs (nicht im Repo).
   Danach `tools/parcels_grow.py`: Parzellen etwas größer (Lücke zu Nachbarn ca. 0,6 m, Abstand zu Wegen bleibt).
@@ -52,15 +52,13 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - **App-Logo** erledigt (Tanne + Schriftzug aus dem Original, App-Symbol cremeweiße Tanne). Titel unter dem
   Home-Bildschirm-Symbol ist noch „Platzverwaltung“ – ändern, falls der Betreiber einen anderen Namen nennt.
 - **Hue-Marderschreck** (Steckdose nach airbnb-Belegung schalten) – vom Betreiber erstmal gestrichen.
-- **Stromausfall-/Frostwarnung Londonbusse** (Idee, noch NICHT bauen; Anlass: unbemerkter Stromausfall im Winter,
-  Wasser eingefroren): je Bus eine Hue Bridge. Supabase-Funktion + Cron (alle 5–10 Min.) prüft über die Hue
-  Remote API: Bridge erreichbar (= Strom im Bus), Hue Smart Plug im Bad (eigener Stromkreis) erreichbar,
-  optional Temperatur über Hue-Bewegungsmelder (Warnung unter ca. 5 °C). Erst nach ca. 15 Min. Ausfall warnen
-  (Router-Neustarts), Entwarnung senden. Benachrichtigung aktiv aufs Handy – **Betreiber hat sich für SMS
-  entschieden** (deutscher SMS-Dienst, z. B. seven.io oder sipgate; API-Schlüssel trägt der Betreiber selbst als
-  Function-Secret ein; Absendername z. B. „WCHesedorf“). Temperatur: Hue Bewegungsmelder innen (hat Temperaturfühler)
-  im Bad nahe den Leitungen, Lithium-AAA empfehlen, ggf. Außen-Variante bei Dauerfrost; Batteriestand mit warnen. In der App Status je Bus (Strom/Temperatur) im airbnb-Fenster und
-  Reiter airbnb. Vor dem Bau klären: Empfänger (Handynummern), Internet im Bus (eigener Router oder Platz-WLAN).
+- **Stromwächter Londonbusse – GEBAUT (22.10.2026)**: `supabase/functions/hue-waechter` (Hue Remote API,
+  OAuth je Bridge, SMS über seven.io), `supabase/update-9.sql` (Tabellen hue_bridges/hue_oauth geheim,
+  waechter_status für Team lesbar), `supabase/waechter-zeitplan.sql` (pg_cron alle 5 Min.), `js/waechter.js`
+  (Anzeige im airbnb-Fenster, Reiter airbnb, Warnzeichen auf der Map). Regeln: Bridge > 15 Min. nicht
+  erreichbar → SMS, Temperatur < 5 °C 10 Min. → SMS (Entwarnung ab 6 °C), Batterie ≤ 15 % → SMS; keine
+  separate Warnung für Stromausfall im Bad (vom Betreiber so gewünscht). Einrichtung: SETUP.md.
+  Tests der Funktion: Deno mit nachgestellter DB/Hue/SMS (createWaechter(db, env, fetch, now)).
 - **Kalender-Reiter + großer Touchscreen** (Idee, noch nicht bauen): Termine aus To-Dos, airbnb An-/Abreisen,
   Auszüge/Pachtbeginn, ggf. eigene Termine; Touch-/Kiosk-Ansicht. Betreiber kauft erst einen Monitor
   (Vorschläge: Samsung Flip Pro WM55B, Optoma N3551K, iiyama TF4339MSC + Mini-PC mit Windows 11 Pro).
