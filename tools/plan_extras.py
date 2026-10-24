@@ -218,9 +218,12 @@ def build(F, svg, preview_plane=False):
                            Polygon(F['spielplatz']['shape']).buffer(6), *[pl.buffer(3) for pl in parcels],
                            *[Point(s).buffer(14) for s in F['shelter']], LineString(F['seilbahn']).buffer(8),
                            *[e.buffer(26) for e in ends], Point(F['flugzeug']['pos']).buffer(30)])
-    sketch = [(x, y, max(9.0, min(17.0, r * 1.05))) for grp in F['trees'].values() for x, y, r in grp]
-    for x, y, r in sorted(sketch + more_trees(F, blocked, rnd), key=lambda t: t[1]):
-        g.append(tree(x, y, r, rnd))
+    if 'wald' not in F:   # einmal erzeugen und in der JSON festhalten (danach einzeln löschbar)
+        sketch = [(x, y, max(9.0, min(17.0, r * 1.05))) for grp in F['trees'].values() for x, y, r in grp]
+        F['wald'] = [[round(v, 1) for v in t] for t in sorted(sketch + more_trees(F, blocked, rnd), key=lambda t: t[1])]
+    shapes = random.Random(11)
+    for x, y, r in F['wald']:
+        g.append(tree(x, y, r, shapes))
     # Gebäude wie im Plan
     g.append('<g fill="#c9a66b" stroke="#7a6a4f" stroke-width="1.5">')
     g += [f'<polygon points="{pts(p)}"/>' for p in F['buildings'].values()]
@@ -241,13 +244,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--svg', default=str(ROOT / 'assets' / 'platzplan.svg'))
     ap.add_argument('--preview-plane', action='store_true')
+    ap.add_argument('--neuer-wald', action='store_true', help='Bäume neu aus den Skizzen-Kringeln erzeugen')
     args = ap.parse_args()
-    F = json.loads((ROOT / 'tools' / 'plan_extras.json').read_text())
+    src = ROOT / 'tools' / 'plan_extras.json'
+    F = json.loads(src.read_text())
+    if args.neuer_wald:
+        F.pop('wald', None)
+    had = 'wald' in F
     svg = Path(args.svg).read_text()
     svg = re.sub(r'<g id="extras">.*?<!-- /extras -->\n', '', svg, flags=re.S)   # alte Extras entfernen
     mark = '<g fill="#c9a66b"'
     svg = svg.replace(mark, build(F, svg, args.preview_plane) + '\n' + mark, 1)
     Path(args.svg).write_text(svg)
+    if not had:
+        src.write_text(json.dumps(F, separators=(',', ':')))
     print('Extras in', args.svg, 'eingefügt')
 
 

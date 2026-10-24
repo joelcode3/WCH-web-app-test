@@ -69,6 +69,10 @@
     wiese: { label: 'Camperwiese', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 3l-6 9h4l-4 6h12l-4-6h4z M12 18v3"/></svg>' },
     muell: { label: 'Müllplatz', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6"/></svg>' },
     wasser: { label: 'Wasser / Brunnen', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 3c3 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 9 7 12 3z"/></svg>' },
+    shelter: { label: 'Shelter', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 9l18-4v15 M3 9v11 M3 20h18 M8 20v-6h8v6"/></svg>' },
+    hundewiese: { label: 'Hundewiese', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 12.5c-3 0-5.5 3.3-5.5 5.3 0 1.5 1.2 2.4 2.8 2.4 1.1 0 1.8-.6 2.7-.6s1.6.6 2.7.6c1.6 0 2.8-.9 2.8-2.4 0-2-2.5-5.3-5.5-5.3z M5 10.5a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M8.6 6.3a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M12 6.3a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M15.6 10.5a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0"/></svg>' },
+    // Draufsicht auf der Karte (drehbar) wie die airbnbs, aber ohne Kalender
+    flugzeug: { label: 'Flugzeug', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 2.5c1 0 1.6 1 1.6 2.5v4.6l7.4 4.4v2l-7.4-2.3v4.4l2 1.5V21l-3.6-1-3.6 1v-1.4l2-1.5v-4.4L3 16v-2l7.4-4.4V5c0-1.5.6-2.5 1.6-2.5z"/></svg>', top: true },
     sonstiges: { label: 'Sonstiger Ort', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>' },
     // Ferienunterkünfte (Airbnb): Draufsicht auf der Karte, Kalender mit Belegung
     londonbus: { label: 'Londonbus', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M5 3h14a1 1 0 0 1 1 1v13H4V4a1 1 0 0 1 1-1z M4 10h16 M7 20v-3 M17 20v-3 M7 13.5h.01 M17 13.5h.01"/></svg>', airbnb: true },
@@ -86,6 +90,20 @@
     { name: 'Glampingzelt 2', kind: 'glamping', pos: [1560, 740] },
     { name: 'Bäckerwagen', kind: 'baeckerwagen', pos: [1380, 880] },
   ];
+
+  // Orte aus dem Lageplan (tools/plan_extras.py): werden einmal automatisch angelegt, wenn sie fehlen.
+  // near = gilt als vorhanden, wenn ein Ort dieser Art in diesem Umkreis (Kartenpixel) liegt; 0 = irgendwo
+  const PLAN_PLACES = [
+    { id: 'o-plan-grill', name: 'Grillhütte', kind: 'grill', pos: [1347, 575], near: 0 },
+    { id: 'o-plan-spielplatz', name: 'Spielplatz', kind: 'spielplatz', pos: [1356, 862], near: 0 },
+    { id: 'o-plan-shelter1', name: 'Shelter 1', kind: 'shelter', pos: [1457, 958], near: 12 },
+    { id: 'o-plan-shelter2', name: 'Shelter 2', kind: 'shelter', pos: [1494, 967], near: 12 },
+    { id: 'o-plan-shelter3', name: 'Shelter 3', kind: 'shelter', pos: [1553, 961], near: 12 },
+    { id: 'o-plan-muell', name: 'Müllplatz', kind: 'muell', pos: [504, 1263], near: 60 },
+    { id: 'o-plan-hundewiese', name: 'Hundewiese', kind: 'hundewiese', pos: [1469, 565], near: 0 },
+    { id: 'o-plan-flugzeug', name: 'Flugzeug', kind: 'flugzeug', pos: [1600, 281, 270], near: 0 },
+  ];
+  const PLAN_PLACES_KEY = 'wch-plan-orte-1';
 
   // Farbschema "Versorgung" auf der Karte
   const SUPPLY = {
@@ -258,6 +276,22 @@
   const Store = {
     STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, AIRBNB_DEFAULTS, supplyOf, uid, compareNr,
     isAirbnb: (o) => !!(o && (PLACE_KINDS[o.kind] || {}).airbnb),
+    // Fehlende Orte aus dem Lageplan einmal je Gerät anlegen (feste IDs → kein Doppel bei mehreren Geräten).
+    // Danach gelöschte Orte kommen auf diesem Gerät nicht wieder.
+    ensurePlanPlaces() {
+      try { if (localStorage.getItem(PLAN_PLACES_KEY)) return; } catch (e) { return; }
+      if (this.mode === 'cloud' && window.Cloud && Cloud.missing.has('places')) return;
+      let added = 0;
+      PLAN_PLACES.forEach(({ near, ...p }) => {
+        const exists = this.data.places.some((o) => o.id === p.id || (o.kind === p.kind
+          && (!near || (o.pos && Math.hypot(o.pos[0] - p.pos[0], o.pos[1] - p.pos[1]) < near))));
+        if (exists) return;
+        this.data.places.push({ notes: '', icalUrl: '', photo: null, ...p, pos: [...p.pos] });
+        added++;
+      });
+      try { localStorage.setItem(PLAN_PLACES_KEY, '1'); } catch (e) { /* egal */ }
+      if (added) this.save();
+    },
     // Reihenfolge: Londonbusse, Glampingzelte, Bäckerwagen, sonstige – innerhalb nach Name
     airbnbs() {
       const order = ['londonbus', 'glamping', 'baeckerwagen', 'unterkunft'];
