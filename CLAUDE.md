@@ -42,19 +42,22 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;
   `tools/render_plan.js` rendert `assets/platzplan.png` (Hintergrund). Eingaben: AutoCAD-PDFs (nicht im Repo).
   Danach `tools/parcels_grow.py`: Parzellen etwas größer (Lücke zu Nachbarn ca. 0,6 m, Abstand zu Wegen bleibt).
+  Danach `tools/plan_extras.py` (Daten in `tools/plan_extras.json`, nach Skizzen des Betreibers): Wege/Schotter in Wegfarbe
+  mit nahtlosen Übergängen, Wald (Bäume fest in der JSON, einzeln löschbar), Teiche, Spielplatz, Seilbahn, Shelter,
+  Hundewiese, Terrasse, Gebäude. Dann `node tools/render_plan.js`. Flugzeug (Fokker-100-Bug) ist ein drehbarer Ort
+  (Art `flugzeug`, `top: true`). Orte aus dem Plan legt `Store.ensurePlanPlaces()` einmal je Gerät an (feste IDs `o-plan-*`).
   Geänderte Nummern/Umrisse übernimmt die App über „Daten → Neue Nummern/Umrisse übernehmen“ (Zuordnung über die Lage,
   Mieter/Zähler bleiben erhalten). Nie die Daten durch einen leeren Plan ersetzen.
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.
 
-## Offene Themen (Stand 16.10.2026)
+## Offene Themen (Stand 24.10.2026)
 - **App-Logo und Titel ändern** – wartet auf Titel und Logo-Datei/Beschreibung vom Betreiber.
 - **Eigene Adresse** (z. B. `platz.waldcamping-hesedorf.de` per CNAME auf `joelcode3.github.io`,
   danach Supabase „Site URL“ anpassen) – Betreiber entscheidet noch.
 - **Weitere Benutzer** – Anleitung gegeben (Supabase: Add user + `insert into public.team`); Rollen mit
   eingeschränkten Rechten wären möglich, falls gewünscht.
-- **Wege-Skizze** vom Betreiber für weitere Wege im Lageplan.
 - **Fernauslesung**: Strom über MID-Modbus-Zähler + LoRaWAN, Gastanks über Telemetrie (Lieferant fragen) –
   App-Anbindung bauen, sobald Hardware feststeht.
 - iPhone: App ging zuletzt nicht auf – Lösungsschritte geschickt, Rückmeldung/Screenshot abwarten.

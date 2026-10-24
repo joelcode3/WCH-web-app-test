@@ -505,6 +505,7 @@
       $$('[data-goto]', panel).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
       $$('[data-action]', panel).forEach((el) => el.addEventListener('click', () => Actions[el.dataset.action](el.dataset.id)));
       if (type === 'place' && S.isAirbnb(S.place(id))) this.bindAirbnbPanel(panel, S.place(id));
+      else if (type === 'place') this.bindRotate(panel, S.place(id));
       if (this._panelKey !== type + id) $('.panel-body', panel).scrollTop = 0;
       this._panelKey = type + id;
     },
@@ -647,9 +648,7 @@
               ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
               ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
               ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
-              ${MapView.editMode ? `<div class="rot-btns"><span class="small muted">Ausrichtung</span>
-                <button type="button" class="btn btn-ghost btn-sm" data-rot="-15" aria-label="Nach links drehen">${ICON.rotL}</button>
-                <button type="button" class="btn btn-ghost btn-sm" data-rot="15" aria-label="Nach rechts drehen">${ICON.rotR}</button></div>` : ''}
+              ${MapView.editMode ? this.rotButtons() : ''}
             </div>
           </div>
           <div id="airbnb-cal">${Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m)}</div>
@@ -662,6 +661,20 @@
         </div>`;
     },
 
+    rotButtons() {
+      return `<div class="rot-btns"><span class="small muted">Ausrichtung</span>
+                <button type="button" class="btn btn-ghost btn-sm" data-rot="-15" aria-label="Nach links drehen">${ICON.rotL}</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-rot="15" aria-label="Nach rechts drehen">${ICON.rotR}</button></div>`;
+    },
+
+    bindRotate(panel, o) {
+      $$('[data-rot]', panel).forEach((b) => b.onclick = () => {
+        const p = o.pos || [0, 0];
+        o.pos = [p[0], p[1], (((p[2] || 0) + +b.dataset.rot) % 360 + 360) % 360];
+        S.save();
+      });
+    },
+
     bindAirbnbPanel(panel, o) {
       const cal = $('#airbnb-cal', panel);
       cal.addEventListener('click', (e) => {
@@ -671,11 +684,7 @@
         this.calMonth = { id: o.id, y: d.getFullYear(), m: d.getMonth() };
         cal.innerHTML = Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m);
       });
-      $$('[data-rot]', panel).forEach((b) => b.onclick = () => {
-        const p = o.pos || [0, 0];
-        o.pos = [p[0], p[1], (((p[2] || 0) + +b.dataset.rot) % 360 + 360) % 360];
-        S.save();
-      });
+      this.bindRotate(panel, o);
       const inp = $('[data-place-photo]', panel);
       if (inp) inp.onchange = async () => {
         const file = inp.files[0];
@@ -711,7 +720,7 @@
         <div class="panel-body">
           ${o.notes ? `<p class="small" style="margin:0;white-space:pre-line">${h(o.notes)}</p>` : ''}
           ${todoSection('place', o.id, true)}
-          ${MapView.editMode ? '<p class="muted small">Im Bearbeitungsmodus lässt sich das Symbol auf der Map verschieben.</p>' : ''}
+          ${MapView.editMode ? `<p class="muted small">Im Bearbeitungsmodus lässt sich das Symbol auf der Map verschieben.</p>${kind.top ? this.rotButtons() : ''}` : ''}
         </div>
         <div class="panel-actions">
           <button class="btn" data-goto="#/todo/neu?ziel=place:${o.id}&${backParam()}">${ICON.plus} To-Do</button>
@@ -2860,6 +2869,7 @@
       await S.init();
     }
 
+    S.ensurePlanPlaces();
     MapUI.init();
     S.onSync(renderSync);
     renderSync();

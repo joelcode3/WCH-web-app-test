@@ -40,6 +40,16 @@
       <path d="M84 4h10c9 0 15 6 15 18s-6 18-15 18H84z" fill="#1f4a3a" stroke="#122d23" stroke-width="2"/>
       <path d="M86 8h7c3 0 4 2 4 4v20c0 2-1 4-4 4h-7z" fill="#2c3b44"/>
       <path d="M101 14q4 8 0 16" stroke="#3b6b58" stroke-width="2" fill="none"/></svg>` },
+    // Flugzeug: Bug einer Fokker 100 (Cockpit + Rumpfstück) ca. 9 × 3,3 m, Nase rechts (Grafik wie tools/fokker.svg)
+    flugzeug: { w: 45, h: 17, svg: `<svg viewBox="0 0 90 34" aria-hidden="true">
+      <path d="M2 1.5h50c14 0 26 5 34 12.5c1.6 1.6 1.6 4.4 0 6C78 27.5 66 32.5 52 32.5H2z" fill="#f4f4f1" stroke="#6f777d" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M2 1.5h4v31H2z" fill="#9aa1a6" stroke="#6f777d" stroke-width="1.2"/>
+      <path d="M8 17H58" stroke="#e3e5e4" stroke-width="6" stroke-linecap="round"/>
+      <path d="M66 8.5c5 1.5 9 4 12 8.5c-3 4.5-7 7-12 8.5c1.6-2.6 2.4-5.4 2.4-8.5s-.8-5.9-2.4-8.5z" fill="#2c3b44"/>
+      <path d="M70.5 10.6l-1.6 3.4M70.5 23.4l-1.6-3.4M68.8 17h2.6" stroke="#f4f4f1" stroke-width=".9"/>
+      <g fill="#5d6f7c"><circle cx="12" cy="3.6" r=".9"/><circle cx="19" cy="3.6" r=".9"/><circle cx="26" cy="3.6" r=".9"/><circle cx="33" cy="3.6" r=".9"/><circle cx="40" cy="3.6" r=".9"/><circle cx="47" cy="3.7" r=".9"/>
+      <circle cx="12" cy="30.4" r=".9"/><circle cx="19" cy="30.4" r=".9"/><circle cx="26" cy="30.4" r=".9"/><circle cx="33" cy="30.4" r=".9"/><circle cx="40" cy="30.4" r=".9"/><circle cx="47" cy="30.3" r=".9"/></g>
+      <path d="M55 2v3.5M55 28.5V32" stroke="#6f777d" stroke-width="1.1"/></svg>` },
     // sonstige Unterkunft: Hütte mit Satteldach
     unterkunft: { w: 30, h: 22, svg: `<svg viewBox="0 0 60 44" aria-hidden="true">
       <rect x="1" y="1" width="58" height="42" rx="2" fill="#9a6b40" stroke="#5d3b1f" stroke-width="1.5"/>
@@ -209,7 +219,7 @@
     // Kartensymbol: Draufsicht in Originalgröße (gedreht), darunter Name mit Belegungspunkt
     markerHtml(o, opts = {}) {
       const t = top(o.kind);
-      const st = this.status(o);
+      const st = window.Store.isAirbnb(o) ? this.status(o) : null;
       const rot = (o.pos && o.pos[2]) || 0;
       // halbe Höhe/Breite der gedrehten Form → Abstand für Namen und To-Do-Zähler
       const a = rot * Math.PI / 180;
@@ -217,7 +227,7 @@
       const rx = (Math.abs(t.w * Math.cos(a)) + Math.abs(t.h * Math.sin(a))) / 2;
       return `<div class="unit-mk${opts.selected ? ' is-selected' : ''}" style="--w:${t.w}px;--h:${t.h}px;--r:${ry.toFixed(1)}px;--rx:${rx.toFixed(1)}px;--rot:${rot}deg">
         <div class="unit-shape">${t.svg}</div>
-        <span class="unit-name"><i class="pol-dot is-${st.cls}"></i>${h(o.name)}</span>${opts.extra || ''}</div>`;
+        <span class="unit-name">${st ? `<i class="pol-dot is-${st.cls}"></i>` : ''}${h(o.name)}</span>${opts.extra || ''}</div>`;
     },
 
     // Kachel: eigenes Foto oder Draufsicht (Infofenster, Übersicht)
