@@ -28,17 +28,17 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 ## Technik
 - Statische Web-App (Vanilla JS, Hash-Router), gehostet auf **GitHub Pages**:
   https://joelcode3.github.io/WCH-web-app-test/
-- **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Function `airbnb-kalender`).
+- **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Functions `airbnb-kalender`, `hue-waechter`).
   Zugangsdaten in `js/config.js` (nur der öffentliche Publishable Key – **nie** nach dem Secret-/Service-Key fragen).
   Zugriff nur für E-Mails in der Tabelle `team` (RLS über `is_team_member()`).
 - Dateien: `js/data.js` (Datenmodell, Store), `js/cloud.js` (Supabase-Sync, nur Änderungen),
-  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/photos.js`, `js/auth.js`.
+  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/waechter.js`, `js/photos.js`, `js/auth.js`.
 - **Versionsnummer** `?v=JJJJMMTT-n` an allen CSS/JS-/Plan-Dateien in `index.html` und `js/config.js`
   bei jeder Änderung hochzählen (sonst zeigt der Browser alte Dateien).
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-8 (zuletzt: Tabelle `asmus_eintraege` für die Projektliste des Spiels, getrennt von den Platzdaten).
+  Bisher: update-2 … update-9 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue).
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;
   `tools/render_plan.js` rendert `assets/platzplan.png` (Hintergrund). Eingaben: AutoCAD-PDFs (nicht im Repo).
   Danach `tools/parcels_grow.py`: Parzellen etwas größer (Lücke zu Nachbarn ca. 0,6 m, Abstand zu Wegen bleibt).
@@ -48,13 +48,27 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.
 
-## Offene Themen (Stand 16.10.2026)
-- **App-Logo und Titel ändern** – wartet auf Titel und Logo-Datei/Beschreibung vom Betreiber.
+## Offene Themen (Stand 22.10.2026) – nur auf Zuruf des Betreibers bauen
+- **App-Logo** erledigt (Tanne + Schriftzug aus dem Original, App-Symbol cremeweiße Tanne). Titel unter dem
+  Home-Bildschirm-Symbol ist noch „Platzverwaltung“ – ändern, falls der Betreiber einen anderen Namen nennt.
+- **Hue-Marderschreck** (Steckdose nach airbnb-Belegung schalten) – vom Betreiber erstmal gestrichen.
+- **Stromwächter Londonbusse – GEBAUT (22.10.2026)**: `supabase/functions/hue-waechter` (Hue Remote API,
+  OAuth je Bridge, SMS über seven.io), `supabase/update-9.sql` (Tabellen hue_bridges/hue_oauth geheim,
+  waechter_status für Team lesbar), `supabase/waechter-zeitplan.sql` (pg_cron alle 5 Min.), `js/waechter.js`
+  (Anzeige im airbnb-Fenster, Reiter airbnb, Warnzeichen auf der Map). Regeln: Bridge > 15 Min. nicht
+  erreichbar → SMS, Temperatur < 5 °C 10 Min. → SMS (Entwarnung ab 6 °C), Batterie ≤ 15 % → SMS; keine
+  separate Warnung für Stromausfall im Bad (vom Betreiber so gewünscht). Einrichtung: SETUP.md.
+  Tests der Funktion: Deno mit nachgestellter DB/Hue/SMS (createWaechter(db, env, fetch, now)).
+- **Kalender-Reiter + großer Touchscreen** (Idee, noch nicht bauen): Termine aus To-Dos, airbnb An-/Abreisen,
+  Auszüge/Pachtbeginn, ggf. eigene Termine; Touch-/Kiosk-Ansicht. Betreiber kauft erst einen Monitor
+  (Vorschläge: Samsung Flip Pro WM55B, Optoma N3551K, iiyama TF4339MSC + Mini-PC mit Windows 11 Pro).
+  Vor dem Bau klären: nur Team oder auch Gäste (dann Gästeansicht ohne Namen), Ausrichtung, Gerät.
+- **Versions-Check** („Neue Version verfügbar – neu laden“) angeboten, Betreiber hat noch nicht entschieden.
 - **Eigene Adresse** (z. B. `platz.waldcamping-hesedorf.de` per CNAME auf `joelcode3.github.io`,
   danach Supabase „Site URL“ anpassen) – Betreiber entscheidet noch.
 - **Weitere Benutzer** – Anleitung gegeben (Supabase: Add user + `insert into public.team`); Rollen mit
   eingeschränkten Rechten wären möglich, falls gewünscht.
-- **Wege-Skizze** vom Betreiber für weitere Wege im Lageplan.
-- **Fernauslesung**: Strom über MID-Modbus-Zähler + LoRaWAN, Gastanks über Telemetrie (Lieferant fragen) –
-  App-Anbindung bauen, sobald Hardware feststeht.
-- iPhone: App ging zuletzt nicht auf – Lösungsschritte geschickt, Rückmeldung/Screenshot abwarten.
+- **Weitere Wege und Objekte auf der Map** – Betreiber meldet sich mit Aufgaben (ggf. Wege-Skizze).
+- **Fernauslesung/Fernschalten Stromkästen**: Strom über MID-Zähler (Modbus/LoRaWAN), Schalten z. B. Shelly
+  Pro 4PM (WLAN) oder Komplettsystem (Camping-Strom, Fernauslese.de); Gastanks über Telemetrie (Lieferant
+  fragen) – App-Anbindung erst, wenn Hardware feststeht.

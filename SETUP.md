@@ -79,6 +79,47 @@ Die Kalender-Links (Airbnb → Inserat → Verfügbarkeit → Kalender verbinden
 trägt man in der App ein: Karte → Unterkunft antippen → **Bearbeiten** → „Airbnb-Kalender-Link“.
 Sie stehen nur in der geschützten Datenbank, nicht im öffentlichen GitHub-Projekt.
 
+### Stromausfall- und Frostwarnung (Londonbusse, Hue Bridge, SMS)
+
+Die Supabase-Funktion `hue-waechter` prüft alle 5 Minuten jede verbundene Hue Bridge:
+ist sie länger als 15 Minuten nicht erreichbar (möglicher Stromausfall), fällt ein
+Hue-Bewegungsmelder 10 Minuten lang unter 5 °C (Frostgefahr) oder wird eine Melder-Batterie
+schwach, kommt eine SMS – und eine Entwarnung, sobald alles wieder in Ordnung ist.
+In der App steht der Zustand beim Bus (Map → Bus antippen) und im Reiter **airbnb**.
+
+Einmal einrichten (ca. 45 Minuten):
+
+1. **Datenbank:** `supabase/update-9.sql` im **SQL Editor** ausführen.
+2. **SMS-Dienst (seven.io):** auf seven.io ein Konto anlegen, Guthaben aufladen (z. B. 10 €),
+   dann unter **Developer → API Keys** einen Schlüssel erzeugen und kopieren.
+3. **Hue-Entwicklerzugang:** auf developers.meethue.com anmelden (kostenlos registrieren),
+   oben **Remote Hue API appids** → **Add new Remote Hue API appid**:
+   - App name: `Platzverwaltung Waldcamping`
+   - Callback URL: `https://erobbkjhfauwvzfegeiw.supabase.co/functions/v1/hue-waechter`
+   - Application description: `Stromausfall- und Frostwarnung`
+   → **Submit**. Angezeigt werden **ClientId** und **ClientSecret** – gleich gebraucht.
+4. **Funktion anlegen:** Supabase → **Edge Functions** → **Deploy a new function** → **Via Editor**,
+   Name genau `hue-waechter`, Beispieltext löschen, kompletten Inhalt von
+   `supabase/functions/hue-waechter/index.ts` einfügen → **Deploy function**.
+   Danach bei der Funktion unter **Details** den Schalter **Verify JWT** ausschalten und speichern
+   (die Hue-Anmeldung springt ohne Login zur Funktion zurück; alle Knöpfe prüfen selbst das Team-Login).
+5. **Geheime Einstellungen:** Supabase → **Edge Functions** → **Secrets** → je **Add new secret**:
+   - `HUE_CLIENT_ID` = ClientId aus Schritt 3
+   - `HUE_CLIENT_SECRET` = ClientSecret aus Schritt 3
+   - `SEVEN_API_KEY` = Schlüssel aus Schritt 2
+   - `SMS_EMPFAENGER` = Handynummern, mit Komma getrennt, z. B. `0171 1234567, 0160 7654321`
+   - optional `SMS_ABSENDER` = Absendername (max. 11 Zeichen, Standard `WCHesedorf`)
+   Diese Werte stehen nur bei Supabase, nicht im öffentlichen GitHub-Projekt.
+6. **5-Minuten-Takt:** `supabase/waechter-zeitplan.sql` im **SQL Editor** ausführen.
+7. **Busse verbinden:** In der App Map → Londonbus 1 antippen → **Mit Hue verbinden** → mit dem
+   Hue-Konto anmelden, bei mehreren Bridges **die Bridge von Bus 1** wählen, erlauben → die App
+   meldet „Hue verbunden“. Dasselbe für Londonbus 2 (dort die andere Bridge wählen).
+8. **Test-SMS** im selben Fenster antippen – die SMS sollte in wenigen Sekunden ankommen.
+
+Temperatur: Hue-Bewegungsmelder (innen) ganz normal in der Hue-App an der Bridge des Busses
+anmelden und sinnvoll benennen (z. B. „Bad Bus 1“). Er erscheint dann automatisch beim Bus.
+Im kalten Bus Lithium-AAA-Batterien verwenden.
+
 ### Pausieren verhindern (kostenloses Supabase-Paket)
 
 Supabase pausiert kostenlose Projekte nach 7 Tagen ohne Nutzung. Die GitHub-Aufgabe
