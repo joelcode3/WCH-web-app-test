@@ -651,6 +651,7 @@
               ${MapView.editMode ? this.rotButtons() : ''}
             </div>
           </div>
+          ${window.Waechter ? Waechter.panelHtml(o, MapView.editMode) : ''}
           <div id="airbnb-cal">${Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m)}</div>
           ${o.notes ? `<p class="small" style="margin:8px 0 0;white-space:pre-line">${h(o.notes)}</p>` : ''}
           ${todoSection('place', o.id, true)}
@@ -676,6 +677,7 @@
     },
 
     bindAirbnbPanel(panel, o) {
+      if (window.Waechter) Waechter.bind(panel, o, toast);
       const cal = $('#airbnb-cal', panel);
       cal.addEventListener('click', (e) => {
         const b = e.target.closest('[data-cal]');
@@ -691,7 +693,7 @@
         inp.value = '';
         if (!file || blockIfMissing()) return;
         if (S.mode === 'cloud' && Cloud.missingCols.has('places.photo')) { alert('Für Fotos bitte zuerst supabase/update-7.sql ausführen.'); return; }
-        $('.tile-change', panel).textContent = 'lädt …';
+        $('.tile-change', panel).classList.add('is-busy');
         try {
           const old = o.photo;
           o.photo = await Photos.add(`ort-${o.id}`, file);
@@ -702,7 +704,7 @@
           toast('Foto gespeichert');
         } catch (err) {
           alert(`Foto konnte nicht gespeichert werden:\n${err.message || err}`);
-          $('.tile-change', panel).textContent = 'Foto hinzufügen';
+          $('.tile-change', panel).classList.remove('is-busy');
         }
       };
     },
@@ -2730,6 +2732,7 @@
               ${Airbnb.tileHtml(o)}
               <div class="ab-info"><strong>${h(o.name)}</strong>
                 <span class="muted small">${h(S.PLACE_KINDS[o.kind].label)}</span>
+                ${window.Waechter ? Waechter.chipHtml(o.id) : ''}
                 ${Airbnb.errors[o.id] ? `<span class="small warn">${h(Airbnb.errors[o.id])}</span>` : ''}
                 ${!o.icalUrl ? '<span class="small muted">kein Kalender-Link hinterlegt</span>' : ''}
                 ${occ !== null ? `<span class="muted small">${occ} % belegt im ${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][t.getMonth()]}</span>` : ''}
@@ -2893,8 +2896,20 @@
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
     });
     Airbnb.load();
+    // Stromwächter (Hue): Zustand laden, alle 2 Minuten und beim Zurückkehren zur App auffrischen
+    Waechter.onChange(() => {
+      MapView.render();
+      const sel = MapView.selected;
+      if (!$('#view-karte').hidden && sel && sel.type === 'place') MapUI.showPanel('place', sel.id);
+      if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
+    });
+    Waechter.handleReturn(toast);
+    Waechter.load();
+    setInterval(() => { if (document.visibilityState === 'visible') Waechter.load(); }, 2 * 60000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Waechter.load(); });
     // Daten erst nach dem Start aus der Cloud geladen? Dann Kalender sofort nachholen
     S.onSync(() => { if (!Airbnb.fetchedAt && S.airbnbs().length) Airbnb.load(); });
+    S.onSync(() => { if (S.mode === 'cloud' && !Waechter.syncedOnce) { Waechter.syncedOnce = true; Waechter.load(); } });
     loadPlacePhotos();
     setInterval(() => Airbnb.load(true), 30 * 60000);
 

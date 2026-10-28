@@ -78,8 +78,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
   --wm-h: 18px;
   display: block; flex: none; height: var(--wm-h); width: calc(var(--wm-h) * 12.132); max-width: 100%;
   background: currentColor;
-  -webkit-mask: url(../assets/wordmark.svg?v=20261016-20) left center / contain no-repeat;
-  mask: url(../assets/wordmark.svg?v=20261016-20) left center / contain no-repeat;
+  -webkit-mask: url(../assets/wordmark.svg?v=20261022-1) left center / contain no-repeat;
+  mask: url(../assets/wordmark.svg?v=20261022-1) left center / contain no-repeat;
 }
 .brand-text small { font-size: .62rem; opacity: .8; letter-spacing: .14em; text-transform: uppercase; margin-top: 4px; }
 
@@ -832,3 +832,29 @@ body.is-locked { padding-bottom: 0; }
   transition: top .25s cubic-bezier(0, 0, .25, 1), left .25s cubic-bezier(0, 0, .25, 1), width .25s cubic-bezier(0, 0, .25, 1), height .25s cubic-bezier(0, 0, .25, 1); }
 .leaflet-zoom-anim .easter-trike { transition: transform .25s cubic-bezier(0, 0, .25, 1), width .25s cubic-bezier(0, 0, .25, 1),
   height .25s cubic-bezier(0, 0, .25, 1), margin .25s cubic-bezier(0, 0, .25, 1); }
+
+/* Stromwächter (Hue): Abschnitt im Infofenster, Statuszeile im Reiter airbnb, Warnzeichen auf der Map */
+.wd-box { margin: 12px 0 4px; padding: 10px 12px; border: 1px solid var(--line, #e2dccd); border-radius: var(--radius-s); background: #fff; }
+.wd-box.is-alarm { border-color: #c0392b; background: #fdf1ef; }
+.wd-box.is-warn { border-color: #e2a33a; background: #fff8ec; }
+.wd-box h3 { margin: 0 0 6px; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-leise); }
+.wd-box p { margin: 6px 0 0; }
+.wd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .9rem; }
+.wd-list li { display: flex; align-items: baseline; gap: 7px; }
+.wd-list li i, .wd-chip i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #9aa1a7; transform: translateY(-1px); }
+.wd-list li.is-ok i, .wd-chip.is-ok i { background: #3f9a52; }
+.wd-list li.is-warn i, .wd-chip.is-warn i { background: #e2a33a; }
+.wd-list li.is-alarm i, .wd-chip.is-alarm i { background: #c0392b; }
+.wd-list li.is-alarm { color: #9b2b1f; font-weight: 600; }
+.wd-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.wd-chip { display: inline-flex; align-items: center; gap: 6px; font-size: .8rem; color: var(--text-leise); }
+.wd-chip.is-alarm { color: #9b2b1f; font-weight: 700; }
+.wd-chip.is-warn { color: #8a5a0a; font-weight: 600; }
+.wd-badge { position: absolute; left: calc(-1 * var(--rx) * var(--unit-s, 1) - 4px); top: calc(-1 * var(--r) * var(--unit-s, 1) - 8px);
+  width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font: 800 11px/1 var(--font-body);
+  color: #fff; background: #c0392b; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); pointer-events: none; }
+.wd-badge.is-warn { background: #e2a33a; }
+.wd-badge.is-alarm { animation: wd-blink 1.4s ease-in-out infinite; }
+@keyframes wd-blink { 50% { transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { .wd-badge.is-alarm { animation: none; } }
+.tile-change.is-busy { opacity: .5; animation: wd-blink 1s ease-in-out infinite; }
