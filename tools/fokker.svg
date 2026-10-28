@@ -1,0 +1,8 @@
+<path d="M2 1.5h50c14 0 26 5 34 12.5c1.6 1.6 1.6 4.4 0 6C78 27.5 66 32.5 52 32.5H2z" fill="#f4f4f1" stroke="#6f777d" stroke-width="1.5" stroke-linejoin="round"/>
+<path d="M2 1.5h4v31H2z" fill="#9aa1a6" stroke="#6f777d" stroke-width="1.2"/>
+<path d="M8 17H58" stroke="#e3e5e4" stroke-width="6" stroke-linecap="round"/>
+<path d="M66 8.5c5 1.5 9 4 12 8.5c-3 4.5-7 7-12 8.5c1.6-2.6 2.4-5.4 2.4-8.5s-.8-5.9-2.4-8.5z" fill="#2c3b44"/>
+<path d="M70.5 10.6l-1.6 3.4M70.5 23.4l-1.6-3.4M68.8 17h2.6" stroke="#f4f4f1" stroke-width=".9"/>
+<g fill="#5d6f7c"><circle cx="12" cy="3.6" r=".9"/><circle cx="19" cy="3.6" r=".9"/><circle cx="26" cy="3.6" r=".9"/><circle cx="33" cy="3.6" r=".9"/><circle cx="40" cy="3.6" r=".9"/><circle cx="47" cy="3.7" r=".9"/>
+<circle cx="12" cy="30.4" r=".9"/><circle cx="19" cy="30.4" r=".9"/><circle cx="26" cy="30.4" r=".9"/><circle cx="33" cy="30.4" r=".9"/><circle cx="40" cy="30.4" r=".9"/><circle cx="47" cy="30.3" r=".9"/></g>
+<path d="M55 2v3.5M55 28.5V32" stroke="#6f777d" stroke-width="1.1"/>

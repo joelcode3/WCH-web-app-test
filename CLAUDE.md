@@ -42,6 +42,10 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;
   `tools/render_plan.js` rendert `assets/platzplan.png` (Hintergrund). Eingaben: AutoCAD-PDFs (nicht im Repo).
   Danach `tools/parcels_grow.py`: Parzellen etwas größer (Lücke zu Nachbarn ca. 0,6 m, Abstand zu Wegen bleibt).
+  Danach `tools/plan_extras.py` (Daten in `tools/plan_extras.json`, nach Skizzen des Betreibers): Wege/Schotter in Wegfarbe
+  mit nahtlosen Übergängen, Wald (Bäume fest in der JSON, einzeln löschbar), Teiche, Spielplatz, Seilbahn, Shelter,
+  Hundewiese, Terrasse, Gebäude. Dann `node tools/render_plan.js`. Flugzeug (Fokker-100-Bug) ist ein drehbarer Ort
+  (Art `flugzeug`, `top: true`). Orte aus dem Plan legt `Store.ensurePlanPlaces()` einmal je Gerät an (feste IDs `o-plan-*`).
   Geänderte Nummern/Umrisse übernimmt die App über „Daten → Neue Nummern/Umrisse übernehmen“ (Zuordnung über die Lage,
   Mieter/Zähler bleiben erhalten). Nie die Daten durch einen leeren Plan ersetzen.
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).
@@ -68,7 +72,6 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   danach Supabase „Site URL“ anpassen) – Betreiber entscheidet noch.
 - **Weitere Benutzer** – Anleitung gegeben (Supabase: Add user + `insert into public.team`); Rollen mit
   eingeschränkten Rechten wären möglich, falls gewünscht.
-- **Weitere Wege und Objekte auf der Map** – Betreiber meldet sich mit Aufgaben (ggf. Wege-Skizze).
 - **Fernauslesung/Fernschalten Stromkästen**: Strom über MID-Zähler (Modbus/LoRaWAN), Schalten z. B. Shelly
   Pro 4PM (WLAN) oder Komplettsystem (Camping-Strom, Fernauslese.de); Gastanks über Telemetrie (Lieferant
   fragen) – App-Anbindung erst, wenn Hardware feststeht.

@@ -304,7 +304,7 @@
           const isSel = sel && sel.type === 'place' && sel.id === o.id;
           const kind = Store.PLACE_KINDS[o.kind] || Store.PLACE_KINDS.sonstiges;
           const name = o.name || kind.label;
-          const airbnb = kind.airbnb && window.Airbnb;
+          const airbnb = (kind.airbnb || kind.top) && window.Airbnb;   // Draufsicht statt Stecknadel
           const m = L.marker(toLL(o.pos), {
             icon: L.divIcon({
               className: '',
