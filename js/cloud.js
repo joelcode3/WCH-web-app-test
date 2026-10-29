@@ -94,6 +94,21 @@
         assignee: r.assignee || '', photos: r.photos || [], createdAt: r.created_at, doneAt: r.done_at || '',
       }),
     },
+    // Neu mit Update 10 – Kalender (fehlt die Tabelle, läuft die App ohne Kalender-Einträge weiter)
+    {
+      key: 'termine',
+      optional: true,
+      toRow: (k) => ({
+        id: k.id, art: k.kind || 'termin', titel: k.title || '', beginn: k.start, ende: k.end || k.start,
+        zeit_von: k.timeFrom || '', zeit_bis: k.timeTo || '', orte: k.targets || [], personen: k.persons || [],
+        notizen: k.notes || '', created_at: k.createdAt,
+      }),
+      fromRow: (r) => ({
+        id: r.id, kind: r.art || 'termin', title: r.titel || '', start: r.beginn, end: r.ende || r.beginn,
+        timeFrom: r.zeit_von || '', timeTo: r.zeit_bis || '', targets: r.orte || [], persons: r.personen || [],
+        notes: r.notizen || '', createdAt: r.created_at,
+      }),
+    },
   ];
 
   // Spalten aus späteren Updates: fehlen sie noch, werden sie beim Speichern weggelassen

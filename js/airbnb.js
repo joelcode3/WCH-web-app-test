@@ -62,7 +62,8 @@
   /* ---------- Belegung ---------- */
   const Airbnb = {
     top,
-    events: {},          // Ort-ID → [{ start, end, type }]
+    events: {},          // Ort-ID → [{ start, end, type }] (Kalender + gespeicherte vergangene Buchungen)
+    since: {},           // Ort-ID → erster Tag mit aufgezeichneter Belegung (davor unbekannt)
     errors: {},          // Ort-ID → Fehlermeldung
     state: 'idle',       // idle | loading | ok | demo | missing | needsUpdate | error
     error: '',
@@ -88,6 +89,8 @@
         const data = await Cloud.calendars();
         this.events = {}; this.errors = {};
         (data.units || []).forEach((u) => { if (u.error) this.errors[u.id] = u.error; else this.events[u.id] = u.events || []; });
+        // airbnb liefert vergangene Buchungen nicht mehr mit → selbst aufzeichnen (Update 10)
+        try { await this._history(); } catch (e) { console.warn('Belegungsverlauf', e); }
         this.state = 'ok';
         this.error = '';
         this.fetchedAt = Date.now();
@@ -101,6 +104,37 @@
           : e.message;
       }
       this._emit();
+    },
+
+    // Belegung in der Tabelle airbnb_belegung speichern und vergangene Buchungen ergänzen
+    async _history() {
+      if (Cloud.missing.has('airbnb_belegung')) return;
+      const t = todayIso();
+      const tbl = () => Cloud.client.from('airbnb_belegung');
+      const live = Object.entries(this.events);
+      const rows = live.flatMap(([id, ev]) => ev.map((e) => ({ place_id: id, anreise: e.start, abreise: e.end, art: e.type })));
+      if (rows.length) {
+        const { error } = await tbl().upsert(rows, { onConflict: 'place_id,anreise,abreise', ignoreDuplicates: true });
+        if (error) {
+          if (/PGRST205|42P01|schema cache|does not exist|Could not find the table/i.test(`${error.code} ${error.message}`)) { Cloud.missing.add('airbnb_belegung'); return; }
+          throw error;
+        }
+      }
+      const { data, error } = await tbl().select('place_id, anreise, abreise, art, seen_at').limit(10000);
+      if (error) throw error;
+      // stornierte künftige Buchungen wieder entfernen (nur Unterkünfte, deren Kalender gerade geladen wurde)
+      const liveKeys = new Set(rows.map((r) => `${r.place_id}|${r.anreise}|${r.abreise}`));
+      const gone = data.filter((r) => this.events[r.place_id] && r.anreise >= t && !liveKeys.has(`${r.place_id}|${r.anreise}|${r.abreise}`));
+      for (const r of gone) await tbl().delete().match({ place_id: r.place_id, anreise: r.anreise, abreise: r.abreise });
+      const goneKeys = new Set(gone.map((r) => `${r.place_id}|${r.anreise}|${r.abreise}`));
+      this.since = {};
+      data.forEach((r) => {
+        if (goneKeys.has(`${r.place_id}|${r.anreise}|${r.abreise}`) || !this.events[r.place_id]) return;
+        const seen = String(r.seen_at || '').slice(0, 10);
+        if (seen && (!this.since[r.place_id] || seen < this.since[r.place_id])) this.since[r.place_id] = seen;
+        if (!liveKeys.has(`${r.place_id}|${r.anreise}|${r.abreise}`)) this.events[r.place_id].push({ start: r.anreise, end: r.abreise, type: r.art });
+      });
+      Object.values(this.events).forEach((ev) => ev.sort((a, b) => a.start.localeCompare(b.start)));
     },
 
     // erfundene Belegung für den Testmodus (fest je Unterkunft)
@@ -118,6 +152,7 @@
           d = addDays(d, nights + Math.floor(rnd() * 6));
         }
         this.events[o.id] = out;
+        this.since[o.id] = addDays(todayIso(), -20);
       });
       this.state = 'demo';
       this.fetchedAt = Date.now();
@@ -146,12 +181,24 @@
       return { cls: 'free', busy: false, text: next ? `frei bis ${fmtShort(next.start)}` : 'frei' };
     },
 
-    // Anteil belegter Nächte im Monat (0…1)
+    // Anteil belegter Nächte im Monat (0…1) – nur Tage, für die die Belegung bekannt ist
+    // (vor Beginn der Aufzeichnung kennt die App nur Buchungen, die damals noch im Kalender standen); null = unbekannt
     occupancy(o, y, m) {
       const days = new Date(y, m + 1, 0).getDate();
-      let n = 0;
-      for (let d = 1; d <= days; d++) if (this.eventOn(o, `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`)) n++;
-      return n / days;
+      const since = this.since[o.id] || todayIso();
+      let n = 0, known = 0;
+      for (let d = 1; d <= days; d++) {
+        const day = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const busy = this.eventOn(o, day);
+        if (busy) n++;
+        if (busy || day >= since) known++;
+      }
+      return known ? n / known : null;
+    },
+    occupancyPct(o, y, m) {
+      if (!this.hasData(o)) return null;
+      const v = this.occupancy(o, y, m);
+      return v === null ? null : Math.round(v * 100);
     },
 
     // Tagesklasse: belegt / gesperrt, Anreise- bzw. Abreisetag halb
@@ -178,10 +225,10 @@
         const s = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         cells += `<span class="cal-day ${this._dayCls(o, s)}${s === t ? ' is-today' : ''}${s < t ? ' is-past' : ''}">${d}</span>`;
       }
-      const occ = this.hasData(o) ? Math.round(this.occupancy(o, y, m) * 100) : null;
+      const occ = this.occupancyPct(o, y, m);
       return `<div class="cal">
         <div class="cal-head"><button type="button" class="cal-nav" data-cal="-1" aria-label="Vormonat">‹</button>
-          <strong>${MONTHS[m]} ${y}</strong>${occ !== null ? `<span class="muted small">${occ} % belegt</span>` : ''}
+          <strong>${MONTHS[m]} ${y}</strong>${occ !== null ? `<span class="muted small">${occ} % belegt</span>` : this.hasData(o) ? '<span class="muted small" title="Vergangene Belegung zeichnet die App erst seit Update 10 auf">keine Daten</span>' : ''}
           <button type="button" class="cal-nav" data-cal="1" aria-label="Nächster Monat">›</button></div>
         <div class="cal-grid">${WD.map((w) => `<span class="cal-wd">${w}</span>`).join('')}${cells}</div>
         <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>geblockt</span><span><i class="free"></i>frei</span></div>
