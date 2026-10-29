@@ -78,8 +78,8 @@
 
     // aktuelle Temperatur gut sichtbar oben im Infofenster der Unterkunft
     tempHtml(o) {
-      if (!this.available()) return '';
-      const r = this.get(o.id);
+      // bei den Bussen immer anzeigen – auch wenn der Stromwächter (noch) nicht eingerichtet ist
+      const r = this.available() ? this.get(o.id) : null;
       const temps = ((r && r.sensors) || []).filter((x) => typeof x.temp === 'number');
       if (!temps.length) return o.kind === 'londonbus' ? '<div class="wd-temp is-none"><span class="small muted">Temperatur: noch kein Sensor</span></div>' : '';
       const t = Math.min(...temps.map((x) => x.temp));
