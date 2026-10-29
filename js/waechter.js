@@ -76,6 +76,19 @@
       return `<span class="wd-badge is-${s.level}" title="${h(s.text)}">!</span>`;
     },
 
+    // aktuelle Temperatur gut sichtbar oben im Infofenster der Unterkunft
+    tempHtml(o) {
+      if (!this.available()) return '';
+      const r = this.get(o.id);
+      const temps = ((r && r.sensors) || []).filter((x) => typeof x.temp === 'number');
+      if (!temps.length) return o.kind === 'londonbus' ? '<div class="wd-temp is-none"><span class="small muted">Temperatur: noch kein Sensor</span></div>' : '';
+      const t = Math.min(...temps.map((x) => x.temp));
+      const upd = temps.map((x) => x.updated).filter(Boolean).sort().pop();
+      return `<div class="wd-temp${t < FROST_TEMP ? ' is-alarm' : ''}" title="${h(temps.map((x) => `${x.name}: ${deg(x.temp)}`).join(', '))}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z M12 9v6"/></svg>
+        <strong>${deg(t)}</strong><span class="small muted">innen${upd ? ` · ${time(upd)}` : ''}</span></div>`;
+    },
+
     // Zeile für die Karten im Reiter airbnb
     chipHtml(id) {
       const s = this.available() && this.summary(id);

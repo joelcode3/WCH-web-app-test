@@ -15,7 +15,8 @@
   const fmtNum = (v, digits = 0) => (v === null || v === undefined || v === '' || isNaN(v)) ? '–'
     : Number(v).toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: 2 });
   const fmtDate = (d) => (d ? d.split('-').reverse().join('.') : '–');
-  const today = () => new Date().toISOString().slice(0, 10);
+  // heutiges Datum in Ortszeit (toISOString wäre UTC – nach Mitternacht sonst noch "gestern")
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const unit = (type) => CFG.units[type] || '';
   const parseNum = (str) => {
     if (str === null || str === undefined) return NaN;
@@ -645,6 +646,7 @@
             <label class="tile-wrap" title="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${Airbnb.tileHtml(o, { big: true })}
               <span class="tile-change" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}</span><input type="file" accept="image/*" hidden data-place-photo></label>
             <div class="airbnb-status">
+              ${window.Waechter ? Waechter.tempHtml(o) : ''}
               ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
               ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
               ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
@@ -897,8 +899,6 @@
         MapUI.hidePanel();
         MapView.startDraw((points) => {
           p.geometry = points;
-          const area = S.polygonArea(points);
-          if (area && !p.size) p.size = area;
           S.save();
           go(`#/karte/parcel/${p.id}`);
           toast(`Umriss von Parzelle ${p.nr} gespeichert`);
@@ -930,11 +930,11 @@
               if (nrA === nrB || S.findParcelByNr(nrA, p.id) || S.findParcelByNr(nrB)) { alert('Diese Parzellen-Nummer ist schon vergeben.'); return false; }
               const [ga, gb] = res;
               const aa = Geo.area(ga), ab = Geo.area(gb);
-              const total = Number(p.size) || S.polygonArea(p.geometry) || 0;
+              const total = Number(p.size) || 0;   // nur eingetragene Größe aufteilen, keine Schätzung aus der Map
               const nb = newParcel(nrB, 'leer');
               nb.geometry = gb;
-              nb.size = total ? Math.round(total * ab / (aa + ab)) : S.polygonArea(gb);
-              Object.assign(p, { nr: nrA, geometry: ga, size: total ? Math.round(total * aa / (aa + ab)) : S.polygonArea(ga) });
+              nb.size = total ? Math.round(total * ab / (aa + ab)) : '';
+              Object.assign(p, { nr: nrA, geometry: ga, size: total ? Math.round(total * aa / (aa + ab)) : '' });
               S.data.parcels.push(nb);
               S.save();
               toast(`Parzelle geteilt: ${nrA} und ${nrB}`);
@@ -963,7 +963,7 @@
           if (!confirm(`Parzelle ${o.nr} mit ${p.nr} verbinden?\n\n${o.nr} wird aufgelöst${hasData ? `; ihre Zähler gehen auf ${p.nr} über, Mieterangaben von ${o.nr} entfallen` : ''}.`)) {
             go(`#/karte/parcel/${p.id}`); return;
           }
-          const size = (Number(p.size) && Number(o.size)) ? Number(p.size) + Number(o.size) : S.polygonArea(g);
+          const size = (Number(p.size) && Number(o.size)) ? Number(p.size) + Number(o.size) : '';
           Object.assign(p, { geometry: g, size });
           S.data.meters.forEach((m) => { if (m.parcelId === o.id) m.parcelId = p.id; });
           S.data.parcels = S.data.parcels.filter((x) => x.id !== o.id);
@@ -992,7 +992,7 @@
             MapUI.hidePanel();
             MapView.startDraw((points) => {
               p.geometry = points;
-              p.size = S.polygonArea(points) || '';
+              p.size = '';
               S.data.parcels.push(p);
               S.save();
               go(`#/karte/parcel/${p.id}`);
@@ -1109,7 +1109,6 @@
       const meters = S.metersOf(p.id);
       const strom = meters.filter((m) => m.type === 'strom');
       const gas = meters.filter((m) => m.type === 'gas');
-      const area = S.polygonArea(p.geometry);
       const tank = p.gas === 'tank' ? S.tank(p.gasTankId) : null;
 
       const meterBlock = (m) => {
@@ -1181,7 +1180,7 @@
                 <dt>Objektart</dt><dd>${h(objectOf(p).label)}</dd>
                 <dt>${h(objectOf(p).rentLabel)}</dt><dd>${fmtEuro(p.rent)}</dd>
                 <dt>Winterwasser</dt><dd>${yesNo(p.winterWater)}</dd>
-                <dt>Größe</dt><dd>${p.size ? fmtNum(p.size) + ' m²' : '–'}${area && CFG.map.isPlaceholder === false ? ` <span class="muted small">(Map: ≈ ${fmtNum(area)} m²)</span>` : ''}</dd>
+                <dt>Größe</dt><dd>${p.size ? fmtNum(p.size) + ' m²' : '–'}</dd>
               </dl>
             </section>
             <section class="card">
@@ -2392,7 +2391,8 @@
     const o = S.target(t);
     if (!o) return `<span>${ICON.pin}${txt}</span>`;
     const icon = t.targetType === 'place' ? S.PLACE_KINDS[o.kind].icon : t.targetType === 'box' ? ICON.strom : t.targetType === 'tank' ? ICON.gas : ICON.map;
-    return `<span>${icon} ${txt}</span>`;
+    const who = t.targetType === 'parcel' && o.tenant && o.tenant.name ? ` · ${h(o.tenant.name)}` : '';
+    return `<span>${icon} ${txt}${who}</span>`;
   }
 
   // Updates des Zähler-Symbols im Menü
@@ -2482,7 +2482,7 @@
       const back = backParam('#/todos');
       $('#t-list').innerHTML = list.length ? list.map((t) => {
         const st = todoStatus(t);
-        return `<li><a class="card-row todo-row${t.status === 'erledigt' ? ' is-done' : ''}" href="#/todo/${t.id}?${back}" style="--c:${st.color}">
+        return `<li class="todo-li"><a class="card-row todo-row${t.status === 'erledigt' ? ' is-done' : ''}" href="#/todo/${t.id}?${back}" style="--c:${st.color}">
           ${t.photos.length ? `<img class="todo-thumb" data-thumb="${t.id}" alt="" loading="lazy">` : ''}
           <div class="main">
             <div class="name">${h(t.title || '(ohne Titel)')}</div>
@@ -2495,8 +2495,29 @@
             </div>
           </div>
           <div class="side"><span class="badge"><span class="dot" style="background:${st.color}"></span>${h(st.label)}</span><span class="muted small">erstellt ${fmtDate((t.createdAt || '').slice(0, 10))}</span></div>
-        </a></li>`;
+        </a>
+        <select class="todo-act" data-todo-act="${t.id}" aria-label="Status ändern oder löschen" title="Status ändern / löschen">
+          ${Object.entries(S.TODO_STATUS).map(([k, v]) => `<option value="${k}"${t.status === k ? ' selected' : ''}>${h(v.label)}</option>`).join('')}
+          <option disabled>──────────</option>
+          <option value="__del">Aufgabe löschen</option>
+        </select></li>`;
       }).join('') : `<li class="muted" style="padding:20px;text-align:center">${S.data.todos.length ? 'Keine passenden To-Dos.' : 'Noch keine To-Dos – oben rechts eines anlegen.'}</li>`;
+      // Status direkt in der Liste ändern bzw. löschen
+      $$('[data-todo-act]').forEach((sel) => sel.addEventListener('change', () => {
+        const t = S.todo(sel.dataset.todoAct);
+        if (!t) return;
+        if (sel.value === '__del') {
+          if (!confirm(`Aufgabe „${t.title || '(ohne Titel)'}“ wirklich löschen?`)) { sel.value = t.status; return; }
+          Photos.remove(t.photos);
+          S.deleteTodo(t.id); S.save(); toast('To-Do gelöscht');
+        } else {
+          t.status = sel.value;
+          if (t.status === 'erledigt') t.doneAt = t.doneAt || today(); else t.doneAt = '';
+          S.save(); toast(`Status: ${S.TODO_STATUS[t.status].label}`);
+        }
+        this.renderList();
+        renderTodoBadge();
+      }));
       // Vorschaubilder nachladen
       const withPhoto = list.filter((t) => t.photos.length);
       if (withPhoto.length) {
@@ -2702,6 +2723,317 @@
     } catch (e) { console.warn('Fotos der Unterkünfte', e); }
   }
 
+  /* ======================================================================
+     KALENDER: eigene Einträge (Termin, längere Arbeit, Abwesenheit),
+     Termine und Fristen aus den To-Dos, Wetter für die nächsten Tage
+     ====================================================================== */
+
+  const KAL_WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  const KAL_WD_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+  const KAL_MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const addDaysIso = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return isoOf(d); };
+  const wdIdx = (s) => (new Date(s + 'T12:00:00').getDay() + 6) % 7;
+  const fmtDayLong = (s) => `${KAL_WD_LONG[wdIdx(s)]}, ${+s.slice(8)}. ${KAL_MONTHS[+s.slice(5, 7) - 1]}`;
+  const fmtDayShort = (s) => `${KAL_WD[wdIdx(s)]} ${+s.slice(8)}.${+s.slice(5, 7)}.`;
+  const deg0 = (v) => (v === null || v === undefined || isNaN(v) ? '–' : String(Math.round(v)).replace('-0', '0'));
+  const termineMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missing.has('termine');
+  const personsKnown = () => [...new Set([...assignees(), ...S.data.termine.flatMap((k) => k.persons)].map((n) => String(n).trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'de'));
+  // "place:…" / "parcel:…" → lesbarer Name (Parzelle mit Bewohner)
+  function targetName(ref) {
+    const [type, id] = String(ref).split(':');
+    const t = { targetType: type, targetId: id };
+    const o = S.target(t);
+    if (!o) return '';
+    return S.todoTargetText(t) + (type === 'parcel' && o.tenant && o.tenant.name ? ` · ${o.tenant.name}` : '');
+  }
+  function terminTitle(k) {
+    const kind = S.TERMIN_KINDS[k.kind];
+    if (k.kind === 'abwesenheit') return `${k.persons.join(', ') || 'Abwesend'}${k.title ? ` – ${k.title}` : ' abwesend'}`;
+    return k.title || kind.label;
+  }
+
+  const Kalender = {
+    month: null,   // { y, m }
+    sel: null,     // ausgewählter Tag
+
+    // alle Einträge eines Tages: eigene Einträge, To-Do-Termine, To-Do-Fristen
+    entries(d) {
+      const out = [];
+      S.data.termine.forEach((k) => {
+        if (k.start > d || (k.end || k.start) < d) return;
+        out.push({ ref: `termin:${k.id}`, color: S.TERMIN_KINDS[k.kind].color, title: terminTitle(k), kind: S.TERMIN_KINDS[k.kind].label,
+          time: k.start === d ? k.timeFrom : '', multi: k.end > k.start, first: k.start === d, k, abs: k.kind === 'abwesenheit' });
+      });
+      S.data.todos.forEach((t) => {
+        if (t.appointment && t.appointment.slice(0, 10) === d) {
+          out.push({ ref: `todo:${t.id}`, color: '#0e3a3a', title: t.title || '(ohne Titel)', kind: 'To-Do-Termin', time: t.appointment.slice(11, 16), t, done: t.status === 'erledigt' });
+        }
+        if (t.deadline === d && t.status !== 'erledigt') {
+          out.push({ ref: `todo:${t.id}`, color: '#dc3545', title: t.title || '(ohne Titel)', kind: 'Frist (To-Do)', time: '', t, frist: true });
+        }
+      });
+      // mehrtägige zuerst, dann nach Uhrzeit
+      return out.sort((a, b) => (b.multi ? 1 : 0) - (a.multi ? 1 : 0) || (a.time || '99').localeCompare(b.time || '99') || a.title.localeCompare(b.title, 'de'));
+    },
+
+    render(root) {
+      const t = today();
+      if (!this.month) { const n = new Date(); this.month = { y: n.getFullYear(), m: n.getMonth() }; }
+      if (!this.sel) this.sel = t;
+      root.innerHTML = `
+        <div class="page kal">
+          <div class="page-head">
+            <h1>Kalender</h1>
+            <button class="btn btn-ghost" data-k-new="abwesenheit">${ICON.user}<span class="btn-text">Abwesenheit</span></button>
+            <button class="btn" data-k-new="termin">${ICON.plus} Termin</button>
+          </div>
+          ${termineMissing() ? `<p class="notice"><strong>Datenbank-Update nötig:</strong> Damit eigene Kalender-Einträge gespeichert werden, bitte einmal
+            <code>supabase/update-10.sql</code> im Supabase „SQL Editor“ ausführen und die App neu laden. Termine aus den To-Dos werden schon angezeigt.</p>` : ''}
+          <section class="wx" id="k-wx"></section>
+          <div class="kal-nav">
+            <button type="button" class="btn btn-ghost btn-sm" data-k-month="-1" aria-label="Vormonat">‹</button>
+            <strong id="k-title"></strong>
+            <button type="button" class="btn btn-ghost btn-sm" data-k-month="1" aria-label="Nächster Monat">›</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-k-today>Heute</button>
+          </div>
+          <div class="kal-grid" id="k-grid"></div>
+          <div class="kal-legend">
+            ${Object.values(S.TERMIN_KINDS).map((v) => `<span><i style="background:${v.color}"></i>${h(v.label)}</span>`).join('')}
+            <span><i style="background:#0e3a3a"></i>To-Do-Termin</span><span><i style="background:#dc3545"></i>Frist</span>
+          </div>
+          <section class="kal-agenda" id="k-agenda"></section>
+        </div>`;
+      $$('[data-k-new]', root).forEach((b) => b.onclick = () => this.edit(null, b.dataset.kNew));
+      $$('[data-k-month]', root).forEach((b) => b.onclick = () => {
+        const d = new Date(this.month.y, this.month.m + +b.dataset.kMonth, 1);
+        this.month = { y: d.getFullYear(), m: d.getMonth() };
+        this.renderGrid();
+      });
+      $('[data-k-today]', root).onclick = () => {
+        const n = new Date();
+        this.month = { y: n.getFullYear(), m: n.getMonth() };
+        this.sel = today();
+        this.renderGrid(); this.renderAgenda();
+      };
+      $('#k-grid', root).addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-k-open]');
+        if (chip && window.matchMedia('(min-width: 861px)').matches) { this.open(chip.dataset.kOpen); return; }
+        const cell = e.target.closest('[data-d]');
+        if (!cell) return;
+        this.sel = cell.dataset.d;
+        this.renderGrid(); this.renderAgenda();
+        if (!window.matchMedia('(min-width: 861px)').matches) $('#k-agenda').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      $('#k-agenda', root).addEventListener('click', (e) => {
+        const it = e.target.closest('[data-k-open]');
+        if (it) this.open(it.dataset.kOpen);
+        const add = e.target.closest('[data-k-add]');
+        if (add) this.edit(null, 'termin', add.dataset.kAdd);
+      });
+      this.renderWeather();
+      this.renderGrid();
+      this.renderAgenda();
+      if (window.Wetter) Wetter.load();
+    },
+
+    renderWeather() {
+      const el = $('#k-wx');
+      if (!el || !window.Wetter) return;
+      const W = Wetter.data;
+      if (!W) {
+        el.innerHTML = `<p class="muted small" style="margin:0">${Wetter.state === 'error' ? `Wetter gerade nicht abrufbar${Wetter.error ? ` (${h(Wetter.error)})` : ''}.` : 'Wetter wird geladen …'}</p>`;
+        return;
+      }
+      const c = W.current;
+      const [ic, txt] = Wetter.kind(c.code);
+      const t = today();
+      el.innerHTML = `
+        <div class="wx-now">
+          ${Wetter.icon(ic, 'is-big')}
+          <div>
+            <div class="wx-temp">${deg0(c.temp)}°</div>
+            <div class="wx-txt">${h(txt)}</div>
+            <div class="muted small">gefühlt ${deg0(c.feels)}° · Wind ${deg0(c.wind)} km/h${c.gusts ? `, Böen ${deg0(c.gusts)}` : ''}</div>
+            <div class="muted small">Hesedorf · Stand ${new Date(W.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</div>
+          </div>
+        </div>
+        <div class="wx-days">${W.days.map((d) => {
+          const [di, dt] = Wetter.kind(d.code);
+          return `<div class="wx-day${d.date === t ? ' is-today' : ''}" title="${h(dt)}">
+            <span class="wx-wd">${d.date === t ? 'Heute' : fmtDayShort(d.date)}</span>
+            ${Wetter.icon(di)}
+            <span class="wx-mm"><strong>${deg0(d.max)}°</strong> ${deg0(d.min)}°</span>
+            <span class="wx-sub">${Wetter.icon('drop', 'is-s')}${d.snow > 0 ? `${String(Math.round(d.snow * 10) / 10).replace('.', ',')} cm Schnee` : `${String(Math.round((d.rain || 0) * 10) / 10).replace('.', ',')} mm`}${d.prob !== null && d.prob !== undefined ? ` · ${d.prob} %` : ''}</span>
+            <span class="wx-sub">${Wetter.icon('wind', 'is-s')}${deg0(d.wind)} km/h</span>
+          </div>`;
+        }).join('')}</div>`;
+    },
+
+    renderGrid() {
+      const grid = $('#k-grid');
+      if (!grid) return;
+      const { y, m } = this.month;
+      $('#k-title').textContent = `${KAL_MONTHS[m]} ${y}`;
+      const first = new Date(y, m, 1);
+      const start = addDaysIso(isoOf(first), -((first.getDay() + 6) % 7));
+      const weeks = Math.ceil((((first.getDay() + 6) % 7) + new Date(y, m + 1, 0).getDate()) / 7);
+      const t = today();
+      let html = KAL_WD.map((w, i) => `<span class="kal-wd${i >= 5 ? ' is-we' : ''}">${w}</span>`).join('');
+      for (let i = 0; i < weeks * 7; i++) {
+        const d = addDaysIso(start, i);
+        const ent = this.entries(d);
+        const wx = window.Wetter && Wetter.day(d);
+        const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', i % 7 >= 5 ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
+        html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
+          <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
+          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}" style="--c:${e.color}" data-k-open="${e.ref}" title="${h(e.kind)}: ${h(e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Frist: ' : ''}${h(e.title)}</span>`).join('')}
+            ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
+        </div>`;
+      }
+      grid.innerHTML = html;
+    },
+
+    itemHtml(e, d) {
+      const k = e.k;
+      const meta = [`<span>${h(e.kind)}</span>`];
+      if (k) {
+        if (k.end > k.start) meta.push(`<span>${ICON.calendar}${fmtDayShort(k.start)} – ${fmtDayShort(k.end)}</span>`);
+        if (k.timeFrom) meta.push(`<span>${h(k.timeFrom)}${k.timeTo ? `–${h(k.timeTo)}` : ''} Uhr</span>`);
+        const orte = k.targets.map(targetName).filter(Boolean);
+        if (orte.length) meta.push(`<span>${ICON.pin}${h(orte.join(', '))}</span>`);
+        if (k.persons.length && k.kind !== 'abwesenheit') meta.push(`<span>${ICON.user}${h(k.persons.join(', '))}</span>`);
+      } else {
+        if (e.time) meta.push(`<span>${h(e.time)} Uhr</span>`);
+        meta.push(`<span>${h(S.todoTargetText(e.t))}${e.t.targetType === 'parcel' && S.target(e.t) && S.target(e.t).tenant.name ? ` · ${h(S.target(e.t).tenant.name)}` : ''}</span>`);
+        if (e.t.assignee) meta.push(`<span>${ICON.user}${h(e.t.assignee)}</span>`);
+        if (e.done) meta.push('<span>erledigt</span>');
+      }
+      return `<li><button type="button" class="kal-item${e.done ? ' is-done' : ''}" style="--c:${e.color}" data-k-open="${e.ref}">
+        <span class="name">${e.frist ? 'Frist: ' : ''}${h(e.title)}</span>
+        <span class="meta">${meta.join('')}</span>
+        ${k && k.notes ? `<span class="small muted kal-notes">${h(k.notes)}</span>` : ''}
+      </button></li>`;
+    },
+
+    renderAgenda() {
+      const el = $('#k-agenda');
+      if (!el) return;
+      const d = this.sel;
+      const ent = this.entries(d);
+      const wx = window.Wetter && Wetter.day(d);
+      // nächste Einträge ab heute (ohne den ausgewählten Tag), max. 30 Tage
+      const t = today();
+      const soon = [];
+      for (let i = 0; i < 30 && soon.length < 12; i++) {
+        const day = addDaysIso(t, i);
+        if (day === d) continue;
+        this.entries(day).forEach((e) => { if (!(e.multi && !e.first && i > 0) && soon.length < 12) soon.push([day, e]); });
+      }
+      el.innerHTML = `
+        <div class="card">
+          <div class="kal-ag-head">
+            <h2>${fmtDayLong(d)}${d === t ? ' <span class="badge">Heute</span>' : ''}</h2>
+            ${wx ? `<span class="kal-ag-wx">${Wetter.icon(Wetter.kind(wx.code)[0])}${h(Wetter.kind(wx.code)[1])} · ${deg0(wx.max)}° / ${deg0(wx.min)}°</span>` : ''}
+            <button type="button" class="btn btn-ghost btn-sm" data-k-add="${d}">${ICON.plus} Eintrag</button>
+          </div>
+          ${ent.length ? `<ul class="kal-list">${ent.map((e) => this.itemHtml(e, d)).join('')}</ul>` : '<p class="muted small" style="margin:0">Keine Einträge an diesem Tag.</p>'}
+        </div>
+        ${soon.length ? `<div class="card"><h2>Demnächst</h2><ul class="kal-list">${soon.map(([day, e]) => `<li class="kal-soon-day">${fmtDayShort(day)}</li>${this.itemHtml(e, day)}`).join('')}</ul></div>` : ''}`;
+    },
+
+    open(ref) {
+      const [type, id] = ref.split(':');
+      if (type === 'todo') { location.hash = `#/todo/${id}?${backParam('#/kalender')}`; return; }
+      this.edit(id);
+    },
+
+    // Eintrag anlegen / bearbeiten
+    edit(id, kind, date) {
+      if (termineMissing()) { alert('Für eigene Kalender-Einträge bitte zuerst im Supabase „SQL Editor“ das Skript supabase/update-10.sql ausführen und die App neu laden.'); return; }
+      const o = id ? S.termin(id) : null;
+      const day = date || (this.sel && this.sel >= today() ? this.sel : today());
+      const k = o ? JSON.parse(JSON.stringify(o)) : { kind: kind || 'termin', title: '', start: day, end: day, timeFrom: '', timeTo: '', targets: [], persons: [], notes: '' };
+      const people = personsKnown();
+      formDialog({
+        title: o ? `${S.TERMIN_KINDS[k.kind].label} bearbeiten` : k.kind === 'abwesenheit' ? 'Abwesenheit eintragen' : 'Neuer Kalender-Eintrag',
+        fields: [
+          { name: 'kind', label: 'Art', type: 'select', value: k.kind, options: Object.entries(S.TERMIN_KINDS).map(([v, x]) => [v, v === 'arbeit' ? 'Längere Arbeit (mehrere Tage)' : x.label]) },
+          { name: 'title', label: 'Titel', value: k.title, placeholder: 'z. B. Wasser abstellen, Urlaub …' },
+          { name: 'start', label: 'Von', type: 'date', value: k.start },
+          { name: 'end', label: 'Bis', type: 'date', value: k.end },
+          { name: 'timeFrom', label: 'Uhrzeit von (leer = ganztägig)', type: 'time', value: k.timeFrom },
+          { name: 'timeTo', label: 'Uhrzeit bis', type: 'time', value: k.timeTo },
+        ],
+        extra: `
+          <div class="field"><span>Orte / Parzellen</span>
+            <div class="chips-edit" data-k-chips="targets"></div>
+            <select data-k-addtarget>${targetOptions('__').replace('Allgemein / anderer Ort', 'Ort oder Parzelle hinzufügen …')}</select></div>
+          <div class="field"><span data-k-plabel>Personen</span>
+            <div class="chips-edit" data-k-chips="persons"></div>
+            <div class="k-person-add"><input type="text" data-k-person list="k-people" placeholder="Name eingeben" autocomplete="off">
+              <button type="button" class="btn btn-ghost btn-sm" data-k-padd>${ICON.plus} Hinzufügen</button></div>
+            <datalist id="k-people">${people.map((n) => `<option value="${h(n)}">`).join('')}</datalist></div>
+          <label class="field"><span>Notizen</span><textarea name="notes" rows="2">${h(k.notes)}</textarea></label>
+          ${o ? `<div class="card-actions" style="margin:0"><button type="button" class="btn btn-danger btn-sm" data-k-del>${ICON.trash} Eintrag löschen</button></div>` : ''}`,
+        submitLabel: o ? 'Speichern' : 'Eintragen',
+        onSubmit: (v) => {
+          const kindV = v.kind;
+          const start = v.start, end = v.end && v.end >= v.start ? v.end : v.start;
+          if (!start) { toast('Bitte ein Datum wählen'); return false; }
+          // noch nicht hinzugefügten Namen im Eingabefeld mitnehmen
+          const typed = $('[data-k-person]', dlg).value.trim();
+          if (typed && !k.persons.includes(typed)) k.persons.push(typed);
+          if (kindV === 'abwesenheit' && !k.persons.length) { toast('Bitte eintragen, wer abwesend ist'); return false; }
+          if (kindV !== 'abwesenheit' && !v.title.trim()) { toast('Bitte einen Titel eintragen'); return false; }
+          const data = { kind: kindV, title: v.title.trim(), start, end, timeFrom: v.timeFrom || '', timeTo: v.timeFrom ? v.timeTo || '' : '',
+            targets: k.targets, persons: k.persons, notes: v.notes.trim() };
+          if (o) Object.assign(o, data);
+          else S.data.termine.push({ id: S.uid('k'), createdAt: new Date().toISOString(), ...data });
+          S.save();
+          this.sel = start;
+          const sd = new Date(start + 'T12:00:00');
+          this.month = { y: sd.getFullYear(), m: sd.getMonth() };
+          toast(o ? 'Gespeichert' : 'Eingetragen');
+          if (location.hash.startsWith('#/kalender')) this.render($('#view-page'));
+        },
+      });
+      const dlg = $('#dialog');
+      const chips = (key) => {
+        const box = $(`[data-k-chips="${key}"]`, dlg);
+        const list = k[key];
+        box.innerHTML = list.length ? list.map((x, i) => `<span class="chip-x">${h(key === 'targets' ? targetName(x) || '(gelöscht)' : x)}<button type="button" data-i="${i}" aria-label="entfernen">×</button></span>`).join('')
+          : `<span class="muted small">${key === 'targets' ? 'keine' : 'niemand'}</span>`;
+        $$('button', box).forEach((b) => b.onclick = () => { list.splice(+b.dataset.i, 1); chips(key); });
+      };
+      chips('targets'); chips('persons');
+      const sel = $('[data-k-addtarget]', dlg);
+      sel.onchange = () => { if (sel.value && !k.targets.includes(sel.value)) k.targets.push(sel.value); sel.value = ''; chips('targets'); };
+      const inp = $('[data-k-person]', dlg);
+      const addPerson = () => { const n = inp.value.trim(); if (n && !k.persons.includes(n)) k.persons.push(n); inp.value = ''; chips('persons'); };
+      $('[data-k-padd]', dlg).onclick = addPerson;
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addPerson(); } });
+      // Felder je nach Art: Abwesenheit braucht keine Uhrzeit, aber eine Person
+      const kindSel = $('[name=kind]', dlg), endIn = $('[name=end]', dlg), startIn = $('[name=start]', dlg);
+      const sync = () => {
+        const abs = kindSel.value === 'abwesenheit';
+        $('[name=timeFrom]', dlg).closest('.field').hidden = abs;
+        $('[name=timeTo]', dlg).closest('.field').hidden = abs;
+        $('[data-k-plabel]', dlg).textContent = abs ? 'Wer ist abwesend? *' : 'Personen';
+        $('[name=title]', dlg).placeholder = abs ? 'z. B. Urlaub, krank (optional)' : 'z. B. Wasser abstellen, Techniker kommt';
+      };
+      kindSel.addEventListener('change', sync); sync();
+      startIn.addEventListener('change', () => { if (!endIn.value || endIn.value < startIn.value) endIn.value = startIn.value; });
+      const del = $('[data-k-del]', dlg);
+      if (del) del.onclick = () => {
+        if (!confirm(`„${terminTitle(o)}“ wirklich löschen?`)) return;
+        S.deleteTermin(o.id); S.save(); dlg.close(); toast('Eintrag gelöscht');
+        if (location.hash.startsWith('#/kalender')) this.render($('#view-page'));
+      };
+    },
+  };
+
   const AirbnbView = {
     weeks: 9,
     render(root) {
@@ -2726,7 +3058,7 @@
           ${notice}
           ${units.length ? `
           <div class="ab-cards">${units.map((o) => {
-            const occ = Airbnb.hasData(o) ? Math.round(Airbnb.occupancy(o, t.getFullYear(), t.getMonth()) * 100) : null;
+            const occ = Airbnb.occupancyPct(o, t.getFullYear(), t.getMonth());
             const open = S.todosOf('place', o.id).length;
             return `<a class="ab-card" href="#/karte/place/${o.id}">
               ${Airbnb.tileHtml(o)}
@@ -2757,7 +3089,7 @@
     const params = new URLSearchParams(query || '');
     const viewMap = $('#view-karte');
     const viewPage = $('#view-page');
-    const nav = { karte: 'karte', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', todos: 'todos', todo: 'todos', airbnb: 'airbnb', technik: 'technik', kasten: 'technik', ablesung: 'technik', verbrauch: 'technik', auslastung: 'technik', daten: 'daten' }[parts[0]] || 'karte';
+    const nav = { karte: 'karte', kalender: 'kalender', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', todos: 'todos', todo: 'todos', airbnb: 'airbnb', technik: 'technik', kasten: 'technik', ablesung: 'technik', verbrauch: 'technik', auslastung: 'technik', daten: 'daten' }[parts[0]] || 'karte';
     $$('.tabbar a').forEach((a) => a.classList.toggle('is-active', a.dataset.nav === nav));
 
     if (nav === 'karte') {
@@ -2782,10 +3114,11 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Parzellen', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
+    const titles = { kalender: 'Kalender', airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Parzellen', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
     switch (parts[0]) {
+      case 'kalender': Kalender.render(viewPage); break;
       case 'kartei': Kartei.render(viewPage); break;
       case 'parzelle':
         if (parts[2] === 'bearbeiten') Edit.render(viewPage, parts[1]);
@@ -2884,6 +3217,7 @@
       if (!$('#view-karte').hidden && sel) MapUI.showPanel(sel.type, sel.id);
       if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'), location.hash.startsWith('#/technik/gas') ? 'gas' : 'strom');
       if (!$('#view-page').hidden && location.hash.startsWith('#/todos')) Todos.renderList();
+      if (!$('#view-page').hidden && location.hash.startsWith('#/kalender') && !$('#dialog').open) Kalender.render($('#view-page'));
       renderTodoBadge();
     });
     renderTodoBadge();
@@ -2896,6 +3230,8 @@
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
     });
     Airbnb.load();
+    // Wetter (Reiter Kalender)
+    Wetter.onChange(() => { if (location.hash.startsWith('#/kalender')) { Kalender.renderWeather(); Kalender.renderGrid(); Kalender.renderAgenda(); } });
     // Stromwächter (Hue): Zustand laden, alle 2 Minuten und beim Zurückkehren zur App auffrischen
     Waechter.onChange(() => {
       MapView.render();

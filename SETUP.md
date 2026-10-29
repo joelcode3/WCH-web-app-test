@@ -176,3 +176,6 @@ Auf dem iPhone in Safari öffnen → **Teilen → „Zum Home-Bildschirm“** �
   Auftragsverarbeitungsvertrag (DPA) an; mit Region Frankfurt liegen die Daten in der EU.
 - **Wer hat was geändert:** Jede Zeile in der Datenbank speichert Zeitpunkt (`updated_at`)
   und Benutzer (`updated_by`) der letzten Änderung.
+- **Kalender und airbnb-Belegungsverlauf:** Einmal `supabase/update-10.sql` im **SQL Editor** ausführen.
+  Danach speichert die App eigene Kalender-Einträge und merkt sich vergangene airbnb-Buchungen
+  (airbnb liefert diese später nicht mehr mit). Die Wettervorhersage kommt von Open-Meteo (kostenlos, ohne Anmeldung).

@@ -606,6 +606,13 @@ body.is-locked { padding-bottom: 0; }
 .todo-row .meta .state { font-size: .8rem; }
 .todo-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; background: #e8ece6; flex: none; }
 .card-row.todo-row { grid-template-columns: 1fr auto; }
+.todo-li { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: stretch; }
+.todo-li > .card-row { min-width: 0; }
+.todo-act { width: 44px; min-width: 44px; padding: 0; border: 1px solid var(--linie); border-radius: var(--radius); background: var(--papier)
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230e3a3a' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 5h.01M12 12h.01M12 19h.01'/%3E%3C/svg%3E") center / 22px no-repeat;
+  color: transparent; cursor: pointer; appearance: none; -webkit-appearance: none; font-size: 16px; }
+.todo-act:hover, .todo-act:focus { border-color: var(--wald-hell); }
+.todo-act option { color: var(--text); }
 .card-row.todo-row:has(.todo-thumb) { grid-template-columns: auto 1fr auto; }
 
 .todo-mini { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
@@ -858,3 +865,101 @@ body.is-locked { padding-bottom: 0; }
 @keyframes wd-blink { 50% { transform: scale(1.25); } }
 @media (prefers-reduced-motion: reduce) { .wd-badge.is-alarm { animation: none; } }
 .tile-change.is-busy { opacity: .5; animation: wd-blink 1s ease-in-out infinite; }
+
+/* Innentemperatur (Stromwächter) im airbnb-Fenster */
+.wd-temp { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 999px; background: #eef4ea; color: var(--wald); width: fit-content; }
+.wd-temp svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.wd-temp strong { font-size: 1.15rem; white-space: nowrap; }
+.wd-temp { flex-wrap: wrap; row-gap: 0; }
+.wd-temp.is-alarm { background: #fbe4e0; color: var(--gefahr); }
+.wd-temp.is-none { background: transparent; padding: 0; }
+
+/* ---------- Kalender ---------- */
+.kal .page-head .btn-text { display: inline; }
+.kal-nav { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; }
+.kal-nav strong { font-size: 1.2rem; min-width: 170px; text-align: center; }
+.kal-nav [data-k-today] { margin-left: auto; }
+.kal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.kal-wd { text-align: center; font-size: .8rem; font-weight: 700; color: var(--text-leise); padding: 2px 0; }
+.kal-wd.is-we { color: #9a6b3a; }
+.kal-day { min-height: 104px; background: var(--papier); border: 1px solid var(--linie); border-radius: var(--radius-s); padding: 4px 5px 5px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.kal-day:hover { border-color: var(--wald-hell); }
+.kal-day.is-we { background: #fbf7ec; }
+.kal-day.is-other { opacity: .5; }
+.kal-day.is-past .kal-num { color: var(--text-leise); }
+.kal-day.is-sel { border-color: var(--wald); box-shadow: inset 0 0 0 1px var(--wald); }
+.kal-dh { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.kal-num { font-weight: 700; font-size: .92rem; width: 26px; height: 26px; display: inline-grid; place-items: center; border-radius: 50%; }
+.kal-day.is-today .kal-num { background: var(--rot); color: #fff; }
+.kal-wx { display: inline-flex; align-items: center; gap: 2px; font-size: .78rem; color: var(--text-leise); }
+.kal-wx .wx-ico { width: 18px; height: 18px; }
+.kal-chips { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.kal-chip { display: block; font-size: .76rem; line-height: 1.3; padding: 1px 5px; border-radius: 4px; background: color-mix(in srgb, var(--c) 16%, #fff); border-left: 3px solid var(--c);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.kal-chip.is-multi { background: var(--c); color: #fff; border-left-color: transparent; }
+.kal-chip.is-multi.is-cont { opacity: .82; }
+.kal-chip.is-abs { background: repeating-linear-gradient(135deg, #e9ebe7 0 6px, #dfe2dc 6px 12px); color: var(--text); border-left: 3px solid var(--c); }
+.kal-chip.is-done { text-decoration: line-through; opacity: .6; }
+.kal-more { font-size: .72rem; color: var(--text-leise); padding-left: 4px; }
+.kal-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .82rem; color: var(--text-leise); margin: 10px 0 16px; }
+.kal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.kal-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.kal-agenda { display: grid; gap: 12px; }
+.kal-agenda .card h2 { margin: 0 0 10px; font-size: 1.1rem; }
+.kal-ag-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.kal-ag-head h2 { margin: 0 !important; flex: 1; display: flex; align-items: center; gap: 8px; }
+.kal-ag-wx { display: inline-flex; align-items: center; gap: 4px; font-size: .9rem; color: var(--text-leise); }
+.kal-ag-wx .wx-ico { width: 22px; height: 22px; }
+.kal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.kal-soon-day { font-size: .8rem; font-weight: 700; color: var(--text-leise); margin-top: 6px; }
+.kal-item { width: 100%; text-align: left; display: grid; gap: 2px; padding: 8px 10px 8px 14px; border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier);
+  position: relative; cursor: pointer; font: inherit; color: inherit; }
+.kal-item::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: var(--radius-s) 0 0 var(--radius-s); background: var(--c); }
+.kal-item:hover { border-color: var(--wald-hell); }
+.kal-item .name { font-weight: 700; }
+.kal-item.is-done .name { text-decoration: line-through; color: var(--text-leise); }
+.kal-item .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .85rem; color: var(--text-leise); }
+.kal-item .meta span { display: inline-flex; align-items: center; gap: 4px; }
+.kal-item .meta svg { width: 14px; height: 14px; }
+.kal-notes { white-space: pre-line; }
+.chips-edit { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+.chip-x { display: inline-flex; align-items: center; gap: 2px; background: #eef2ea; border: 1px solid var(--linie); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: .88rem; }
+.chip-x button { border: 0; background: none; font-size: 1.1rem; line-height: 1; padding: 0 6px; cursor: pointer; color: var(--text-leise); }
+.k-person-add { display: flex; gap: 6px; }
+.k-person-add input { flex: 1; min-width: 0; }
+
+/* Wetter */
+.wx { display: flex; gap: 18px; align-items: stretch; background: var(--papier); border: 1px solid var(--linie); border-radius: var(--radius); padding: 14px 16px; overflow: hidden; }
+.wx-ico { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.wx-ico.is-big { width: 64px; height: 64px; color: var(--wald); }
+.wx-ico.is-s { width: 14px; height: 14px; stroke-width: 2; }
+.wx-now { display: flex; align-items: center; gap: 12px; flex: none; padding-right: 18px; border-right: 1px solid var(--linie); }
+.wx-temp { font-size: 2.2rem; font-weight: 700; line-height: 1; }
+.wx-txt { font-weight: 600; }
+.wx-days { display: flex; gap: 6px; overflow-x: auto; flex: 1; scrollbar-width: thin; }
+.wx-day { flex: 1 0 92px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; border-radius: var(--radius-s); text-align: center; color: var(--wald); }
+.wx-day.is-today { background: #eef4ea; }
+.wx-wd { font-size: .8rem; font-weight: 700; }
+.wx-mm { font-size: .9rem; color: var(--text-leise); }
+.wx-mm strong { color: var(--text); font-size: 1rem; }
+.wx-sub { display: inline-flex; align-items: center; gap: 3px; font-size: .74rem; color: var(--text-leise); white-space: nowrap; }
+
+@media (max-width: 860px) {
+  .kal .page-head .btn-text { display: none; }
+  .wx { flex-direction: column; gap: 10px; padding: 12px; }
+  .wx-now { border-right: 0; padding-right: 0; }
+  .wx-day { flex: 0 0 78px; }
+  .wx-ico.is-big { width: 44px; height: 44px; }
+  .wx-temp { font-size: 1.7rem; }
+  .kal-grid { gap: 2px; }
+  .kal-day { min-height: 58px; padding: 2px; gap: 2px; border-radius: 6px; }
+  .kal-dh { flex-direction: column; gap: 0; }
+  .kal-num { width: 22px; height: 22px; font-size: .82rem; }
+  .kal-wx { font-size: .66rem; }
+  .kal-wx .wx-ico { width: 14px; height: 14px; }
+  .kal-chips { flex-direction: row; flex-wrap: wrap; gap: 2px; justify-content: center; }
+  .kal-chip { width: 7px; height: 7px; padding: 0; border-radius: 50%; border: 0; font-size: 0; background: var(--c); }
+  .kal-chip.is-abs { background: var(--c); }
+  .kal-more { display: none; }
+  .kal-nav strong { min-width: 0; flex: 1; }
+}

@@ -13,7 +13,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Größere Aufträge komplett abarbeiten, vorher im Browser testen (Computer- und iPhone-Ansicht).
 
 ## Begriffe und Gestaltung (vom Betreiber festgelegt)
-- Reiter: **Map · Parzellen · Infrastruktur · airbnb · To-Dos · Daten** (Infrastruktur hat Unterreiter
+- Reiter: **Map · Kalender · Parzellen · Infrastruktur · airbnb · To-Dos · Daten** (Infrastruktur hat Unterreiter
   Strom, Gas, Ablesen, Verbrauch, Auslastung). Kein Zähler am Reiter To-Dos.
 - „airbnb“ immer klein geschrieben.
 - Status: Festwohnsitz (#1f4e8c), Freizeitgrundstück (#6fa8dc), Reserviert (#2b6a33),
@@ -32,13 +32,16 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Zugangsdaten in `js/config.js` (nur der öffentliche Publishable Key – **nie** nach dem Secret-/Service-Key fragen).
   Zugriff nur für E-Mails in der Tabelle `team` (RLS über `is_team_member()`).
 - Dateien: `js/data.js` (Datenmodell, Store), `js/cloud.js` (Supabase-Sync, nur Änderungen),
-  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/waechter.js`, `js/photos.js`, `js/auth.js`.
+  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/waechter.js`, `js/wetter.js` (Open-Meteo, Hesedorf 53.23/9.32), `js/photos.js`, `js/auth.js`.
 - **Versionsnummer** `?v=JJJJMMTT-n` an allen CSS/JS-/Plan-Dateien in `index.html` und `js/config.js`
   bei jeder Änderung hochzählen (sonst zeigt der Browser alte Dateien).
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-9 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue).
+  Bisher: update-2 … update-10 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
+  10: `termine` für den Kalender, `airbnb_belegung` = von der App aufgezeichnete Buchungen, weil airbnb vergangene nicht liefert).
+- Kalender (Reiter, `Kalender` in app.js): eigene Einträge Termin/Längere Arbeit/Abwesenheit mit Orten und Personen,
+  dazu Termine und Fristen aus den To-Dos, Wetter 7 Tage. To-Do-Liste: Status/Löschen direkt per Menü rechts.
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;
   `tools/render_plan.js` rendert `assets/platzplan.png` (Hintergrund). Eingaben: AutoCAD-PDFs (nicht im Repo).
   Danach `tools/parcels_grow.py`: Parzellen etwas größer (Lücke zu Nachbarn ca. 0,6 m, Abstand zu Wegen bleibt).
@@ -63,8 +66,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   erreichbar → SMS, Temperatur < 5 °C 10 Min. → SMS (Entwarnung ab 6 °C), Batterie ≤ 15 % → SMS; keine
   separate Warnung für Stromausfall im Bad (vom Betreiber so gewünscht). Einrichtung: SETUP.md.
   Tests der Funktion: Deno mit nachgestellter DB/Hue/SMS (createWaechter(db, env, fetch, now)).
-- **Kalender-Reiter + großer Touchscreen** (Idee, noch nicht bauen): Termine aus To-Dos, airbnb An-/Abreisen,
-  Auszüge/Pachtbeginn, ggf. eigene Termine; Touch-/Kiosk-Ansicht. Betreiber kauft erst einen Monitor
+- **Kalender-Reiter GEBAUT (29.10.2026)**. Noch offen: großer Touchscreen (Touch-/Kiosk-Ansicht), ggf. airbnb An-/Abreisen
+  und Auszüge/Pachtbeginn im Kalender. Betreiber kauft erst einen Monitor
   (Vorschläge: Samsung Flip Pro WM55B, Optoma N3551K, iiyama TF4339MSC + Mini-PC mit Windows 11 Pro).
   Vor dem Bau klären: nur Team oder auch Gäste (dann Gästeansicht ohne Namen), Ausrichtung, Gerät.
 - **Versions-Check** („Neue Version verfügbar – neu laden“) angeboten, Betreiber hat noch nicht entschieden.

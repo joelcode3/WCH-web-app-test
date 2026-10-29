@@ -105,6 +105,13 @@
   ];
   const PLAN_PLACES_KEY = 'wch-plan-orte-1';
 
+  // Kalender: eigene Einträge (zusätzlich zu den Terminen/Fristen aus den To-Dos)
+  const TERMIN_KINDS = {
+    termin:      { label: 'Termin',                    color: '#1b7fc9' },
+    arbeit:      { label: 'Längere Arbeit',            color: '#c77c12' },
+    abwesenheit: { label: 'Abwesenheit',               color: '#8a918b' },
+  };
+
   // Farbschema "Versorgung" auf der Karte
   const SUPPLY = {
     tank:   { label: 'Gastank',          color: '#5cc49a' },
@@ -143,7 +150,7 @@
   }
 
   function emptyFromPlan() {
-    return { version: 1, parcels: planParcels(), boxes: [], tanks: [], meters: [], readings: [], places: [], todos: [] };
+    return { version: 1, parcels: planParcels(), boxes: [], tanks: [], meters: [], readings: [], places: [], todos: [], termine: [] };
   }
 
   /* ---------- Demo-Daten (auf dem echten Lageplan, Namen/Nummern erfunden) ---------- */
@@ -268,13 +275,21 @@
       todo({ title: 'Grillrost erneuern', targetType: 'place', targetId: places[1].id, status: 'erledigt', doneAt: iso(-1) }),
     ];
 
-    return { version: 1, parcels, boxes, tanks, meters, readings, places, todos, demo: true };
+    const termin = (o) => ({ id: uid('k'), kind: 'termin', title: '', start: iso(0), end: iso(0), timeFrom: '', timeTo: '',
+      targets: [], persons: [], notes: '', createdAt: new Date().toISOString(), ...o });
+    const termine = [
+      termin({ title: 'Wasser abstellen (Winter)', start: iso(3), end: iso(3), timeFrom: '09:00', timeTo: '12:00', targets: [], persons: ['Thomas'] }),
+      termin({ kind: 'arbeit', title: 'Wege neu schottern', start: iso(6), end: iso(10), targets: [`place:${places[2].id}`], persons: ['Thomas', 'Bauhof Meyer'] }),
+      termin({ kind: 'abwesenheit', title: 'Urlaub', start: iso(12), end: iso(19), persons: ['Thomas'] }),
+    ];
+
+    return { version: 1, parcels, boxes, tanks, meters, readings, places, todos, termine, demo: true };
   }
 
   /* ---------- Store ---------- */
 
   const Store = {
-    STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, AIRBNB_DEFAULTS, supplyOf, uid, compareNr,
+    STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, TERMIN_KINDS, AIRBNB_DEFAULTS, supplyOf, uid, compareNr,
     isAirbnb: (o) => !!(o && (PLACE_KINDS[o.kind] || {}).airbnb),
     // Fehlende Orte aus dem Lageplan einmal je Gerät anlegen (feste IDs → kein Doppel bei mehreren Geräten).
     // Danach gelöschte Orte kommen auf diesem Gerät nicht wieder.
@@ -356,7 +371,14 @@
 
     _normalize() {
       const d = this.data;
-      ['parcels', 'boxes', 'tanks', 'meters', 'readings', 'places', 'todos'].forEach((k) => { if (!Array.isArray(d[k])) d[k] = []; });
+      ['parcels', 'boxes', 'tanks', 'meters', 'readings', 'places', 'todos', 'termine'].forEach((k) => { if (!Array.isArray(d[k])) d[k] = []; });
+      d.termine.forEach((k) => {
+        if (!TERMIN_KINDS[k.kind]) k.kind = 'termin';
+        ['title', 'start', 'end', 'timeFrom', 'timeTo', 'notes'].forEach((f) => { k[f] = k[f] || ''; });
+        if (!k.end || k.end < k.start) k.end = k.start;
+        if (!Array.isArray(k.targets)) k.targets = [];
+        if (!Array.isArray(k.persons)) k.persons = [];
+      });
       d.places.forEach((o) => {
         o.name = o.name || '';
         if (!PLACE_KINDS[o.kind]) o.kind = 'sonstiges';
@@ -515,6 +537,7 @@
       const labels = Object.fromEntries((old.todos || []).map((t) => [t.id, this.todoTargetText(t)]));
       this.data = emptyFromPlan();
       this.data.places = old.places || [];
+      this.data.termine = old.termine || [];
       this.data.todos = (old.todos || []).map((t) => (t.targetType && t.targetType !== 'place'
         ? { ...t, targetType: '', targetId: '', location: labels[t.id] } : t));
       this.save();
@@ -528,7 +551,7 @@
     },
 
     clearAll() {
-      this.data = { version: 1, parcels: [], boxes: [], tanks: [], meters: [], readings: [], places: [], todos: [] };
+      this.data = { version: 1, parcels: [], boxes: [], tanks: [], meters: [], readings: [], places: [], todos: [], termine: [] };
       this.save();
     },
 
@@ -539,6 +562,8 @@
     meter(id) { return this.data.meters.find((m) => m.id === id); },
     place(id) { return this.data.places.find((o) => o.id === id); },
     todo(id) { return this.data.todos.find((t) => t.id === id); },
+    termin(id) { return this.data.termine.find((k) => k.id === id); },
+    deleteTermin(id) { this.data.termine = this.data.termine.filter((k) => k.id !== id); },
     placesSorted() { return [...this.data.places].sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })); },
 
     /* To-Dos */
