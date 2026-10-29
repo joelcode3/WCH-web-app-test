@@ -327,9 +327,9 @@ def main():
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
            '<!-- Erzeugt mit tools/plan_import.py aus dem AutoCAD-Lageplan. Nicht von Hand bearbeiten. -->',
            '<defs>',
-           '<pattern id="wald" width="44" height="44" patternUnits="userSpaceOnUse"><rect width="44" height="44" fill="#5d8a4e"/>'
-           '<circle cx="11" cy="11" r="10" fill="#4b7a3f"/><circle cx="33" cy="20" r="11" fill="#43703a"/>'
-           '<circle cx="18" cy="35" r="9" fill="#527f44"/><circle cx="40" cy="41" r="6" fill="#4b7a3f"/></pattern>',
+           '<pattern id="wald" width="44" height="44" patternUnits="userSpaceOnUse"><rect width="44" height="44" fill="#8fae80"/>'
+           '<circle cx="11" cy="11" r="10" fill="#7fa271"/><circle cx="33" cy="20" r="11" fill="#789c6a"/>'
+           '<circle cx="18" cy="35" r="9" fill="#86a877"/><circle cx="40" cy="41" r="6" fill="#7fa271"/></pattern>',
            '<pattern id="gras" width="18" height="18" patternUnits="userSpaceOnUse"><rect width="18" height="18" fill="#e4ebd5"/>'
            '<path d="M4 12 l2 -4 M12 6 l1.5 -3" stroke="#cfdcb9" stroke-width="1.2"/></pattern>',
            '</defs>',

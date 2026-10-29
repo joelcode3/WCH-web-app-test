@@ -22,6 +22,7 @@ from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import nearest_points, unary_union
 
 ROOT = Path(__file__).resolve().parent.parent
+WALD_FARBEN = {'#5d8a4e': '#8fae80', '#4b7a3f': '#7fa271', '#43703a': '#789c6a', '#527f44': '#86a877'}
 ROAD_FILL, ROAD_EDGE = '#d9d6ce', '#b9b4a8'   # wie die Wege aus plan_import.py
 
 
@@ -89,10 +90,11 @@ def tree(x, y, r, rnd):
         a = off + 2 * math.pi * i / k + rnd.random() * 0.3
         ring.append((x + math.cos(a) * r * 0.82, y + math.sin(a) * r * 0.82))
     bumps = ''.join(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{r * 0.38:.1f}"/>' for px, py in ring)
-    shade = ['#4f7f42', '#4a7a3e', '#548546'][rnd.randrange(3)]
-    return (f'<g fill="{shade}" stroke="#3a6431" stroke-width="0.8">{bumps}'
+    # etwas blasser, damit Parzellen und Symbole auf der Map besser hervortreten
+    shade = ['#7fa472', '#7a9f6d', '#84a978'][rnd.randrange(3)]
+    return (f'<g fill="{shade}" stroke="#6b9160" stroke-width="0.8">{bumps}'
             f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r * 0.85:.1f}" stroke="none"/></g>'
-            f'<circle cx="{x - r * 0.25:.1f}" cy="{y - r * 0.25:.1f}" r="{r * 0.35:.1f}" fill="#6b9a57"/>')
+            f'<circle cx="{x - r * 0.25:.1f}" cy="{y - r * 0.25:.1f}" r="{r * 0.35:.1f}" fill="#9cbe8e"/>')
 
 
 def playground(shape, center):
@@ -253,6 +255,9 @@ def main():
     had = 'wald' in F
     svg = Path(args.svg).read_text()
     svg = re.sub(r'<g id="extras">.*?<!-- /extras -->\n', '', svg, flags=re.S)   # alte Extras entfernen
+    # Waldhintergrund blasser (ältere Pläne aus plan_import.py hatten kräftigere Farben)
+    for old, new in WALD_FARBEN.items():
+        svg = svg.replace(f'fill="{old}"', f'fill="{new}"')
     mark = '<g fill="#c9a66b"'
     svg = svg.replace(mark, build(F, svg, args.preview_plane) + '\n' + mark, 1)
     Path(args.svg).write_text(svg)
