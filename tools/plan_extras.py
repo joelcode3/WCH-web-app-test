@@ -22,6 +22,7 @@ from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import nearest_points, unary_union
 
 ROOT = Path(__file__).resolve().parent.parent
+WALD_FARBEN = {'#5d8a4e': '#8fae80', '#4b7a3f': '#7fa271', '#43703a': '#789c6a', '#527f44': '#86a877'}
 ROAD_FILL, ROAD_EDGE = '#d9d6ce', '#b9b4a8'   # wie die Wege aus plan_import.py
 
 
@@ -254,6 +255,9 @@ def main():
     had = 'wald' in F
     svg = Path(args.svg).read_text()
     svg = re.sub(r'<g id="extras">.*?<!-- /extras -->\n', '', svg, flags=re.S)   # alte Extras entfernen
+    # Waldhintergrund blasser (ältere Pläne aus plan_import.py hatten kräftigere Farben)
+    for old, new in WALD_FARBEN.items():
+        svg = svg.replace(f'fill="{old}"', f'fill="{new}"')
     mark = '<g fill="#c9a66b"'
     svg = svg.replace(mark, build(F, svg, args.preview_plane) + '\n' + mark, 1)
     Path(args.svg).write_text(svg)

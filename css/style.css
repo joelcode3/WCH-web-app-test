@@ -194,7 +194,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--w
 .map-modebar .grow { flex: 1; min-width: 160px; }
 
 .map-wrap { position: relative; flex: 1; min-height: 0; }
-#map { position: absolute; inset: 0; background: #5d8a4e; }
+#map { position: absolute; inset: 0; background: #8fae80; }
 #map.is-drawing { cursor: crosshair; }
 .leaflet-container { font-family: var(--font-body); }
 .leaflet-control-zoom a { width: 36px !important; height: 36px !important; line-height: 36px !important; color: var(--wald) !important; }
