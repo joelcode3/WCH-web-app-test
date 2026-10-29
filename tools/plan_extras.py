@@ -89,10 +89,11 @@ def tree(x, y, r, rnd):
         a = off + 2 * math.pi * i / k + rnd.random() * 0.3
         ring.append((x + math.cos(a) * r * 0.82, y + math.sin(a) * r * 0.82))
     bumps = ''.join(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="{r * 0.38:.1f}"/>' for px, py in ring)
-    shade = ['#4f7f42', '#4a7a3e', '#548546'][rnd.randrange(3)]
-    return (f'<g fill="{shade}" stroke="#3a6431" stroke-width="0.8">{bumps}'
+    # etwas blasser, damit Parzellen und Symbole auf der Map besser hervortreten
+    shade = ['#7fa472', '#7a9f6d', '#84a978'][rnd.randrange(3)]
+    return (f'<g fill="{shade}" stroke="#6b9160" stroke-width="0.8">{bumps}'
             f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r * 0.85:.1f}" stroke="none"/></g>'
-            f'<circle cx="{x - r * 0.25:.1f}" cy="{y - r * 0.25:.1f}" r="{r * 0.35:.1f}" fill="#6b9a57"/>')
+            f'<circle cx="{x - r * 0.25:.1f}" cy="{y - r * 0.25:.1f}" r="{r * 0.35:.1f}" fill="#9cbe8e"/>')
 
 
 def playground(shape, center):
