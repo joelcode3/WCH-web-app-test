@@ -130,6 +130,8 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
     });
     let res = await go();
     if (res.status === 401) { await refresh(b); res = await go(); }
+    // Hue begrenzt die Zahl der Abfragen – bei "zu viele" kurz warten und einmal wiederholen
+    if (res.status === 429) { await new Promise((ok) => setTimeout(ok, 1500)); res = await go(); }
     const body = await res.json().catch(() => ({}));
     return { status: res.status, body };
   }
@@ -144,10 +146,17 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
       if (r.status === 429) return { state: 'unknown', error: '' };
       const data = Array.isArray(r.body?.data) ? r.body.data : [];
       if (r.status >= 300 || !data.length) return { state: 'offline', error: '' };
-      // Temperatur, Namen und Batterie der Melder
-      const [t, d, p] = await Promise.all([hue(b, 'temperature'), hue(b, 'device'), hue(b, 'device_power')]);
+      // Temperatur, Namen und Batterie der Melder – nacheinander (Hue mag keine parallelen Abfragen)
+      const t = await hue(b, 'temperature');
+      const d = await hue(b, 'device');
+      const p = await hue(b, 'device_power');
       const names: Record<string, string> = {};
       (d.body?.data || []).forEach((x: any) => { names[x.id] = x.metadata?.name || 'Sensor'; });
+      // Protokoll (Supabase → Edge Functions → hue-waechter → Logs): was meldet die Bridge?
+      console.log(`[${b.place_id}] Temperatur: HTTP ${t.status}, ${(t.body?.data || []).length} Einträge${t.body?.errors?.length ? `, Fehler: ${JSON.stringify(t.body.errors)}` : ''}`
+        + ` · Geräte (HTTP ${d.status}): ${(d.body?.data || []).map((x: any) => `${x.metadata?.name || '?'} (${x.product_data?.product_name || x.product_data?.model_id || '?'})`).join(', ') || '–'}`);
+      // Temperatur nicht abrufbar → bisherige Werte behalten statt "kein Melder" anzuzeigen
+      if (t.status >= 300) return { state: 'online', error: '' };
       const battery: Record<string, number> = {};
       (p.body?.data || []).forEach((x: any) => { if (x.owner?.rid && typeof x.power_state?.battery_level === 'number') battery[x.owner.rid] = x.power_state.battery_level; });
       const sensors: Sensor[] = (t.body?.data || []).filter((x: any) => x.enabled !== false).map((x: any) => {
@@ -187,7 +196,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
         if (s.alarm_offline) alerts.push({ s, flag: 'alarm_offline', value: false, text: `Entwarnung: ${name} ist wieder erreichbar (ausgefallen seit ${clock(s.last_ok)}).` });
         s.online = true;
         s.last_ok = iso;
-        s.sensors = r.sensors || [];
+        if (r.sensors) s.sensors = r.sensors;
         const temps = s.sensors.map((x) => x.temp).filter((x): x is number => typeof x === 'number');
         s.min_temp = temps.length ? Math.min(...temps) : null;
         // Frost
