@@ -647,11 +647,13 @@
               <span class="tile-change" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}</span><input type="file" accept="image/*" hidden data-place-photo></label>
             <div class="airbnb-status">
               ${window.Waechter ? Waechter.compactHtml(o, MapView.editMode) : ''}
-              ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
-              ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
-              ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
-              ${MapView.editMode ? this.rotButtons() : ''}
             </div>
+          </div>
+          <div class="airbnb-notes">
+            ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
+            ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
+            ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
+            ${MapView.editMode ? this.rotButtons() : ''}
           </div>
           <div id="airbnb-cal">${Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m)}</div>
           ${o.notes ? `<p class="small" style="margin:8px 0 0;white-space:pre-line">${h(o.notes)}</p>` : ''}

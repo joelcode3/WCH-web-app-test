@@ -982,3 +982,10 @@ body.is-locked { padding-bottom: 0; }
 .wd-row.is-alarm span { color: var(--gefahr); }
 .link-btn.muted-link { color: var(--text-leise); font-weight: 600; font-size: inherit; }
 .wd-c .nw, .wd-row strong { white-space: nowrap; }
+/* Feld neben dem Foto genau so hoch wie das Foto, Hinweise darunter */
+.airbnb-top { align-items: stretch; }
+.airbnb-top .airbnb-status { flex: 1; justify-content: stretch; }
+.airbnb-top .wd-c { flex: 1; justify-content: center; }
+.airbnb-notes { display: flex; flex-direction: column; gap: 6px; margin: -4px 0 12px; }
+.airbnb-notes:not(:has(*)) { display: none; }
+.airbnb-top .tile-wrap { align-self: center; }
