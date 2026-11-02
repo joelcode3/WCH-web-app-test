@@ -2573,6 +2573,8 @@
                 <div class="form-grid" style="margin-top:12px">
                   ${fieldHtml({ name: 'deadline', label: 'Erledigen bis (Deadline)', type: 'date', value: t.deadline })}
                   <label class="field"><span>Termin (optional)</span><input type="datetime-local" name="appointment" value="${h(t.appointment)}"></label>
+                  <label class="field" id="cal-field"><span>Termin im Kalender anzeigen als</span><select name="calendar">
+                    ${Object.entries(S.TERMIN_KINDS).map(([k, v]) => `<option value="${k}"${(t.calendar || 'termin') === k ? ' selected' : ''}>${h(v.label)}</option>`).join('')}</select></label>
                   <label class="field full"><span>Zuständig</span><input name="assignee" list="who-list" value="${h(t.assignee)}" placeholder="Name oder Firma" autocomplete="off">
                     <datalist id="who-list">${assignees().map((x) => `<option value="${h(x)}">`).join('')}</datalist></label>
                 </div>
@@ -2598,6 +2600,10 @@
       let status = t.status;
       let saved = false;
       const syncLoc = () => { $('#loc-field', root).hidden = !!f.target.value; };
+      // Kalender-Auswahl nur mit Termin; To-Dos an einer Reservierung erscheinen dort
+      const syncCal = () => { $('#cal-field', root).hidden = !f.appointment.value; };
+      f.appointment.addEventListener('input', syncCal); syncCal();
+      f.target.addEventListener('change', () => { if (f.target.value.startsWith('termin:')) f.calendar.value = 'reservierung'; });
       f.target.addEventListener('change', syncLoc);
       syncLoc();
       $$('[data-st]', root).forEach((b) => b.addEventListener('click', () => {
@@ -2671,6 +2677,7 @@
           title, description: f.description.value.trim(),
           targetType: tt, targetId: ti, location: tt ? '' : f.location.value.trim(),
           status, deadline: f.deadline.value || '', appointment: f.appointment.value || '', assignee: f.assignee.value.trim(),
+          calendar: f.appointment.value ? f.calendar.value : '',
         });
         if (status === 'erledigt') t.doneAt = t.doneAt || today(); else t.doneAt = '';
         saved = true;
@@ -2728,7 +2735,7 @@
 
   /* ======================================================================
      KALENDER: eigene Einträge (Termin, längere Arbeit, Abwesenheit),
-     Termine und Fristen aus den To-Dos, Wetter für die nächsten Tage
+     To-Dos mit Termin (im gewählten Kalender) und Deadlines, Wetter für die nächsten Tage
      ====================================================================== */
 
   const KAL_WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -2744,8 +2751,16 @@
   const isoWeek = (s) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4, 12);
     return 1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7); };
   const FT_COLOR = '#7b4fa3', FERIEN_COLOR = '#2a8c86';
-  const showFt = () => { try { return localStorage.getItem('wch-kal-feiertage') !== '0'; } catch (e) { return true; } };
-  const showRes = () => { try { return localStorage.getItem('wch-kal-reservierungen') !== '0'; } catch (e) { return true; } };
+  // Kalender ein-/ausblenden (je Gerät gemerkt): termin, arbeit, abwesenheit, reservierung, deadline, feiertage
+  const hiddenLayers = () => { try { return JSON.parse(localStorage.getItem('wch-kal-aus') || '[]'); } catch (e) { return []; } };
+  const layerOn = (key) => !hiddenLayers().includes(key);
+  const setLayer = (key, on) => {
+    const s = new Set(hiddenLayers());
+    if (on) s.delete(key); else s.add(key);
+    try { localStorage.setItem('wch-kal-aus', JSON.stringify([...s])); } catch (e) { /* egal */ }
+  };
+  const DEADLINE_COLOR = '#dc3545';
+  const showFt = () => layerOn('feiertage');
   const resMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missingCols.has('termine.anzahl');
   const termineMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missing.has('termine');
   const personsKnown = () => [...new Set([...assignees(), ...S.data.termine.flatMap((k) => k.persons)].map((n) => String(n).trim()).filter(Boolean))]
@@ -2768,21 +2783,22 @@
     month: null,   // { y, m }
     sel: null,     // ausgewählter Tag
 
-    // alle Einträge eines Tages: eigene Einträge, To-Do-Termine, To-Do-Fristen
+    // alle Einträge eines Tages: eigene Einträge, To-Dos mit Termin (im gewählten Kalender), Deadlines
     entries(d) {
       const out = [];
       S.data.termine.forEach((k) => {
         if (k.start > d || (k.end || k.start) < d) return;
-        if (k.kind === 'reservierung' && !showRes()) return;
+        if (!layerOn(k.kind)) return;
         out.push({ ref: `termin:${k.id}`, color: S.TERMIN_KINDS[k.kind].color, title: terminTitle(k) + (k.kind === 'reservierung' && k.count ? ` (${k.count})` : ''), kind: S.TERMIN_KINDS[k.kind].label,
           time: k.start === d ? k.timeFrom : '', multi: k.end > k.start, first: k.start === d, k, abs: k.kind === 'abwesenheit' });
       });
       S.data.todos.forEach((t) => {
         if (t.appointment && t.appointment.slice(0, 10) === d) {
-          out.push({ ref: `todo:${t.id}`, color: '#0e3a3a', title: t.title || '(ohne Titel)', kind: 'To-Do-Termin', time: t.appointment.slice(11, 16), t, done: t.status === 'erledigt' });
+          const cal = S.TERMIN_KINDS[t.calendar] ? t.calendar : 'termin';
+          if (layerOn(cal)) out.push({ ref: `todo:${t.id}`, color: S.TERMIN_KINDS[cal].color, title: t.title || '(ohne Titel)', kind: `${S.TERMIN_KINDS[cal].label} (To-Do)`, time: t.appointment.slice(11, 16), t, done: t.status === 'erledigt' });
         }
-        if (t.deadline === d && t.status !== 'erledigt') {
-          out.push({ ref: `todo:${t.id}`, color: '#dc3545', title: t.title || '(ohne Titel)', kind: 'Frist (To-Do)', time: '', t, frist: true });
+        if (t.deadline === d && t.status !== 'erledigt' && layerOn('deadline')) {
+          out.push({ ref: `todo:${t.id}`, color: DEADLINE_COLOR, title: t.title || '(ohne Titel)', kind: 'Deadline (To-Do)', time: '', t, frist: true });
         }
       });
       // eigener, abwählbarer Kalender: Feiertage (alle Bundesländer) und Schulferien
@@ -2818,24 +2834,20 @@
           </div>
           <div class="kal-grid" id="k-grid"></div>
           <div class="kal-legend">
-            ${Object.values(S.TERMIN_KINDS).filter((v) => !v.layer).map((v) => `<span><i style="background:${v.color}"></i>${h(v.label)}</span>`).join('')}
-            <span><i style="background:#0e3a3a"></i>To-Do-Termin</span><span><i style="background:#dc3545"></i>Frist</span>
-            <span class="kal-layers"><label class="kal-ft-toggle"><input type="checkbox" data-k-res${showRes() ? ' checked' : ''}>
-              <i style="background:${S.TERMIN_KINDS.reservierung.color}"></i>Reservierungen / VA</label>
-            <label class="kal-ft-toggle"><input type="checkbox" data-k-ft${showFt() ? ' checked' : ''}>
-              <i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien</label></span>
+            <span class="kal-layers">
+              ${[...Object.entries(S.TERMIN_KINDS).map(([k, v]) => [k, `<i style="background:${v.color}"></i>${h(v.label)}`]),
+                ['deadline', `<i style="background:${DEADLINE_COLOR}"></i>Deadlines`],
+                ['feiertage', `<i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien`]]
+                .map(([k, l]) => `<label class="kal-ft-toggle"><input type="checkbox" data-k-layer="${k}"${layerOn(k) ? ' checked' : ''}>${l}</label>`).join('')}
+            </span>
           </div>
           <section class="kal-agenda" id="k-agenda"></section>
         </div>`;
       $$('[data-k-new]', root).forEach((b) => b.onclick = () => this.edit(null, b.dataset.kNew));
-      $('[data-k-res]', root).onchange = (e) => {
-        try { localStorage.setItem('wch-kal-reservierungen', e.target.checked ? '1' : '0'); } catch (err) { /* egal */ }
+      $$('[data-k-layer]', root).forEach((cb) => cb.onchange = () => {
+        setLayer(cb.dataset.kLayer, cb.checked);
         this.renderGrid(); this.renderAgenda();
-      };
-      $('[data-k-ft]', root).onchange = (e) => {
-        try { localStorage.setItem('wch-kal-feiertage', e.target.checked ? '1' : '0'); } catch (err) { /* egal */ }
-        this.renderGrid(); this.renderAgenda();
-      };
+      });
       $$('[data-k-month]', root).forEach((b) => b.onclick = () => {
         const d = new Date(this.month.y, this.month.m + +b.dataset.kMonth, 1);
         this.month = { y: d.getFullYear(), m: d.getMonth() };
@@ -2919,7 +2931,7 @@
         const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', free ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
         html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
-          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Frist: ' : ''}${h(e.title)}</span>`).join('')}
+          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
         </div>`;
       }
@@ -2951,7 +2963,7 @@
         if (e.done) meta.push('<span>erledigt</span>');
       }
       return `<li><button type="button" class="kal-item${e.done ? ' is-done' : ''}" style="--c:${e.color}" data-k-open="${e.ref}">
-        <span class="name">${e.frist ? 'Frist: ' : ''}${h(e.title)}</span>
+        <span class="name">${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>
         <span class="meta">${meta.join('')}</span>
         ${k && k.notes ? `<span class="small muted kal-notes">${h(k.notes)}</span>` : ''}
       </button></li>`;

@@ -391,7 +391,7 @@
         o.photo = o.photo && (o.photo.path || o.photo.data) ? o.photo : null;
       });
       d.todos.forEach((t) => {
-        ['title', 'description', 'targetType', 'targetId', 'location', 'deadline', 'appointment', 'assignee', 'doneAt'].forEach((k) => { t[k] = t[k] || ''; });
+        ['title', 'description', 'targetType', 'targetId', 'location', 'deadline', 'appointment', 'assignee', 'doneAt', 'calendar'].forEach((k) => { t[k] = t[k] || ''; });
         if (!TODO_STATUS[t.status]) t.status = 'offen';
         if (!Array.isArray(t.photos)) t.photos = [];
         t.createdAt = t.createdAt || new Date().toISOString();

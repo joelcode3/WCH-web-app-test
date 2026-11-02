@@ -86,12 +86,14 @@
         target_type: t.targetType || '', target_id: t.targetId || '', location: t.location || '',
         status: t.status || 'offen', deadline: nz(t.deadline), appointment: nz(t.appointment),
         assignee: t.assignee || '', photos: t.photos || [], created_at: t.createdAt, done_at: nz(t.doneAt),
+        kalender: t.calendar || '',
       }),
       fromRow: (r) => ({
         id: r.id, title: r.title || '', description: r.description || '',
         targetType: r.target_type || '', targetId: r.target_id || '', location: r.location || '',
         status: r.status || 'offen', deadline: r.deadline || '', appointment: r.appointment ? String(r.appointment).slice(0, 16) : '',
         assignee: r.assignee || '', photos: r.photos || [], createdAt: r.created_at, doneAt: r.done_at || '',
+        calendar: r.kalender || '',
       }),
     },
     // Neu mit Update 10 – Kalender (fehlt die Tabelle, läuft die App ohne Kalender-Einträge weiter)
@@ -112,7 +114,7 @@
   ];
 
   // Spalten aus späteren Updates: fehlen sie noch, werden sie beim Speichern weggelassen
-  const OPTIONAL_COLS = { meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo'], termine: ['anzahl'] };
+  const OPTIONAL_COLS = { meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo'], termine: ['anzahl'], todos: ['kalender'] };
 
   const PAGE = 1000;
   const BUCKET = 'todo-fotos';

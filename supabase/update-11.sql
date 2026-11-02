@@ -1,5 +1,6 @@
 -- ==========================================================================
--- Update 11: Kalender „Reservierungen / VA“ (z. B. Vantreffen) mit Anzahl und To-Dos
+-- Update 11: Kalender „Reservierungen / VA“ (z. B. Vantreffen) mit Anzahl und To-Dos,
+--            To-Do-Termine erscheinen im gewählten Kalender
 --
 -- Einmalig im Supabase "SQL Editor" komplett ausführen. Kann gefahrlos mehrfach laufen.
 -- (Ist auch am Ende von schema.sql enthalten.)
@@ -12,6 +13,9 @@ alter table public.termine add constraint termine_art_check
 
 -- erwartete Anzahl (Fahrzeuge / Personen)
 alter table public.termine add column if not exists anzahl integer;
+
+-- To-Do mit Termin: in welchem Kalender er erscheint (termin, arbeit, reservierung, abwesenheit)
+alter table public.todos add column if not exists kalender text not null default '';
 
 -- To-Dos können jetzt auch an einer Reservierung / VA hängen
 alter table public.todos drop constraint if exists todos_target_type_check;
