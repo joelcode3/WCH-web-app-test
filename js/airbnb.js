@@ -181,6 +181,20 @@
       return { cls: 'free', busy: false, text: next ? `frei bis ${fmtShort(next.start)}` : 'frei' };
     },
 
+    // Status jetzt für die Kopfzeile: Anreisetag gilt ab 16 Uhr als belegt, Abreisetag bis 11 Uhr
+    nowStatus(o, now = new Date()) {
+      if (!o.icalUrl || this.errors[o.id] || !this.hasData(o)) return null;
+      const t = iso(now), hr = now.getHours() + now.getMinutes() / 60;
+      const cur = this.eventOn(o, t);                 // Nacht ab heute
+      const prev = this.eventOn(o, addDays(t, -1));   // Nacht bis heute früh
+      let ev = null;
+      if (cur && cur.start < t) ev = cur;                 // läuft durch
+      else if (prev && hr < 11) ev = prev;                // Abreise heute, bis 11 Uhr noch belegt
+      else if (cur && hr >= 16) ev = cur;                 // Anreise heute ab 16 Uhr
+      if (!ev) return { cls: 'free', text: 'frei' };
+      return ev.type === 'blocked' ? { cls: 'blk', text: 'geblockt' } : { cls: 'busy', text: 'belegt' };
+    },
+
     // Anteil belegter Nächte im Monat (0…1) – nur Tage, für die die Belegung bekannt ist
     // (vor Beginn der Aufzeichnung kennt die App nur Buchungen, die damals noch im Kalender standen); null = unbekannt
     occupancy(o, y, m) {

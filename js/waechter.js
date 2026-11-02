@@ -135,6 +135,46 @@
         </div></section>`;
     },
 
+    // Kompakte Anzeige rechts neben dem Foto der Unterkunft (ersetzt den großen Kasten)
+    compactHtml(o, editMode) {
+      const isBus = o.kind === 'londonbus';
+      const PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/></svg>';
+      const TEMP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z M12 9v6"/></svg>';
+      const BATT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M21.5 10.5v3"/></svg>';
+      if (!this.available()) {
+        if (this.state === 'missing' && editMode) return '<div class="wd-c"><span class="small muted">Stromwächter: <code>supabase/update-9.sql</code> fehlt (SETUP.md)</span></div>';
+        return isBus ? '<div class="wd-c"><span class="small muted">Temperatur: noch kein Sensor</span></div>' : '';
+      }
+      const r = this.get(o.id);
+      if (!r || !r.connected) {
+        if (!isBus && !editMode) return '';
+        return `<div class="wd-c"><span class="small muted">Stromwächter nicht verbunden</span>
+          <button type="button" class="link-btn small" data-wd="connect">Mit Hue verbinden</button></div>`;
+      }
+      const rows = [];
+      // Zeile 1: Strom (Bridge erreichbar?)
+      if (r.online === false) {
+        const m = ago(r.last_ok || r.since);
+        rows.push(`<div class="wd-row is-${m >= OFFLINE_MIN ? 'alarm' : 'warn'}"><i></i>${PLUG}<span>Bus: kein Kontakt seit ${time(r.last_ok || r.since)}</span></div>`);
+      } else if (r.online === true) rows.push(`<div class="wd-row is-ok"><i></i>${PLUG}<span>Bus: ok</span></div>`);
+      else rows.push(`<div class="wd-row is-wait"><i></i>${PLUG}<span>Bus: wird geprüft</span></div>`);
+      // Zeile 2: Temperatur und Batterie je Melder („Bus 1 - Bad Temperatur“ → „Bad“)
+      const short = (n) => String(n || '').replace(/bus\s*\d+\s*[-–:]?\s*/i, '').replace(/temperatur(sensor)?/i, '').replace(/\s*[-–]\s*$/, '').trim() || 'Innen';
+      (r.sensors || []).forEach((x) => {
+        const cold = typeof x.temp === 'number' && x.temp < FROST_TEMP;
+        const weak = typeof x.battery === 'number' && x.battery <= 15;
+        rows.push(`<div class="wd-row is-${cold ? 'alarm' : weak ? 'warn' : 'ok'}"><i></i>${TEMP}<span>${h(short(x.name))}: <strong>${typeof x.temp === 'number' ? deg(x.temp) : '–'}</strong>${typeof x.battery === 'number' ? `, <span class="nw">${BATT}${x.battery} %</span>` : ''}</span></div>`);
+      });
+      if (r.online === true && !(r.sensors || []).length) rows.push(`<div class="wd-row is-wait"><i></i>${TEMP}<span>noch kein Sensor</span></div>`);
+      return `<div class="wd-c">
+        ${rows.join('')}
+        ${r.error ? `<span class="small warn">${h(r.error)}</span>` : ''}
+        ${r.sms_error ? `<span class="small warn">${h(r.sms_error)}</span>` : ''}
+        <span class="small muted">${time(r.last_check) || '–'}</span>
+        <span class="small muted"><span class="nw">Warnung ab ${FROST_TEMP} °C</span> · <button type="button" class="link-btn muted-link" data-wd="test">Test-SMS</button>${r.error || editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="connect">Hue neu verbinden</button>' : ''}${editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="disconnect">Trennen</button>' : ''}</span>
+      </div>`;
+    },
+
     // Knöpfe im Infofenster
     bind(root, o, toast) {
       root.querySelectorAll('[data-wd]').forEach((b) => {

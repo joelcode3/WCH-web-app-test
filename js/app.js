@@ -638,7 +638,7 @@
       return `
         <div class="panel-head">
           <span class="pin pin-place" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i></span>
-          <div class="title"><h2>${h(o.name || kind.label)}</h2><span class="muted small">${h(kind.label)} · airbnb</span></div>
+          <div class="title"><h2>${h(o.name || kind.label)}</h2>${(() => { const st = Airbnb.nowStatus(o); return st ? `<span class="ab-now is-${st.cls}">${st.text}</span>` : `<span class="muted small">${Airbnb.state === 'loading' ? 'Kalender wird geladen …' : 'Belegung unbekannt'}</span>`; })()}</div>
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">
@@ -646,14 +646,13 @@
             <label class="tile-wrap" title="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${Airbnb.tileHtml(o, { big: true })}
               <span class="tile-change" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}</span><input type="file" accept="image/*" hidden data-place-photo></label>
             <div class="airbnb-status">
-              ${window.Waechter ? Waechter.tempHtml(o) : ''}
+              ${window.Waechter ? Waechter.compactHtml(o, MapView.editMode) : ''}
               ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
               ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
               ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
               ${MapView.editMode ? this.rotButtons() : ''}
             </div>
           </div>
-          ${window.Waechter ? Waechter.panelHtml(o, MapView.editMode) : ''}
           <div id="airbnb-cal">${Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m)}</div>
           ${o.notes ? `<p class="small" style="margin:8px 0 0;white-space:pre-line">${h(o.notes)}</p>` : ''}
           ${todoSection('place', o.id, true)}
