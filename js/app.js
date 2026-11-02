@@ -2375,14 +2375,16 @@
   }
 
   // Auswahlliste "Ort" für das To-Do-Formular
-  function targetOptions(cur) {
+  function targetOptions(cur, noTermine) {
     const opt = (v, l) => `<option value="${h(v)}"${v === cur ? ' selected' : ''}>${h(l)}</option>`;
     const group = (label, items) => (items.length ? `<optgroup label="${h(label)}">${items.join('')}</optgroup>` : '');
     return opt('', 'Allgemein / anderer Ort')
       + group('Orte auf dem Platz', S.placesSorted().map((o) => opt(`place:${o.id}`, o.name || S.PLACE_KINDS[o.kind].label)))
       + group('Parzellen', S.parcelsSorted().map((p) => opt(`parcel:${p.id}`, `Parzelle ${p.nr}${p.tenant.name ? ' – ' + p.tenant.name : ''}`)))
       + group('Stromkästen', S.boxesSorted().map((b) => opt(`box:${b.id}`, `Stromkasten ${b.nr}${b.location ? ' – ' + b.location : ''}`)))
-      + group('Gastanks', S.tanksSorted().map((t) => opt(`tank:${t.id}`, `Gastank ${t.nr}`)));
+      + group('Gastanks', S.tanksSorted().map((t) => opt(`tank:${t.id}`, `Gastank ${t.nr}`)))
+      + group('Reservierungen / VA', noTermine ? [] : S.data.termine.filter((k) => k.kind === 'reservierung' && (k.end >= today() || `termin:${k.id}` === cur))
+        .sort((a, b) => a.start.localeCompare(b.start)).map((k) => opt(`termin:${k.id}`, S.todoTargetText({ targetType: 'termin', targetId: k.id }))));
   }
   const assignees = () => [...new Set(S.data.todos.map((t) => t.assignee.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
 
@@ -2391,7 +2393,7 @@
     const txt = h(S.todoTargetText(t));
     const o = S.target(t);
     if (!o) return `<span>${ICON.pin}${txt}</span>`;
-    const icon = t.targetType === 'place' ? S.PLACE_KINDS[o.kind].icon : t.targetType === 'box' ? ICON.strom : t.targetType === 'tank' ? ICON.gas : ICON.map;
+    const icon = t.targetType === 'place' ? S.PLACE_KINDS[o.kind].icon : t.targetType === 'box' ? ICON.strom : t.targetType === 'tank' ? ICON.gas : t.targetType === 'termin' ? ICON.calendar : ICON.map;
     const who = t.targetType === 'parcel' && o.tenant && o.tenant.name ? ` · ${h(o.tenant.name)}` : '';
     return `<span>${icon} ${txt}${who}</span>`;
   }
@@ -2435,7 +2437,7 @@
           <div class="filters filters-todo">
             <div class="search">${ICON.search}<input type="search" id="t-q" placeholder="Titel, Beschreibung, Ort…" value="${h(this.q)}" aria-label="To-Dos durchsuchen"></div>
             <select id="t-kind" aria-label="Ort filtern">
-              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['airbnb', 'airbnb'], ['allgemein', 'Allgemein']]
+              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['airbnb', 'airbnb'], ['termin', 'Reservierungen / VA'], ['allgemein', 'Allgemein']]
                 .map(([k, l]) => `<option value="${k}"${this.kind === k ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
             <select id="t-who" aria-label="Zuständig filtern">
@@ -2743,6 +2745,8 @@
     return 1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7); };
   const FT_COLOR = '#7b4fa3', FERIEN_COLOR = '#2a8c86';
   const showFt = () => { try { return localStorage.getItem('wch-kal-feiertage') !== '0'; } catch (e) { return true; } };
+  const showRes = () => { try { return localStorage.getItem('wch-kal-reservierungen') !== '0'; } catch (e) { return true; } };
+  const resMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missingCols.has('termine.anzahl');
   const termineMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missing.has('termine');
   const personsKnown = () => [...new Set([...assignees(), ...S.data.termine.flatMap((k) => k.persons)].map((n) => String(n).trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'de'));
@@ -2769,7 +2773,8 @@
       const out = [];
       S.data.termine.forEach((k) => {
         if (k.start > d || (k.end || k.start) < d) return;
-        out.push({ ref: `termin:${k.id}`, color: S.TERMIN_KINDS[k.kind].color, title: terminTitle(k), kind: S.TERMIN_KINDS[k.kind].label,
+        if (k.kind === 'reservierung' && !showRes()) return;
+        out.push({ ref: `termin:${k.id}`, color: S.TERMIN_KINDS[k.kind].color, title: terminTitle(k) + (k.kind === 'reservierung' && k.count ? ` (${k.count})` : ''), kind: S.TERMIN_KINDS[k.kind].label,
           time: k.start === d ? k.timeFrom : '', multi: k.end > k.start, first: k.start === d, k, abs: k.kind === 'abwesenheit' });
       });
       S.data.todos.forEach((t) => {
@@ -2798,6 +2803,7 @@
         <div class="page kal">
           <div class="page-head">
             <h1>Kalender</h1>
+            <button class="btn btn-ghost" data-k-new="reservierung">${ICON.calendar}<span class="btn-text">Reservierung / VA</span></button>
             <button class="btn btn-ghost" data-k-new="abwesenheit">${ICON.user}<span class="btn-text">Abwesenheit</span></button>
             <button class="btn" data-k-new="termin">${ICON.plus} Termin</button>
           </div>
@@ -2812,14 +2818,20 @@
           </div>
           <div class="kal-grid" id="k-grid"></div>
           <div class="kal-legend">
-            ${Object.values(S.TERMIN_KINDS).map((v) => `<span><i style="background:${v.color}"></i>${h(v.label)}</span>`).join('')}
+            ${Object.values(S.TERMIN_KINDS).filter((v) => !v.layer).map((v) => `<span><i style="background:${v.color}"></i>${h(v.label)}</span>`).join('')}
             <span><i style="background:#0e3a3a"></i>To-Do-Termin</span><span><i style="background:#dc3545"></i>Frist</span>
+            <span class="kal-layers"><label class="kal-ft-toggle"><input type="checkbox" data-k-res${showRes() ? ' checked' : ''}>
+              <i style="background:${S.TERMIN_KINDS.reservierung.color}"></i>Reservierungen / VA</label>
             <label class="kal-ft-toggle"><input type="checkbox" data-k-ft${showFt() ? ' checked' : ''}>
-              <i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien</label>
+              <i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien</label></span>
           </div>
           <section class="kal-agenda" id="k-agenda"></section>
         </div>`;
       $$('[data-k-new]', root).forEach((b) => b.onclick = () => this.edit(null, b.dataset.kNew));
+      $('[data-k-res]', root).onchange = (e) => {
+        try { localStorage.setItem('wch-kal-reservierungen', e.target.checked ? '1' : '0'); } catch (err) { /* egal */ }
+        this.renderGrid(); this.renderAgenda();
+      };
       $('[data-k-ft]', root).onchange = (e) => {
         try { localStorage.setItem('wch-kal-feiertage', e.target.checked ? '1' : '0'); } catch (err) { /* egal */ }
         this.renderGrid(); this.renderAgenda();
@@ -2927,6 +2939,11 @@
         const orte = k.targets.map(targetName).filter(Boolean);
         if (orte.length) meta.push(`<span>${ICON.pin}${h(orte.join(', '))}</span>`);
         if (k.persons.length && k.kind !== 'abwesenheit') meta.push(`<span>${ICON.user}${h(k.persons.join(', '))}</span>`);
+        if (k.kind === 'reservierung') {
+          if (k.count) meta.push(`<span>ca. ${h(k.count)} Fahrzeuge/Personen</span>`);
+          const n = S.todosOf('termin', k.id).length;
+          if (n) meta.push(`<span>${n} offene${n === 1 ? 's' : ''} To-Do${n === 1 ? '' : 's'}</span>`);
+        }
       } else {
         if (e.time) meta.push(`<span>${h(e.time)} Uhr</span>`);
         meta.push(`<span>${h(S.todoTargetText(e.t))}${e.t.targetType === 'parcel' && S.target(e.t) && S.target(e.t).tenant.name ? ` · ${h(S.target(e.t).tenant.name)}` : ''}</span>`);
@@ -2977,28 +2994,35 @@
       if (termineMissing()) { alert('Für eigene Kalender-Einträge bitte zuerst im Supabase „SQL Editor“ das Skript supabase/update-10.sql ausführen und die App neu laden.'); return; }
       const o = id ? S.termin(id) : null;
       const day = date || (this.sel && this.sel >= today() ? this.sel : today());
-      const k = o ? JSON.parse(JSON.stringify(o)) : { kind: kind || 'termin', title: '', start: day, end: day, timeFrom: '', timeTo: '', targets: [], persons: [], notes: '' };
+      const k = o ? JSON.parse(JSON.stringify(o)) : { kind: kind || 'termin', title: '', start: day, end: day, timeFrom: '', timeTo: '', targets: [], persons: [], notes: '', count: '' };
+      if (k.kind === 'reservierung' && resMissing()) { alert('Für Reservierungen / VA bitte zuerst im Supabase „SQL Editor“ das Skript supabase/update-11.sql ausführen und die App neu laden.'); return; }
+      const linked = o ? S.todosOf('termin', o.id, true).sort(todoSort) : [];
       const people = personsKnown();
       formDialog({
         title: o ? `${S.TERMIN_KINDS[k.kind].label} bearbeiten` : k.kind === 'abwesenheit' ? 'Abwesenheit eintragen' : 'Neuer Kalender-Eintrag',
         fields: [
-          { name: 'kind', label: 'Art', type: 'select', value: k.kind, options: Object.entries(S.TERMIN_KINDS).map(([v, x]) => [v, v === 'arbeit' ? 'Längere Arbeit (mehrere Tage)' : x.label]) },
+          { name: 'kind', label: 'Art', type: 'select', value: k.kind, options: Object.entries(S.TERMIN_KINDS).map(([v, x]) => [v, v === 'arbeit' ? 'Längere Arbeit (mehrere Tage)' : v === 'reservierung' ? 'Reservierung / VA (z. B. Vantreffen)' : x.label]) },
           { name: 'title', label: 'Titel', value: k.title, placeholder: 'z. B. Wasser abstellen, Urlaub …' },
           { name: 'start', label: 'Von', type: 'date', value: k.start },
           { name: 'end', label: 'Bis', type: 'date', value: k.end },
           { name: 'timeFrom', label: 'Uhrzeit von (leer = ganztägig)', type: 'time', value: k.timeFrom },
           { name: 'timeTo', label: 'Uhrzeit bis', type: 'time', value: k.timeTo },
+          { name: 'count', label: 'Erwartete Anzahl (Fahrzeuge / Personen)', type: 'number', value: k.count },
         ],
         extra: `
           <div class="field"><span>Orte / Parzellen</span>
             <div class="chips-edit" data-k-chips="targets"></div>
-            <select data-k-addtarget>${targetOptions('__').replace('Allgemein / anderer Ort', 'Ort oder Parzelle hinzufügen …')}</select></div>
+            <select data-k-addtarget>${targetOptions('__', true).replace('Allgemein / anderer Ort', 'Ort oder Parzelle hinzufügen …')}</select></div>
           <div class="field"><span data-k-plabel>Personen</span>
             <div class="chips-edit" data-k-chips="persons"></div>
             <div class="k-person-add"><input type="text" data-k-person list="k-people" placeholder="Name eingeben" autocomplete="off">
               <button type="button" class="btn btn-ghost btn-sm" data-k-padd>${ICON.plus} Hinzufügen</button></div>
             <datalist id="k-people">${people.map((n) => `<option value="${h(n)}">`).join('')}</datalist></div>
           <label class="field"><span>Notizen</span><textarea name="notes" rows="2">${h(k.notes)}</textarea></label>
+          <div class="field" data-k-todos><span>To-Dos zu dieser Reservierung / VA</span>
+            ${o ? `${linked.length ? `<ul class="todo-mini">${linked.map((t) => `<li data-k-todo="${t.id}" tabindex="0"><span class="dot" style="background:${todoStatus(t).color}"></span><span class="t">${h(t.title || '(ohne Titel)')}</span><span class="d">${t.deadline ? fmtDate(t.deadline) : ''}</span></li>`).join('')}</ul>` : '<span class="muted small">noch keine</span>'}
+              <button type="button" class="btn btn-ghost btn-sm" data-k-addtodo style="margin-top:6px">${ICON.plus} To-Do hinzufügen</button>`
+              : '<span class="muted small">Nach dem Eintragen hier To-Dos hinzufügen.</span>'}</div>
           ${o ? `<div class="card-actions" style="margin:0"><button type="button" class="btn btn-danger btn-sm" data-k-del>${ICON.trash} Eintrag löschen</button></div>` : ''}`,
         submitLabel: o ? 'Speichern' : 'Eintragen',
         onSubmit: (v) => {
@@ -3010,8 +3034,10 @@
           if (typed && !k.persons.includes(typed)) k.persons.push(typed);
           if (kindV === 'abwesenheit' && !k.persons.length) { toast('Bitte eintragen, wer abwesend ist'); return false; }
           if (kindV !== 'abwesenheit' && !v.title.trim()) { toast('Bitte einen Titel eintragen'); return false; }
+          if (kindV === 'reservierung' && resMissing()) { alert('Für Reservierungen / VA bitte zuerst im Supabase „SQL Editor“ das Skript supabase/update-11.sql ausführen und die App neu laden.'); return false; }
+          const cnt = parseInt(v.count, 10);
           const data = { kind: kindV, title: v.title.trim(), start, end, timeFrom: v.timeFrom || '', timeTo: v.timeFrom ? v.timeTo || '' : '',
-            targets: k.targets, persons: k.persons, notes: v.notes.trim() };
+            targets: k.targets, persons: k.persons, notes: v.notes.trim(), count: kindV === 'reservierung' && cnt > 0 ? cnt : '' };
           if (o) Object.assign(o, data);
           else S.data.termine.push({ id: S.uid('k'), createdAt: new Date().toISOString(), ...data });
           S.save();
@@ -3041,6 +3067,8 @@
       const kindSel = $('[name=kind]', dlg), endIn = $('[name=end]', dlg), startIn = $('[name=start]', dlg);
       const sync = () => {
         const abs = kindSel.value === 'abwesenheit';
+        $('[name=count]', dlg).closest('.field').hidden = kindSel.value !== 'reservierung';
+        $('[data-k-todos]', dlg).hidden = kindSel.value !== 'reservierung';
         $('[name=timeFrom]', dlg).closest('.field').hidden = abs;
         $('[name=timeTo]', dlg).closest('.field').hidden = abs;
         $('[data-k-plabel]', dlg).textContent = abs ? 'Wer ist abwesend? *' : 'Personen';
@@ -3048,9 +3076,13 @@
       };
       kindSel.addEventListener('change', sync); sync();
       startIn.addEventListener('change', () => { if (!endIn.value || endIn.value < startIn.value) endIn.value = startIn.value; });
+      // To-Dos der Reservierung öffnen / anlegen (zurück zum Kalender)
+      $$('[data-k-todo]', dlg).forEach((li) => li.onclick = () => { dlg.close(); location.hash = `#/todo/${li.dataset.kTodo}?${backParam('#/kalender')}`; });
+      const addTodo = $('[data-k-addtodo]', dlg);
+      if (addTodo) addTodo.onclick = () => { dlg.close(); location.hash = `#/todo/neu?ziel=termin:${o.id}&${backParam('#/kalender')}`; };
       const del = $('[data-k-del]', dlg);
       if (del) del.onclick = () => {
-        if (!confirm(`„${terminTitle(o)}“ wirklich löschen?`)) return;
+        if (!confirm(`„${terminTitle(o)}“ wirklich löschen?${S.todosOf('termin', o.id, true).length ? '\nDie To-Dos bleiben erhalten (als allgemeine To-Dos).' : ''}`)) return;
         S.deleteTermin(o.id); S.save(); dlg.close(); toast('Eintrag gelöscht');
         if (location.hash.startsWith('#/kalender')) this.render($('#view-page'));
       };

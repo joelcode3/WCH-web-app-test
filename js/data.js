@@ -110,6 +110,8 @@
     termin:      { label: 'Termin',                    color: '#1b7fc9' },
     arbeit:      { label: 'Längere Arbeit',            color: '#c77c12' },
     abwesenheit: { label: 'Abwesenheit',               color: '#8a918b' },
+    // eigener Kalender: Reservierungen und Veranstaltungen (z. B. Vantreffen) – mit Ort, Anzahl und To-Dos
+    reservierung: { label: 'Reservierung / VA',        color: '#b0457e', layer: true },
   };
 
   // Farbschema "Versorgung" auf der Karte
@@ -281,6 +283,7 @@
       termin({ title: 'Wasser abstellen (Winter)', start: iso(3), end: iso(3), timeFrom: '09:00', timeTo: '12:00', targets: [], persons: ['Thomas'] }),
       termin({ kind: 'arbeit', title: 'Wege neu schottern', start: iso(6), end: iso(10), targets: [`place:${places[2].id}`], persons: ['Thomas', 'Bauhof Meyer'] }),
       termin({ kind: 'abwesenheit', title: 'Urlaub', start: iso(12), end: iso(19), persons: ['Thomas'] }),
+      termin({ kind: 'reservierung', title: 'Vantreffen Nord', start: iso(15), end: iso(17), count: 40, targets: [`place:${places[1].id}`], persons: ['Thomas'] }),
     ];
 
     return { version: 1, parcels, boxes, tanks, meters, readings, places, todos, termine, demo: true };
@@ -378,6 +381,7 @@
         if (!k.end || k.end < k.start) k.end = k.start;
         if (!Array.isArray(k.targets)) k.targets = [];
         if (!Array.isArray(k.persons)) k.persons = [];
+        k.count = k.count === null || k.count === undefined || isNaN(k.count) ? '' : k.count;
       });
       d.places.forEach((o) => {
         o.name = o.name || '';
@@ -563,14 +567,17 @@
     place(id) { return this.data.places.find((o) => o.id === id); },
     todo(id) { return this.data.todos.find((t) => t.id === id); },
     termin(id) { return this.data.termine.find((k) => k.id === id); },
-    deleteTermin(id) { this.data.termine = this.data.termine.filter((k) => k.id !== id); },
+    deleteTermin(id) {
+      this._detachTodos('termin', id);
+      this.data.termine = this.data.termine.filter((k) => k.id !== id);
+    },
     placesSorted() { return [...this.data.places].sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })); },
 
     /* To-Dos */
     isDone: (t) => t.status === 'erledigt',
     isOverdue(t, today) { return !!t.deadline && t.status !== 'erledigt' && t.deadline < (today || new Date().toISOString().slice(0, 10)); },
     target(t) {
-      const fn = { parcel: 'parcel', box: 'box', tank: 'tank', place: 'place' }[t.targetType];
+      const fn = { parcel: 'parcel', box: 'box', tank: 'tank', place: 'place', termin: 'termin' }[t.targetType];
       return fn ? this[fn](t.targetId) : null;
     },
     // "Parzelle 1.23", "Stromkasten 4", "Grillhütte", freier Ort oder "Allgemein"
@@ -581,6 +588,7 @@
         if (t.targetType === 'box') return `Stromkasten ${o.nr}`;
         if (t.targetType === 'tank') return `Gastank ${o.nr}`;
         if (t.targetType === 'place') return o.name || PLACE_KINDS[o.kind].label;
+        if (t.targetType === 'termin') return `${o.title || 'Reservierung / VA'} (${o.start.split('-').reverse().join('.')})`;
       }
       return t.location || 'Allgemein';
     },

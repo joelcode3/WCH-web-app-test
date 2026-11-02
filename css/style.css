@@ -995,7 +995,8 @@ body.is-locked { padding-bottom: 0; }
 .kal-chip.is-ft { background: color-mix(in srgb, var(--c) 14%, #fff); border-left: 3px solid var(--c); color: var(--c); font-weight: 600; }
 .kal-item.is-ft { cursor: default; background: color-mix(in srgb, var(--c) 7%, #fff); }
 .kal-item.is-ft .name { color: var(--c); }
-.kal-ft-toggle { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; padding: 3px 10px; border: 1px solid var(--linie); border-radius: 999px; background: var(--papier); cursor: pointer; color: var(--text); }
+.kal-layers { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.kal-ft-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--linie); border-radius: 999px; background: var(--papier); cursor: pointer; color: var(--text); }
 .kal-ft-toggle input { margin: 0 2px 0 0; width: 16px; height: 16px; accent-color: var(--wald); }
 
 /* Wetter kompakt (kein Scrollen) */
@@ -1031,3 +1032,4 @@ body.is-locked { padding-bottom: 0; }
   .wx-now .wx-ico.is-big { width: 30px; height: 30px; }
   .wx-temp { font-size: 1.3rem; }
 }
+@media (max-width: 860px) { .kal-layers { margin-left: 0; } }

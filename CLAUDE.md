@@ -40,12 +40,14 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-10 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
-  10: `termine` für den Kalender, `airbnb_belegung` = von der App aufgezeichnete Buchungen, weil airbnb vergangene nicht liefert).
+  Bisher: update-2 … update-11 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
+  10: `termine` für den Kalender, `airbnb_belegung` = von der App aufgezeichnete Buchungen, weil airbnb vergangene nicht liefert;
+  11: Art `reservierung` + Spalte `anzahl` in `termine`, To-Do-Ziel `termin`).
 - Kalender (Reiter, `Kalender` in app.js): eigene Einträge Termin/Längere Arbeit/Abwesenheit mit Orten und Personen,
   dazu Termine und Fristen aus den To-Dos, Wetter 7 Tage (kompakt, ohne Scrollen; Wetter-Symbol auch oben links auf der Map),
   Kalenderwochen, abwählbarer Kalender „Feiertage/Schulferien“ (`js/feiertage.js`: Feiertage aller Länder berechnet,
   Schulferien von openholidaysapi.org), Feiertage in Niedersachsen wie Wochenende ausgegraut, heute dunkelgrün.
+  Eigener, abwählbarer Kalender „Reservierungen / VA“ (Art `reservierung`, mit Ort, Anzahl, To-Dos; To-Do-Ziel `termin`, update-11).
   airbnb-Belegung in % zählt nur belegt, nicht geblockt. To-Do-Liste: Status/Löschen direkt per Menü rechts.
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;
   `tools/render_plan.js` rendert `assets/platzplan.png` (Hintergrund). Eingaben: AutoCAD-PDFs (nicht im Repo).

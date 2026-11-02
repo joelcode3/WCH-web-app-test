@@ -101,18 +101,18 @@
       toRow: (k) => ({
         id: k.id, art: k.kind || 'termin', titel: k.title || '', beginn: k.start, ende: k.end || k.start,
         zeit_von: k.timeFrom || '', zeit_bis: k.timeTo || '', orte: k.targets || [], personen: k.persons || [],
-        notizen: k.notes || '', created_at: k.createdAt,
+        notizen: k.notes || '', created_at: k.createdAt, anzahl: num(k.count),
       }),
       fromRow: (r) => ({
         id: r.id, kind: r.art || 'termin', title: r.titel || '', start: r.beginn, end: r.ende || r.beginn,
         timeFrom: r.zeit_von || '', timeTo: r.zeit_bis || '', targets: r.orte || [], persons: r.personen || [],
-        notes: r.notizen || '', createdAt: r.created_at,
+        notes: r.notizen || '', createdAt: r.created_at, count: r.anzahl === null || r.anzahl === undefined ? '' : Number(r.anzahl),
       }),
     },
   ];
 
   // Spalten aus späteren Updates: fehlen sie noch, werden sie beim Speichern weggelassen
-  const OPTIONAL_COLS = { meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo'] };
+  const OPTIONAL_COLS = { meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo'], termine: ['anzahl'] };
 
   const PAGE = 1000;
   const BUCKET = 'todo-fotos';
