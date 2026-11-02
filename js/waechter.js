@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const OFFLINE_MIN = 15, FROST_TEMP = 5;
+  const OFFLINE_MIN = 15, FROST_TEMP = 6;
   const h = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const time = (iso) => (iso ? new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '') : '');
   const deg = (t) => `${Number(t).toFixed(1).replace('.', ',')} °C`;
@@ -108,7 +108,7 @@
       if (!r || !r.connected) {
         if (!isBus && !editMode) return '';
         return `<section class="wd-box"><h3>Stromwächter</h3>
-          <p class="small muted">Warnt per SMS bei Stromausfall (Hue Bridge nicht erreichbar) und Frostgefahr (Hue-Bewegungsmelder unter 5 °C).</p>
+          <p class="small muted">Warnt per SMS bei Stromausfall (Hue Bridge nicht erreichbar) und Frostgefahr (Hue-Bewegungsmelder unter 6 °C).</p>
           <div class="wd-actions"><button type="button" class="btn btn-sm" data-wd="connect">Mit Hue verbinden</button></div></section>`;
       }
       const s = this.summary(o.id);
