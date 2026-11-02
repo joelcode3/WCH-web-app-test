@@ -3266,6 +3266,38 @@
     el.hidden = false;
   }
 
+  // Stromwächter: rote/gelbe Leiste oben, solange ein Problem besteht; bei neuen Alarmen zusätzlich ein Fenster
+  const ALARM_SEEN = 'wch-alarm-gesehen';
+  function renderAlarms() {
+    const bar = $('#wd-alarm');
+    if (!bar || !window.Waechter) return;
+    const list = Waechter.alarms();
+    bar.hidden = !list.length;
+    bar.className = `wd-alarm${list.some((a) => a.level === 'alarm') ? ' is-alarm' : ''}`;
+    bar.innerHTML = list.map((a) => `<a href="#/karte/place/${a.id}"><strong>${h(a.name)}:</strong> ${h(a.text)}</a>`).join('');
+    // Fenster nur für Alarme (rot), die auf diesem Gerät noch nicht bestätigt wurden
+    let seen = [];
+    try { seen = JSON.parse(sessionStorage.getItem(ALARM_SEEN) || '[]'); } catch (e) { /* egal */ }
+    const active = new Set(list.map((a) => a.key));
+    seen = seen.filter((k) => active.has(k));                    // behobene vergessen → kommt wieder, falls erneut
+    const fresh = list.filter((a) => a.level === 'alarm' && !seen.includes(a.key));
+    try { sessionStorage.setItem(ALARM_SEEN, JSON.stringify(seen)); } catch (e) { /* egal */ }
+    const dlg = $('#dialog');
+    if (!fresh.length || dlg.open) return;
+    dlg.innerHTML = `<div class="wd-popup">
+        <h2>Achtung</h2>
+        ${fresh.map((a) => `<p><strong>${h(a.name)}</strong><br>${h(a.text)}</p>`).join('')}
+        <div class="dialog-actions">
+          <button type="button" class="btn btn-ghost" data-ok>Verstanden</button>
+          <button type="button" class="btn" data-go>Zum ${h(fresh[0].name)}</button>
+        </div></div>`;
+    const ack = () => { try { sessionStorage.setItem(ALARM_SEEN, JSON.stringify([...seen, ...fresh.map((a) => a.key)])); } catch (e) { /* egal */ } dlg.close(); };
+    $('[data-ok]', dlg).onclick = ack;
+    $('[data-go]', dlg).onclick = () => { ack(); location.hash = `#/karte/place/${fresh[0].id}`; };
+    dlg.addEventListener('cancel', ack, { once: true });
+    dlg.showModal();
+  }
+
   /* ---------- Start ---------- */
 
   async function start() {
@@ -3318,6 +3350,7 @@
     Feiertage.onChange(() => { if (location.hash.startsWith('#/kalender')) { Kalender.renderGrid(); Kalender.renderAgenda(); } });
     // Stromwächter (Hue): Zustand laden, alle 2 Minuten und beim Zurückkehren zur App auffrischen
     Waechter.onChange(() => {
+      renderAlarms();
       MapView.render();
       const sel = MapView.selected;
       if (!$('#view-karte').hidden && sel && sel.type === 'place') MapUI.showPanel('place', sel.id);

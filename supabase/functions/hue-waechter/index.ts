@@ -3,7 +3,7 @@
 // Je Unterkunft (z. B. Londonbus) ist eine Philips Hue Bridge verbunden. Alle 5 Minuten
 // (Zeitplan: supabase/waechter-zeitplan.sql) prüft die Funktion über die Hue-Fernsteuerung:
 //   - Ist die Bridge erreichbar? Nein, länger als 15 Min. → SMS „möglicher Stromausfall“
-//   - Temperatur der Hue-Bewegungsmelder: unter 5 °C (10 Min. lang) → SMS „Frostgefahr“
+//   - Temperatur der Hue-Bewegungsmelder: unter 6 °C (10 Min. lang) → SMS „Frostgefahr“ (Entwarnung ab 8 °C)
 //   - Batterie eines Melders unter 15 % → SMS
 // Kommt alles wieder in Ordnung, gibt es eine Entwarnung. Den Zustand liest die App aus der
 // Tabelle waechter_status (nur Team-Mitglieder).
@@ -26,8 +26,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 export const OFFLINE_MIN = 15;     // Minuten nicht erreichbar → Warnung
-export const FROST_TEMP = 5;       // °C – darunter Frostwarnung
-export const FROST_CLEAR = 6;      // °C – ab hier Entwarnung (kein Hin und Her um 5 °C)
+export const FROST_TEMP = 6;       // °C – darunter Frostwarnung
+export const FROST_CLEAR = 8;      // °C – ab hier Entwarnung (kein Hin und Her um 6 °C)
 export const FROST_MIN = 10;       // Minuten unter FROST_TEMP → Warnung
 export const BATTERY_LOW = 15;     // % – Batterie schwach
 const HUE = 'https://api.meethue.com';
@@ -61,7 +61,14 @@ export type Db = {
   saveOauth(state: string, placeId: string, returnUrl: string): Promise<void>;
   takeOauth(state: string): Promise<{ place_id: string; return_url: string } | null>;
   isTeamMember(auth: string): Promise<boolean>;
+  // To-Do bei der Unterkunft anlegen (nur wenn noch keines mit diesem Titel offen ist)
+  addTodo(placeId: string, title: string, description: string): Promise<void>;
 };
+
+// Standort der Busse für die SMS, z. B. „LONDONBUS 2 (Teich)“ – Schlüssel = Name der Unterkunft in der App
+const ORTSZUSATZ: Record<string, string> = { 'Londonbus 1': 'Wald', 'Londonbus 2': 'Teich' };
+const smsName = (name: string) => `${name.toUpperCase()}${ORTSZUSATZ[name] ? ` (${ORTSZUSATZ[name]})` : ''}`;
+const BATTERY_TODO = 'Batterie Temperatursensor tauschen';
 
 export type Env = (k: string) => string | undefined;
 
@@ -184,16 +191,16 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
     for (const b of bridges) {
       if (onlyPlace && b.place_id !== onlyPlace) continue;
       const s: Status = { ...emptyStatus(b.place_id), ...(byId.get(b.place_id) || {}), connected: true };
-      const name = names[b.place_id] || 'Unterkunft';
+      const name = smsName(names[b.place_id] || 'Unterkunft');
       const r = await probe(b);
       s.last_check = iso;
       // Zugang abgelaufen: Überwachung ist blind → einmal Bescheid geben
-      if (r.error && r.error !== s.error) alerts.push({ s, text: `Stromwächter ${name}: ${r.error} Bis dahin keine Überwachung.` });
+      if (r.error && r.error !== s.error) alerts.push({ s, text: `${name} - Ups, Hue Zugang abgelaufen. Gibt also aktuell keine Überwachung. Joel, kümmer dich mal ja!` });
       s.error = r.error;
 
       if (r.state === 'online') {
         if (s.online !== true) s.since = iso;
-        if (s.alarm_offline) alerts.push({ s, flag: 'alarm_offline', value: false, text: `Entwarnung: ${name} ist wieder erreichbar (ausgefallen seit ${clock(s.last_ok)}).` });
+        if (s.alarm_offline) alerts.push({ s, flag: 'alarm_offline', value: false, text: `${name} - Entwarnung, alles wieder Takko. Hue Bridge ist wieder erreichbar (ausgefallen seit ${clock(s.last_ok)}).` });
         s.online = true;
         s.last_ok = iso;
         if (r.sensors) s.sensors = r.sensors;
@@ -204,16 +211,21 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
         if (cold.length) {
           s.frost_since = s.frost_since || iso;
           if (!s.alarm_frost && minutes(s.frost_since, now) >= FROST_MIN - 0.5) {
-            alerts.push({ s, flag: 'alarm_frost', value: true, text: `FROSTGEFAHR ${name}: ${cold.map((x) => `${x.name} ${deg(x.temp as number)}`).join(', ')}. Bitte Heizung/Strom prüfen!` });
+            alerts.push({ s, flag: 'alarm_frost', value: true, text: `${name} - Uiuiui, Temperatur im Bad bei ${deg(Math.min(...cold.map((x) => x.temp as number)))}, das ist frisch. Bitte prüfen, bevor da wieder ne Leitung platzt!` });
           }
         } else if (s.min_temp === null || s.min_temp >= FROST_CLEAR) {
-          if (s.alarm_frost) alerts.push({ s, flag: 'alarm_frost', value: false, text: `Entwarnung Frost: ${name} wieder ${s.min_temp !== null ? deg(s.min_temp) : 'ok'}.` });
+          if (s.alarm_frost) alerts.push({ s, flag: 'alarm_frost', value: false, text: `${name} - Entspann dich, Bad-Temperatur wieder bei muggeligen ${s.min_temp !== null ? deg(s.min_temp) : 'über ' + FROST_CLEAR + ' °C'}.` });
           s.frost_since = null;
         }
         // Batterie
         const weak = s.sensors.filter((x) => typeof x.battery === 'number' && x.battery <= BATTERY_LOW);
         if (weak.length && !s.alarm_battery) {
-          alerts.push({ s, flag: 'alarm_battery', value: true, text: `Batterie schwach ${name}: ${weak.map((x) => `${x.name} ${x.battery} %`).join(', ')}. Bitte wechseln (Lithium-AAA).` });
+          const pct = Math.min(...weak.map((x) => x.battery as number));
+          alerts.push({ s, flag: 'alarm_battery', value: true, text: `${name} - Langsam geht dem Temperatursensor der Saft aus, hat nur noch ${pct} %. Am besten demnächst mal tauschen das Teil.` });
+          // automatisch als To-Do beim Bus
+          try {
+            await db.addTodo(b.place_id, BATTERY_TODO, `${weak.map((x) => `${x.name}: ${x.battery} %`).join(', ')} – Batterien tauschen (Lithium-AAA). Automatisch angelegt vom Stromwächter.`);
+          } catch (e) { console.warn('To-Do Batterie', e); }
         } else if (!weak.length && s.sensors.every((x) => x.battery === null || x.battery > BATTERY_LOW + 10)) {
           s.alarm_battery = false;
         }
@@ -223,7 +235,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
         // gezählt ab „zuletzt erreichbar“ (der Ausfall begann irgendwann danach)
         const gone = s.last_ok || s.since;
         if (!s.alarm_offline && minutes(gone, now) >= OFFLINE_MIN - 0.5) {
-          alerts.push({ s, flag: 'alarm_offline', value: true, text: `ACHTUNG ${name}: Hue Bridge nicht erreichbar (zuletzt ${clock(gone)}) – möglicher Stromausfall oder Internet weg. Bitte prüfen!` });
+          alerts.push({ s, flag: 'alarm_offline', value: true, text: `${name} - Oha, Hue Bridge nicht erreichbar (zuletzt ${clock(gone)}). Könnte n Stromausfall sein oder Internet weg, kann mal einer checken bitte?!` });
         }
       }
       results.push(s);
@@ -320,7 +332,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
       return json({ ok: true });
     }
     if (action === 'test-sms') {
-      const r = await sendSms('Test: Der Stromwächter Waldcamping Hesedorf ist eingerichtet. Diese SMS kommt bei Stromausfall oder Frostgefahr in den Unterkünften.');
+      const r = await sendSms(`TEST: gibt so ne SMS bei Stromausfall in den Londonbussen oder wenn die Temperatur in einem Bad unter ${FROST_TEMP} °C fällt.`);
       return json(r, r.ok ? 200 : 400);
     }
     if (action === 'check-now') return json(await check(body.place_id ? String(body.place_id) : undefined));
@@ -356,6 +368,12 @@ function supabaseDb(): Db {
       const rows = must(await sb.from('hue_oauth').select('*').eq('state', state)) as { place_id: string; return_url: string }[];
       await sb.from('hue_oauth').delete().eq('state', state);
       return rows[0] || null;
+    },
+    async addTodo(placeId, title, description) {
+      const open = must(await sb.from('todos').select('id').eq('target_type', 'place').eq('target_id', placeId).eq('title', title).neq('status', 'erledigt')) as { id: string }[];
+      if (open.length) return;
+      must(await sb.from('todos').insert({ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), title, description,
+        target_type: 'place', target_id: placeId, status: 'offen', created_at: new Date().toISOString() }));
     },
     async isTeamMember(auth) {
       if (!auth) return false;
