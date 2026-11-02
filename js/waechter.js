@@ -69,6 +69,24 @@
       return { level: 'ok', text: 'Strom ok' };
     },
 
+    // alle aktuellen Probleme für Hinweisleiste und Popup: [{ id, key, level, name, text }]
+    alarms() {
+      if (!this.available()) return [];
+      const out = [];
+      window.Store.data.places.forEach((o) => {
+        const r = this.get(o.id);
+        if (!r || !r.connected) return;
+        const add = (key, level, text) => out.push({ id: o.id, key: `${o.id}:${key}`, level, name: o.name, text });
+        if (r.online === false && ago(r.last_ok || r.since) >= OFFLINE_MIN) add('offline', 'alarm', `Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – möglicher Stromausfall oder Internet weg`);
+        const cold = (r.sensors || []).filter((x) => typeof x.temp === 'number' && x.temp < FROST_TEMP);
+        if (r.online !== false && cold.length) add('frost', 'alarm', `Frostgefahr: Bad bei ${deg(Math.min(...cold.map((x) => x.temp)))}`);
+        const weak = (r.sensors || []).filter((x) => typeof x.battery === 'number' && x.battery <= 15);
+        if (weak.length) add('battery', 'warn', `Batterie Temperatursensor schwach (${Math.min(...weak.map((x) => x.battery))} %)`);
+        if (r.error) add('error', 'warn', 'Hue-Zugang abgelaufen – keine Überwachung, bitte neu mit Hue verbinden');
+      });
+      return out.sort((a, b) => (a.level === 'alarm' ? 0 : 1) - (b.level === 'alarm' ? 0 : 1));
+    },
+
     // kleines Warnzeichen am Kartensymbol (nur bei Problemen)
     badgeHtml(id) {
       const s = this.available() && this.summary(id);
