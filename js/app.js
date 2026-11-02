@@ -638,7 +638,7 @@
       return `
         <div class="panel-head">
           <span class="pin pin-place" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i></span>
-          <div class="title"><h2>${h(o.name || kind.label)}</h2><span class="muted small">${h(kind.label)} · airbnb</span></div>
+          <div class="title"><h2>${h(o.name || kind.label)}</h2>${(() => { const st = Airbnb.nowStatus(o); return st ? `<span class="ab-now is-${st.cls}">${st.text}</span>` : `<span class="muted small">${Airbnb.state === 'loading' ? 'Kalender wird geladen …' : 'Belegung unbekannt'}</span>`; })()}</div>
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">
@@ -646,14 +646,15 @@
             <label class="tile-wrap" title="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${Airbnb.tileHtml(o, { big: true })}
               <span class="tile-change" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}</span><input type="file" accept="image/*" hidden data-place-photo></label>
             <div class="airbnb-status">
-              ${window.Waechter ? Waechter.tempHtml(o) : ''}
-              ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
-              ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
-              ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
-              ${MapView.editMode ? this.rotButtons() : ''}
+              ${window.Waechter ? Waechter.compactHtml(o, MapView.editMode) : ''}
             </div>
           </div>
-          ${window.Waechter ? Waechter.panelHtml(o, MapView.editMode) : ''}
+          <div class="airbnb-notes">
+            ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
+            ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
+            ${Airbnb.errors[o.id] ? `<span class="warn small">${h(Airbnb.errors[o.id])}</span>` : ''}
+            ${MapView.editMode ? this.rotButtons() : ''}
+          </div>
           <div id="airbnb-cal">${Airbnb.monthHtml(o, this.calMonth.y, this.calMonth.m)}</div>
           ${o.notes ? `<p class="small" style="margin:8px 0 0;white-space:pre-line">${h(o.notes)}</p>` : ''}
           ${todoSection('place', o.id, true)}
@@ -2374,14 +2375,16 @@
   }
 
   // Auswahlliste "Ort" für das To-Do-Formular
-  function targetOptions(cur) {
+  function targetOptions(cur, noTermine) {
     const opt = (v, l) => `<option value="${h(v)}"${v === cur ? ' selected' : ''}>${h(l)}</option>`;
     const group = (label, items) => (items.length ? `<optgroup label="${h(label)}">${items.join('')}</optgroup>` : '');
     return opt('', 'Allgemein / anderer Ort')
       + group('Orte auf dem Platz', S.placesSorted().map((o) => opt(`place:${o.id}`, o.name || S.PLACE_KINDS[o.kind].label)))
       + group('Parzellen', S.parcelsSorted().map((p) => opt(`parcel:${p.id}`, `Parzelle ${p.nr}${p.tenant.name ? ' – ' + p.tenant.name : ''}`)))
       + group('Stromkästen', S.boxesSorted().map((b) => opt(`box:${b.id}`, `Stromkasten ${b.nr}${b.location ? ' – ' + b.location : ''}`)))
-      + group('Gastanks', S.tanksSorted().map((t) => opt(`tank:${t.id}`, `Gastank ${t.nr}`)));
+      + group('Gastanks', S.tanksSorted().map((t) => opt(`tank:${t.id}`, `Gastank ${t.nr}`)))
+      + group('Reservierungen / VA', noTermine ? [] : S.data.termine.filter((k) => k.kind === 'reservierung' && (k.end >= today() || `termin:${k.id}` === cur))
+        .sort((a, b) => a.start.localeCompare(b.start)).map((k) => opt(`termin:${k.id}`, S.todoTargetText({ targetType: 'termin', targetId: k.id }))));
   }
   const assignees = () => [...new Set(S.data.todos.map((t) => t.assignee.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
 
@@ -2390,7 +2393,7 @@
     const txt = h(S.todoTargetText(t));
     const o = S.target(t);
     if (!o) return `<span>${ICON.pin}${txt}</span>`;
-    const icon = t.targetType === 'place' ? S.PLACE_KINDS[o.kind].icon : t.targetType === 'box' ? ICON.strom : t.targetType === 'tank' ? ICON.gas : ICON.map;
+    const icon = t.targetType === 'place' ? S.PLACE_KINDS[o.kind].icon : t.targetType === 'box' ? ICON.strom : t.targetType === 'tank' ? ICON.gas : t.targetType === 'termin' ? ICON.calendar : ICON.map;
     const who = t.targetType === 'parcel' && o.tenant && o.tenant.name ? ` · ${h(o.tenant.name)}` : '';
     return `<span>${icon} ${txt}${who}</span>`;
   }
@@ -2434,7 +2437,7 @@
           <div class="filters filters-todo">
             <div class="search">${ICON.search}<input type="search" id="t-q" placeholder="Titel, Beschreibung, Ort…" value="${h(this.q)}" aria-label="To-Dos durchsuchen"></div>
             <select id="t-kind" aria-label="Ort filtern">
-              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['airbnb', 'airbnb'], ['allgemein', 'Allgemein']]
+              ${[['alle', 'Alle Orte'], ['parcel', 'Parzellen'], ['box', 'Stromkästen'], ['tank', 'Gastanks'], ['place', 'Orte / Gebäude'], ['airbnb', 'airbnb'], ['termin', 'Reservierungen / VA'], ['allgemein', 'Allgemein']]
                 .map(([k, l]) => `<option value="${k}"${this.kind === k ? ' selected' : ''}>${l}</option>`).join('')}
             </select>
             <select id="t-who" aria-label="Zuständig filtern">
@@ -2570,6 +2573,8 @@
                 <div class="form-grid" style="margin-top:12px">
                   ${fieldHtml({ name: 'deadline', label: 'Erledigen bis (Deadline)', type: 'date', value: t.deadline })}
                   <label class="field"><span>Termin (optional)</span><input type="datetime-local" name="appointment" value="${h(t.appointment)}"></label>
+                  <label class="field" id="cal-field"><span>Termin im Kalender anzeigen als</span><select name="calendar">
+                    ${Object.entries(S.TERMIN_KINDS).map(([k, v]) => `<option value="${k}"${(t.calendar || 'termin') === k ? ' selected' : ''}>${h(v.label)}</option>`).join('')}</select></label>
                   <label class="field full"><span>Zuständig</span><input name="assignee" list="who-list" value="${h(t.assignee)}" placeholder="Name oder Firma" autocomplete="off">
                     <datalist id="who-list">${assignees().map((x) => `<option value="${h(x)}">`).join('')}</datalist></label>
                 </div>
@@ -2595,6 +2600,10 @@
       let status = t.status;
       let saved = false;
       const syncLoc = () => { $('#loc-field', root).hidden = !!f.target.value; };
+      // Kalender-Auswahl nur mit Termin; To-Dos an einer Reservierung erscheinen dort
+      const syncCal = () => { $('#cal-field', root).hidden = !f.appointment.value; };
+      f.appointment.addEventListener('input', syncCal); syncCal();
+      f.target.addEventListener('change', () => { if (f.target.value.startsWith('termin:')) f.calendar.value = 'reservierung'; });
       f.target.addEventListener('change', syncLoc);
       syncLoc();
       $$('[data-st]', root).forEach((b) => b.addEventListener('click', () => {
@@ -2668,6 +2677,7 @@
           title, description: f.description.value.trim(),
           targetType: tt, targetId: ti, location: tt ? '' : f.location.value.trim(),
           status, deadline: f.deadline.value || '', appointment: f.appointment.value || '', assignee: f.assignee.value.trim(),
+          calendar: f.appointment.value ? f.calendar.value : '',
         });
         if (status === 'erledigt') t.doneAt = t.doneAt || today(); else t.doneAt = '';
         saved = true;
@@ -2725,7 +2735,7 @@
 
   /* ======================================================================
      KALENDER: eigene Einträge (Termin, längere Arbeit, Abwesenheit),
-     Termine und Fristen aus den To-Dos, Wetter für die nächsten Tage
+     To-Dos mit Termin (im gewählten Kalender) und Deadlines, Wetter für die nächsten Tage
      ====================================================================== */
 
   const KAL_WD = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -2737,6 +2747,21 @@
   const fmtDayLong = (s) => `${KAL_WD_LONG[wdIdx(s)]}, ${+s.slice(8)}. ${KAL_MONTHS[+s.slice(5, 7) - 1]}`;
   const fmtDayShort = (s) => `${KAL_WD[wdIdx(s)]} ${+s.slice(8)}.${+s.slice(5, 7)}.`;
   const deg0 = (v) => (v === null || v === undefined || isNaN(v) ? '–' : String(Math.round(v)).replace('-0', '0'));
+  // ISO-Kalenderwoche
+  const isoWeek = (s) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4, 12);
+    return 1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7); };
+  const FT_COLOR = '#7b4fa3', FERIEN_COLOR = '#2a8c86';
+  // Kalender ein-/ausblenden (je Gerät gemerkt): termin, arbeit, abwesenheit, reservierung, deadline, feiertage
+  const hiddenLayers = () => { try { return JSON.parse(localStorage.getItem('wch-kal-aus') || '[]'); } catch (e) { return []; } };
+  const layerOn = (key) => !hiddenLayers().includes(key);
+  const setLayer = (key, on) => {
+    const s = new Set(hiddenLayers());
+    if (on) s.delete(key); else s.add(key);
+    try { localStorage.setItem('wch-kal-aus', JSON.stringify([...s])); } catch (e) { /* egal */ }
+  };
+  const DEADLINE_COLOR = '#dc3545';
+  const showFt = () => layerOn('feiertage');
+  const resMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missingCols.has('termine.anzahl');
   const termineMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missing.has('termine');
   const personsKnown = () => [...new Set([...assignees(), ...S.data.termine.flatMap((k) => k.persons)].map((n) => String(n).trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'de'));
@@ -2758,24 +2783,32 @@
     month: null,   // { y, m }
     sel: null,     // ausgewählter Tag
 
-    // alle Einträge eines Tages: eigene Einträge, To-Do-Termine, To-Do-Fristen
+    // alle Einträge eines Tages: eigene Einträge, To-Dos mit Termin (im gewählten Kalender), Deadlines
     entries(d) {
       const out = [];
       S.data.termine.forEach((k) => {
         if (k.start > d || (k.end || k.start) < d) return;
-        out.push({ ref: `termin:${k.id}`, color: S.TERMIN_KINDS[k.kind].color, title: terminTitle(k), kind: S.TERMIN_KINDS[k.kind].label,
+        if (!layerOn(k.kind)) return;
+        out.push({ ref: `termin:${k.id}`, color: S.TERMIN_KINDS[k.kind].color, title: terminTitle(k) + (k.kind === 'reservierung' && k.count ? ` (${k.count})` : ''), kind: S.TERMIN_KINDS[k.kind].label,
           time: k.start === d ? k.timeFrom : '', multi: k.end > k.start, first: k.start === d, k, abs: k.kind === 'abwesenheit' });
       });
       S.data.todos.forEach((t) => {
         if (t.appointment && t.appointment.slice(0, 10) === d) {
-          out.push({ ref: `todo:${t.id}`, color: '#0e3a3a', title: t.title || '(ohne Titel)', kind: 'To-Do-Termin', time: t.appointment.slice(11, 16), t, done: t.status === 'erledigt' });
+          const cal = S.TERMIN_KINDS[t.calendar] ? t.calendar : 'termin';
+          if (layerOn(cal)) out.push({ ref: `todo:${t.id}`, color: S.TERMIN_KINDS[cal].color, title: t.title || '(ohne Titel)', kind: `${S.TERMIN_KINDS[cal].label} (To-Do)`, time: t.appointment.slice(11, 16), t, done: t.status === 'erledigt' });
         }
-        if (t.deadline === d && t.status !== 'erledigt') {
-          out.push({ ref: `todo:${t.id}`, color: '#dc3545', title: t.title || '(ohne Titel)', kind: 'Frist (To-Do)', time: '', t, frist: true });
+        if (t.deadline === d && t.status !== 'erledigt' && layerOn('deadline')) {
+          out.push({ ref: `todo:${t.id}`, color: DEADLINE_COLOR, title: t.title || '(ohne Titel)', kind: 'Deadline (To-Do)', time: '', t, frist: true });
         }
       });
-      // mehrtägige zuerst, dann nach Uhrzeit
-      return out.sort((a, b) => (b.multi ? 1 : 0) - (a.multi ? 1 : 0) || (a.time || '99').localeCompare(b.time || '99') || a.title.localeCompare(b.title, 'de'));
+      // eigener, abwählbarer Kalender: Feiertage (alle Bundesländer) und Schulferien
+      if (showFt() && window.Feiertage) {
+        Feiertage.holidaysOn(d).forEach((f) => out.push({ ref: '', color: FT_COLOR, title: f.name + (f.states.length ? ` (${f.states.join(', ')})` : ''), kind: 'Feiertag', time: '', ft: true }));
+        const st = Feiertage.ferienOn(d);
+        if (st.length) out.push({ ref: '', color: FERIEN_COLOR, title: `Ferien: ${st.length === 16 ? 'bundesweit' : st.join(', ')}`, kind: 'Schulferien', time: '', ft: true, fe: true, info: Feiertage.ferienNames(d).join(' · ') });
+      }
+      // Feiertage/Ferien zuerst, dann mehrtägige, dann nach Uhrzeit
+      return out.sort((a, b) => (b.ft ? 1 : 0) - (a.ft ? 1 : 0) || (b.multi ? 1 : 0) - (a.multi ? 1 : 0) || (a.time || '99').localeCompare(b.time || '99') || a.title.localeCompare(b.title, 'de'));
     },
 
     render(root) {
@@ -2786,6 +2819,7 @@
         <div class="page kal">
           <div class="page-head">
             <h1>Kalender</h1>
+            <button class="btn btn-ghost" data-k-new="reservierung">${ICON.calendar}<span class="btn-text">Reservierung / VA</span></button>
             <button class="btn btn-ghost" data-k-new="abwesenheit">${ICON.user}<span class="btn-text">Abwesenheit</span></button>
             <button class="btn" data-k-new="termin">${ICON.plus} Termin</button>
           </div>
@@ -2800,12 +2834,20 @@
           </div>
           <div class="kal-grid" id="k-grid"></div>
           <div class="kal-legend">
-            ${Object.values(S.TERMIN_KINDS).map((v) => `<span><i style="background:${v.color}"></i>${h(v.label)}</span>`).join('')}
-            <span><i style="background:#0e3a3a"></i>To-Do-Termin</span><span><i style="background:#dc3545"></i>Frist</span>
+            <span class="kal-layers">
+              ${[...Object.entries(S.TERMIN_KINDS).map(([k, v]) => [k, `<i style="background:${v.color}"></i>${h(v.label)}`]),
+                ['deadline', `<i style="background:${DEADLINE_COLOR}"></i>Deadlines`],
+                ['feiertage', `<i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien`]]
+                .map(([k, l]) => `<label class="kal-ft-toggle"><input type="checkbox" data-k-layer="${k}"${layerOn(k) ? ' checked' : ''}>${l}</label>`).join('')}
+            </span>
           </div>
           <section class="kal-agenda" id="k-agenda"></section>
         </div>`;
       $$('[data-k-new]', root).forEach((b) => b.onclick = () => this.edit(null, b.dataset.kNew));
+      $$('[data-k-layer]', root).forEach((cb) => cb.onchange = () => {
+        setLayer(cb.dataset.kLayer, cb.checked);
+        this.renderGrid(); this.renderAgenda();
+      });
       $$('[data-k-month]', root).forEach((b) => b.onclick = () => {
         const d = new Date(this.month.y, this.month.m + +b.dataset.kMonth, 1);
         this.month = { y: d.getFullYear(), m: d.getMonth() };
@@ -2843,30 +2885,26 @@
       if (!el || !window.Wetter) return;
       const W = Wetter.data;
       if (!W) {
-        el.innerHTML = `<p class="muted small" style="margin:0">${Wetter.state === 'error' ? `Wetter gerade nicht abrufbar${Wetter.error ? ` (${h(Wetter.error)})` : ''}.` : 'Wetter wird geladen …'}</p>`;
+        el.innerHTML = `<p class="muted small" style="margin:0">${Wetter.state === 'error' ? 'Wetter gerade nicht abrufbar.' : 'Wetter wird geladen …'}</p>`;
         return;
       }
       const c = W.current;
       const [ic, txt] = Wetter.kind(c.code);
       const t = today();
+      const mm = (v) => String(Math.round((v || 0) * 10) / 10).replace('.', ',');
       el.innerHTML = `
-        <div class="wx-now">
+        <div class="wx-now" title="Hesedorf · Stand ${new Date(W.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr">
           ${Wetter.icon(ic, 'is-big')}
-          <div>
-            <div class="wx-temp">${deg0(c.temp)}°</div>
-            <div class="wx-txt">${h(txt)}</div>
-            <div class="muted small">gefühlt ${deg0(c.feels)}° · Wind ${deg0(c.wind)} km/h${c.gusts ? `, Böen ${deg0(c.gusts)}` : ''}</div>
-            <div class="muted small">Hesedorf · Stand ${new Date(W.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</div>
-          </div>
+          <div><div class="wx-temp">${deg0(c.temp)}°</div><div class="wx-txt">${h(txt)}</div>
+            <div class="wx-sub">${Wetter.icon('wind', 'is-s')}${deg0(c.wind)} km/h${c.gusts ? `, Böen ${deg0(c.gusts)}` : ''}</div></div>
         </div>
         <div class="wx-days">${W.days.map((d) => {
           const [di, dt] = Wetter.kind(d.code);
-          return `<div class="wx-day${d.date === t ? ' is-today' : ''}" title="${h(dt)}">
-            <span class="wx-wd">${d.date === t ? 'Heute' : fmtDayShort(d.date)}</span>
+          return `<div class="wx-day${d.date === t ? ' is-today' : ''}" title="${h(dt)} · Wind bis ${deg0(d.wind)} km/h">
+            <span class="wx-wd">${d.date === t ? 'Heute' : KAL_WD[wdIdx(d.date)]}</span>
             ${Wetter.icon(di)}
-            <span class="wx-mm"><strong>${deg0(d.max)}°</strong> ${deg0(d.min)}°</span>
-            <span class="wx-sub">${Wetter.icon('drop', 'is-s')}${d.snow > 0 ? `${String(Math.round(d.snow * 10) / 10).replace('.', ',')} cm Schnee` : `${String(Math.round((d.rain || 0) * 10) / 10).replace('.', ',')} mm`}${d.prob !== null && d.prob !== undefined ? ` · ${d.prob} %` : ''}</span>
-            <span class="wx-sub">${Wetter.icon('wind', 'is-s')}${deg0(d.wind)} km/h</span>
+            <span class="wx-mm"><strong>${deg0(d.max)}°</strong>/${deg0(d.min)}°</span>
+            <span class="wx-sub">${d.snow > 0 ? `${mm(d.snow)} cm` : `${mm(d.rain)} mm`}</span>
           </div>`;
         }).join('')}</div>`;
     },
@@ -2880,15 +2918,20 @@
       const start = addDaysIso(isoOf(first), -((first.getDay() + 6) % 7));
       const weeks = Math.ceil((((first.getDay() + 6) % 7) + new Date(y, m + 1, 0).getDate()) / 7);
       const t = today();
-      let html = KAL_WD.map((w, i) => `<span class="kal-wd${i >= 5 ? ' is-we' : ''}">${w}</span>`).join('');
+      // Schulferien der sichtbaren Jahre nachladen
+      if (window.Feiertage && showFt()) new Set([start.slice(0, 4), addDaysIso(start, weeks * 7 - 1).slice(0, 4)]).forEach((yy) => Feiertage.loadFerien(+yy));
+      let html = '<span class="kal-wd kal-kw-h">KW</span>' + KAL_WD.map((w, i) => `<span class="kal-wd${i >= 5 ? ' is-we' : ''}">${w}</span>`).join('');
       for (let i = 0; i < weeks * 7; i++) {
         const d = addDaysIso(start, i);
+        if (i % 7 === 0) html += `<span class="kal-kw" title="Kalenderwoche">${isoWeek(d)}</span>`;
         const ent = this.entries(d);
         const wx = window.Wetter && Wetter.day(d);
-        const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', i % 7 >= 5 ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
+        // Wochenende und Feiertage in Niedersachsen leicht ausgegraut
+        const free = i % 7 >= 5 || (window.Feiertage && Feiertage.isNiHoliday(d));
+        const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', free ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
         html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
-          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}" style="--c:${e.color}" data-k-open="${e.ref}" title="${h(e.kind)}: ${h(e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Frist: ' : ''}${h(e.title)}</span>`).join('')}
+          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
         </div>`;
       }
@@ -2896,6 +2939,10 @@
     },
 
     itemHtml(e, d) {
+      if (e.ft) {
+        return `<li><div class="kal-item is-ft" style="--c:${e.color}"><span class="name">${h(e.title)}</span>
+          <span class="meta"><span>${h(e.kind)}</span>${e.info ? `<span>${h(e.info)}</span>` : ''}</span></div></li>`;
+      }
       const k = e.k;
       const meta = [`<span>${h(e.kind)}</span>`];
       if (k) {
@@ -2904,6 +2951,11 @@
         const orte = k.targets.map(targetName).filter(Boolean);
         if (orte.length) meta.push(`<span>${ICON.pin}${h(orte.join(', '))}</span>`);
         if (k.persons.length && k.kind !== 'abwesenheit') meta.push(`<span>${ICON.user}${h(k.persons.join(', '))}</span>`);
+        if (k.kind === 'reservierung') {
+          if (k.count) meta.push(`<span>ca. ${h(k.count)} Fahrzeuge/Personen</span>`);
+          const n = S.todosOf('termin', k.id).length;
+          if (n) meta.push(`<span>${n} offene${n === 1 ? 's' : ''} To-Do${n === 1 ? '' : 's'}</span>`);
+        }
       } else {
         if (e.time) meta.push(`<span>${h(e.time)} Uhr</span>`);
         meta.push(`<span>${h(S.todoTargetText(e.t))}${e.t.targetType === 'parcel' && S.target(e.t) && S.target(e.t).tenant.name ? ` · ${h(S.target(e.t).tenant.name)}` : ''}</span>`);
@@ -2911,7 +2963,7 @@
         if (e.done) meta.push('<span>erledigt</span>');
       }
       return `<li><button type="button" class="kal-item${e.done ? ' is-done' : ''}" style="--c:${e.color}" data-k-open="${e.ref}">
-        <span class="name">${e.frist ? 'Frist: ' : ''}${h(e.title)}</span>
+        <span class="name">${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>
         <span class="meta">${meta.join('')}</span>
         ${k && k.notes ? `<span class="small muted kal-notes">${h(k.notes)}</span>` : ''}
       </button></li>`;
@@ -2929,7 +2981,7 @@
       for (let i = 0; i < 30 && soon.length < 12; i++) {
         const day = addDaysIso(t, i);
         if (day === d) continue;
-        this.entries(day).forEach((e) => { if (!(e.multi && !e.first && i > 0) && soon.length < 12) soon.push([day, e]); });
+        this.entries(day).forEach((e) => { if (!e.ft && !(e.multi && !e.first && i > 0) && soon.length < 12) soon.push([day, e]); });
       }
       el.innerHTML = `
         <div class="card">
@@ -2954,28 +3006,35 @@
       if (termineMissing()) { alert('Für eigene Kalender-Einträge bitte zuerst im Supabase „SQL Editor“ das Skript supabase/update-10.sql ausführen und die App neu laden.'); return; }
       const o = id ? S.termin(id) : null;
       const day = date || (this.sel && this.sel >= today() ? this.sel : today());
-      const k = o ? JSON.parse(JSON.stringify(o)) : { kind: kind || 'termin', title: '', start: day, end: day, timeFrom: '', timeTo: '', targets: [], persons: [], notes: '' };
+      const k = o ? JSON.parse(JSON.stringify(o)) : { kind: kind || 'termin', title: '', start: day, end: day, timeFrom: '', timeTo: '', targets: [], persons: [], notes: '', count: '' };
+      if (k.kind === 'reservierung' && resMissing()) { alert('Für Reservierungen / VA bitte zuerst im Supabase „SQL Editor“ das Skript supabase/update-11.sql ausführen und die App neu laden.'); return; }
+      const linked = o ? S.todosOf('termin', o.id, true).sort(todoSort) : [];
       const people = personsKnown();
       formDialog({
         title: o ? `${S.TERMIN_KINDS[k.kind].label} bearbeiten` : k.kind === 'abwesenheit' ? 'Abwesenheit eintragen' : 'Neuer Kalender-Eintrag',
         fields: [
-          { name: 'kind', label: 'Art', type: 'select', value: k.kind, options: Object.entries(S.TERMIN_KINDS).map(([v, x]) => [v, v === 'arbeit' ? 'Längere Arbeit (mehrere Tage)' : x.label]) },
+          { name: 'kind', label: 'Art', type: 'select', value: k.kind, options: Object.entries(S.TERMIN_KINDS).map(([v, x]) => [v, v === 'arbeit' ? 'Längere Arbeit (mehrere Tage)' : v === 'reservierung' ? 'Reservierung / VA (z. B. Vantreffen)' : x.label]) },
           { name: 'title', label: 'Titel', value: k.title, placeholder: 'z. B. Wasser abstellen, Urlaub …' },
           { name: 'start', label: 'Von', type: 'date', value: k.start },
           { name: 'end', label: 'Bis', type: 'date', value: k.end },
           { name: 'timeFrom', label: 'Uhrzeit von (leer = ganztägig)', type: 'time', value: k.timeFrom },
           { name: 'timeTo', label: 'Uhrzeit bis', type: 'time', value: k.timeTo },
+          { name: 'count', label: 'Erwartete Anzahl (Fahrzeuge / Personen)', type: 'number', value: k.count },
         ],
         extra: `
           <div class="field"><span>Orte / Parzellen</span>
             <div class="chips-edit" data-k-chips="targets"></div>
-            <select data-k-addtarget>${targetOptions('__').replace('Allgemein / anderer Ort', 'Ort oder Parzelle hinzufügen …')}</select></div>
+            <select data-k-addtarget>${targetOptions('__', true).replace('Allgemein / anderer Ort', 'Ort oder Parzelle hinzufügen …')}</select></div>
           <div class="field"><span data-k-plabel>Personen</span>
             <div class="chips-edit" data-k-chips="persons"></div>
             <div class="k-person-add"><input type="text" data-k-person list="k-people" placeholder="Name eingeben" autocomplete="off">
               <button type="button" class="btn btn-ghost btn-sm" data-k-padd>${ICON.plus} Hinzufügen</button></div>
             <datalist id="k-people">${people.map((n) => `<option value="${h(n)}">`).join('')}</datalist></div>
           <label class="field"><span>Notizen</span><textarea name="notes" rows="2">${h(k.notes)}</textarea></label>
+          <div class="field" data-k-todos><span>To-Dos zu dieser Reservierung / VA</span>
+            ${o ? `${linked.length ? `<ul class="todo-mini">${linked.map((t) => `<li data-k-todo="${t.id}" tabindex="0"><span class="dot" style="background:${todoStatus(t).color}"></span><span class="t">${h(t.title || '(ohne Titel)')}</span><span class="d">${t.deadline ? fmtDate(t.deadline) : ''}</span></li>`).join('')}</ul>` : '<span class="muted small">noch keine</span>'}
+              <button type="button" class="btn btn-ghost btn-sm" data-k-addtodo style="margin-top:6px">${ICON.plus} To-Do hinzufügen</button>`
+              : '<span class="muted small">Nach dem Eintragen hier To-Dos hinzufügen.</span>'}</div>
           ${o ? `<div class="card-actions" style="margin:0"><button type="button" class="btn btn-danger btn-sm" data-k-del>${ICON.trash} Eintrag löschen</button></div>` : ''}`,
         submitLabel: o ? 'Speichern' : 'Eintragen',
         onSubmit: (v) => {
@@ -2987,8 +3046,10 @@
           if (typed && !k.persons.includes(typed)) k.persons.push(typed);
           if (kindV === 'abwesenheit' && !k.persons.length) { toast('Bitte eintragen, wer abwesend ist'); return false; }
           if (kindV !== 'abwesenheit' && !v.title.trim()) { toast('Bitte einen Titel eintragen'); return false; }
+          if (kindV === 'reservierung' && resMissing()) { alert('Für Reservierungen / VA bitte zuerst im Supabase „SQL Editor“ das Skript supabase/update-11.sql ausführen und die App neu laden.'); return false; }
+          const cnt = parseInt(v.count, 10);
           const data = { kind: kindV, title: v.title.trim(), start, end, timeFrom: v.timeFrom || '', timeTo: v.timeFrom ? v.timeTo || '' : '',
-            targets: k.targets, persons: k.persons, notes: v.notes.trim() };
+            targets: k.targets, persons: k.persons, notes: v.notes.trim(), count: kindV === 'reservierung' && cnt > 0 ? cnt : '' };
           if (o) Object.assign(o, data);
           else S.data.termine.push({ id: S.uid('k'), createdAt: new Date().toISOString(), ...data });
           S.save();
@@ -3018,6 +3079,8 @@
       const kindSel = $('[name=kind]', dlg), endIn = $('[name=end]', dlg), startIn = $('[name=start]', dlg);
       const sync = () => {
         const abs = kindSel.value === 'abwesenheit';
+        $('[name=count]', dlg).closest('.field').hidden = kindSel.value !== 'reservierung';
+        $('[data-k-todos]', dlg).hidden = kindSel.value !== 'reservierung';
         $('[name=timeFrom]', dlg).closest('.field').hidden = abs;
         $('[name=timeTo]', dlg).closest('.field').hidden = abs;
         $('[data-k-plabel]', dlg).textContent = abs ? 'Wer ist abwesend? *' : 'Personen';
@@ -3025,9 +3088,13 @@
       };
       kindSel.addEventListener('change', sync); sync();
       startIn.addEventListener('change', () => { if (!endIn.value || endIn.value < startIn.value) endIn.value = startIn.value; });
+      // To-Dos der Reservierung öffnen / anlegen (zurück zum Kalender)
+      $$('[data-k-todo]', dlg).forEach((li) => li.onclick = () => { dlg.close(); location.hash = `#/todo/${li.dataset.kTodo}?${backParam('#/kalender')}`; });
+      const addTodo = $('[data-k-addtodo]', dlg);
+      if (addTodo) addTodo.onclick = () => { dlg.close(); location.hash = `#/todo/neu?ziel=termin:${o.id}&${backParam('#/kalender')}`; };
       const del = $('[data-k-del]', dlg);
       if (del) del.onclick = () => {
-        if (!confirm(`„${terminTitle(o)}“ wirklich löschen?`)) return;
+        if (!confirm(`„${terminTitle(o)}“ wirklich löschen?${S.todosOf('termin', o.id, true).length ? '\nDie To-Dos bleiben erhalten (als allgemeine To-Dos).' : ''}`)) return;
         S.deleteTermin(o.id); S.save(); dlg.close(); toast('Eintrag gelöscht');
         if (location.hash.startsWith('#/kalender')) this.render($('#view-page'));
       };
@@ -3188,6 +3255,17 @@
     }
   }
 
+  // kleines Wetter-Symbol oben links auf der Map (antippen → Kalender)
+  function renderMapWeather() {
+    const el = $('#map-wx');
+    if (!el || !window.Wetter || !Wetter.data) return;
+    const c = Wetter.data.current;
+    const [ic, txt] = Wetter.kind(c.code);
+    el.innerHTML = `${Wetter.icon(ic)}<strong>${deg0(c.temp)}°</strong>`;
+    el.title = `${txt}, Wind ${deg0(c.wind)} km/h – Vorhersage im Kalender`;
+    el.hidden = false;
+  }
+
   /* ---------- Start ---------- */
 
   async function start() {
@@ -3230,8 +3308,14 @@
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
     });
     Airbnb.load();
-    // Wetter (Reiter Kalender)
-    Wetter.onChange(() => { if (location.hash.startsWith('#/kalender')) { Kalender.renderWeather(); Kalender.renderGrid(); Kalender.renderAgenda(); } });
+    // Wetter (Reiter Kalender + kleines Symbol auf der Map), alle 30 Minuten auffrischen
+    Wetter.onChange(() => {
+      renderMapWeather();
+      if (location.hash.startsWith('#/kalender')) { Kalender.renderWeather(); Kalender.renderGrid(); Kalender.renderAgenda(); }
+    });
+    Wetter.load();
+    setInterval(() => Wetter.load(), 30 * 60000);
+    Feiertage.onChange(() => { if (location.hash.startsWith('#/kalender')) { Kalender.renderGrid(); Kalender.renderAgenda(); } });
     // Stromwächter (Hue): Zustand laden, alle 2 Minuten und beim Zurückkehren zur App auffrischen
     Waechter.onChange(() => {
       MapView.render();
