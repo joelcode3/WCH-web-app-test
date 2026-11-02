@@ -203,9 +203,9 @@
       let n = 0, known = 0;
       for (let d = 1; d <= days; d++) {
         const day = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const busy = this.eventOn(o, day);
-        if (busy) n++;
-        if (busy || day >= since) known++;
+        const ev = this.eventOn(o, day);
+        if (ev && ev.type !== 'blocked') n++;     // nur Buchungen zählen, geblockte Tage nicht
+        if (ev || day >= since) known++;
       }
       return known ? n / known : null;
     },
@@ -280,7 +280,7 @@
     // Kartensymbol: Draufsicht in Originalgröße (gedreht), darunter Name mit Belegungspunkt
     markerHtml(o, opts = {}) {
       const t = top(o.kind);
-      const st = window.Store.isAirbnb(o) ? this.status(o) : null;
+      const st = window.Store.isAirbnb(o) ? (this.nowStatus(o) || this.status(o)) : null;
       const rot = (o.pos && o.pos[2]) || 0;
       // halbe Höhe/Breite der gedrehten Form → Abstand für Namen und To-Do-Zähler
       const a = rot * Math.PI / 180;

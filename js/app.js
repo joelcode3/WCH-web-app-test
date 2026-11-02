@@ -2738,6 +2738,11 @@
   const fmtDayLong = (s) => `${KAL_WD_LONG[wdIdx(s)]}, ${+s.slice(8)}. ${KAL_MONTHS[+s.slice(5, 7) - 1]}`;
   const fmtDayShort = (s) => `${KAL_WD[wdIdx(s)]} ${+s.slice(8)}.${+s.slice(5, 7)}.`;
   const deg0 = (v) => (v === null || v === undefined || isNaN(v) ? '–' : String(Math.round(v)).replace('-0', '0'));
+  // ISO-Kalenderwoche
+  const isoWeek = (s) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4, 12);
+    return 1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7); };
+  const FT_COLOR = '#7b4fa3', FERIEN_COLOR = '#2a8c86';
+  const showFt = () => { try { return localStorage.getItem('wch-kal-feiertage') !== '0'; } catch (e) { return true; } };
   const termineMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missing.has('termine');
   const personsKnown = () => [...new Set([...assignees(), ...S.data.termine.flatMap((k) => k.persons)].map((n) => String(n).trim()).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'de'));
@@ -2775,8 +2780,14 @@
           out.push({ ref: `todo:${t.id}`, color: '#dc3545', title: t.title || '(ohne Titel)', kind: 'Frist (To-Do)', time: '', t, frist: true });
         }
       });
-      // mehrtägige zuerst, dann nach Uhrzeit
-      return out.sort((a, b) => (b.multi ? 1 : 0) - (a.multi ? 1 : 0) || (a.time || '99').localeCompare(b.time || '99') || a.title.localeCompare(b.title, 'de'));
+      // eigener, abwählbarer Kalender: Feiertage (alle Bundesländer) und Schulferien
+      if (showFt() && window.Feiertage) {
+        Feiertage.holidaysOn(d).forEach((f) => out.push({ ref: '', color: FT_COLOR, title: f.name + (f.states.length ? ` (${f.states.join(', ')})` : ''), kind: 'Feiertag', time: '', ft: true }));
+        const st = Feiertage.ferienOn(d);
+        if (st.length) out.push({ ref: '', color: FERIEN_COLOR, title: `Ferien: ${st.length === 16 ? 'bundesweit' : st.join(', ')}`, kind: 'Schulferien', time: '', ft: true, fe: true, info: Feiertage.ferienNames(d).join(' · ') });
+      }
+      // Feiertage/Ferien zuerst, dann mehrtägige, dann nach Uhrzeit
+      return out.sort((a, b) => (b.ft ? 1 : 0) - (a.ft ? 1 : 0) || (b.multi ? 1 : 0) - (a.multi ? 1 : 0) || (a.time || '99').localeCompare(b.time || '99') || a.title.localeCompare(b.title, 'de'));
     },
 
     render(root) {
@@ -2803,10 +2814,16 @@
           <div class="kal-legend">
             ${Object.values(S.TERMIN_KINDS).map((v) => `<span><i style="background:${v.color}"></i>${h(v.label)}</span>`).join('')}
             <span><i style="background:#0e3a3a"></i>To-Do-Termin</span><span><i style="background:#dc3545"></i>Frist</span>
+            <label class="kal-ft-toggle"><input type="checkbox" data-k-ft${showFt() ? ' checked' : ''}>
+              <i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien</label>
           </div>
           <section class="kal-agenda" id="k-agenda"></section>
         </div>`;
       $$('[data-k-new]', root).forEach((b) => b.onclick = () => this.edit(null, b.dataset.kNew));
+      $('[data-k-ft]', root).onchange = (e) => {
+        try { localStorage.setItem('wch-kal-feiertage', e.target.checked ? '1' : '0'); } catch (err) { /* egal */ }
+        this.renderGrid(); this.renderAgenda();
+      };
       $$('[data-k-month]', root).forEach((b) => b.onclick = () => {
         const d = new Date(this.month.y, this.month.m + +b.dataset.kMonth, 1);
         this.month = { y: d.getFullYear(), m: d.getMonth() };
@@ -2844,30 +2861,26 @@
       if (!el || !window.Wetter) return;
       const W = Wetter.data;
       if (!W) {
-        el.innerHTML = `<p class="muted small" style="margin:0">${Wetter.state === 'error' ? `Wetter gerade nicht abrufbar${Wetter.error ? ` (${h(Wetter.error)})` : ''}.` : 'Wetter wird geladen …'}</p>`;
+        el.innerHTML = `<p class="muted small" style="margin:0">${Wetter.state === 'error' ? 'Wetter gerade nicht abrufbar.' : 'Wetter wird geladen …'}</p>`;
         return;
       }
       const c = W.current;
       const [ic, txt] = Wetter.kind(c.code);
       const t = today();
+      const mm = (v) => String(Math.round((v || 0) * 10) / 10).replace('.', ',');
       el.innerHTML = `
-        <div class="wx-now">
+        <div class="wx-now" title="Hesedorf · Stand ${new Date(W.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr">
           ${Wetter.icon(ic, 'is-big')}
-          <div>
-            <div class="wx-temp">${deg0(c.temp)}°</div>
-            <div class="wx-txt">${h(txt)}</div>
-            <div class="muted small">gefühlt ${deg0(c.feels)}° · Wind ${deg0(c.wind)} km/h${c.gusts ? `, Böen ${deg0(c.gusts)}` : ''}</div>
-            <div class="muted small">Hesedorf · Stand ${new Date(W.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</div>
-          </div>
+          <div><div class="wx-temp">${deg0(c.temp)}°</div><div class="wx-txt">${h(txt)}</div>
+            <div class="wx-sub">${Wetter.icon('wind', 'is-s')}${deg0(c.wind)} km/h${c.gusts ? `, Böen ${deg0(c.gusts)}` : ''}</div></div>
         </div>
         <div class="wx-days">${W.days.map((d) => {
           const [di, dt] = Wetter.kind(d.code);
-          return `<div class="wx-day${d.date === t ? ' is-today' : ''}" title="${h(dt)}">
-            <span class="wx-wd">${d.date === t ? 'Heute' : fmtDayShort(d.date)}</span>
+          return `<div class="wx-day${d.date === t ? ' is-today' : ''}" title="${h(dt)} · Wind bis ${deg0(d.wind)} km/h">
+            <span class="wx-wd">${d.date === t ? 'Heute' : KAL_WD[wdIdx(d.date)]}</span>
             ${Wetter.icon(di)}
-            <span class="wx-mm"><strong>${deg0(d.max)}°</strong> ${deg0(d.min)}°</span>
-            <span class="wx-sub">${Wetter.icon('drop', 'is-s')}${d.snow > 0 ? `${String(Math.round(d.snow * 10) / 10).replace('.', ',')} cm Schnee` : `${String(Math.round((d.rain || 0) * 10) / 10).replace('.', ',')} mm`}${d.prob !== null && d.prob !== undefined ? ` · ${d.prob} %` : ''}</span>
-            <span class="wx-sub">${Wetter.icon('wind', 'is-s')}${deg0(d.wind)} km/h</span>
+            <span class="wx-mm"><strong>${deg0(d.max)}°</strong>/${deg0(d.min)}°</span>
+            <span class="wx-sub">${d.snow > 0 ? `${mm(d.snow)} cm` : `${mm(d.rain)} mm`}</span>
           </div>`;
         }).join('')}</div>`;
     },
@@ -2881,15 +2894,20 @@
       const start = addDaysIso(isoOf(first), -((first.getDay() + 6) % 7));
       const weeks = Math.ceil((((first.getDay() + 6) % 7) + new Date(y, m + 1, 0).getDate()) / 7);
       const t = today();
-      let html = KAL_WD.map((w, i) => `<span class="kal-wd${i >= 5 ? ' is-we' : ''}">${w}</span>`).join('');
+      // Schulferien der sichtbaren Jahre nachladen
+      if (window.Feiertage && showFt()) new Set([start.slice(0, 4), addDaysIso(start, weeks * 7 - 1).slice(0, 4)]).forEach((yy) => Feiertage.loadFerien(+yy));
+      let html = '<span class="kal-wd kal-kw-h">KW</span>' + KAL_WD.map((w, i) => `<span class="kal-wd${i >= 5 ? ' is-we' : ''}">${w}</span>`).join('');
       for (let i = 0; i < weeks * 7; i++) {
         const d = addDaysIso(start, i);
+        if (i % 7 === 0) html += `<span class="kal-kw" title="Kalenderwoche">${isoWeek(d)}</span>`;
         const ent = this.entries(d);
         const wx = window.Wetter && Wetter.day(d);
-        const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', i % 7 >= 5 ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
+        // Wochenende und Feiertage in Niedersachsen leicht ausgegraut
+        const free = i % 7 >= 5 || (window.Feiertage && Feiertage.isNiHoliday(d));
+        const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', free ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
         html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
-          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}" style="--c:${e.color}" data-k-open="${e.ref}" title="${h(e.kind)}: ${h(e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Frist: ' : ''}${h(e.title)}</span>`).join('')}
+          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Frist: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
         </div>`;
       }
@@ -2897,6 +2915,10 @@
     },
 
     itemHtml(e, d) {
+      if (e.ft) {
+        return `<li><div class="kal-item is-ft" style="--c:${e.color}"><span class="name">${h(e.title)}</span>
+          <span class="meta"><span>${h(e.kind)}</span>${e.info ? `<span>${h(e.info)}</span>` : ''}</span></div></li>`;
+      }
       const k = e.k;
       const meta = [`<span>${h(e.kind)}</span>`];
       if (k) {
@@ -2930,7 +2952,7 @@
       for (let i = 0; i < 30 && soon.length < 12; i++) {
         const day = addDaysIso(t, i);
         if (day === d) continue;
-        this.entries(day).forEach((e) => { if (!(e.multi && !e.first && i > 0) && soon.length < 12) soon.push([day, e]); });
+        this.entries(day).forEach((e) => { if (!e.ft && !(e.multi && !e.first && i > 0) && soon.length < 12) soon.push([day, e]); });
       }
       el.innerHTML = `
         <div class="card">
@@ -3189,6 +3211,17 @@
     }
   }
 
+  // kleines Wetter-Symbol oben links auf der Map (antippen → Kalender)
+  function renderMapWeather() {
+    const el = $('#map-wx');
+    if (!el || !window.Wetter || !Wetter.data) return;
+    const c = Wetter.data.current;
+    const [ic, txt] = Wetter.kind(c.code);
+    el.innerHTML = `${Wetter.icon(ic)}<strong>${deg0(c.temp)}°</strong>`;
+    el.title = `${txt}, Wind ${deg0(c.wind)} km/h – Vorhersage im Kalender`;
+    el.hidden = false;
+  }
+
   /* ---------- Start ---------- */
 
   async function start() {
@@ -3231,8 +3264,14 @@
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
     });
     Airbnb.load();
-    // Wetter (Reiter Kalender)
-    Wetter.onChange(() => { if (location.hash.startsWith('#/kalender')) { Kalender.renderWeather(); Kalender.renderGrid(); Kalender.renderAgenda(); } });
+    // Wetter (Reiter Kalender + kleines Symbol auf der Map), alle 30 Minuten auffrischen
+    Wetter.onChange(() => {
+      renderMapWeather();
+      if (location.hash.startsWith('#/kalender')) { Kalender.renderWeather(); Kalender.renderGrid(); Kalender.renderAgenda(); }
+    });
+    Wetter.load();
+    setInterval(() => Wetter.load(), 30 * 60000);
+    Feiertage.onChange(() => { if (location.hash.startsWith('#/kalender')) { Kalender.renderGrid(); Kalender.renderAgenda(); } });
     // Stromwächter (Hue): Zustand laden, alle 2 Minuten und beim Zurückkehren zur App auffrischen
     Waechter.onChange(() => {
       MapView.render();
