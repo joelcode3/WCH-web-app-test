@@ -3,7 +3,7 @@
 // Je Unterkunft (z. B. Londonbus) ist eine Philips Hue Bridge verbunden. Alle 5 Minuten
 // (Zeitplan: supabase/waechter-zeitplan.sql) prüft die Funktion über die Hue-Fernsteuerung:
 //   - Ist die Bridge erreichbar? Nein, länger als 30 Min. → SMS (Strom oder Internet weg; Hinweis, wenn andere Bridges laufen)
-//   - Temperatur der Hue-Bewegungsmelder: unter 6 °C (10 Min. lang) → SMS „Frostgefahr“ (Entwarnung ab 8 °C)
+//   - Temperatur der Hue-Bewegungsmelder: unter 6 °C → sofort SMS „Frostgefahr“ (Entwarnung ab 8 °C)
 //   - Batterie eines Melders unter 15 % → SMS
 // Kommt alles wieder in Ordnung, gibt es eine Entwarnung. Den Zustand liest die App aus der
 // Tabelle waechter_status (nur Team-Mitglieder).
@@ -28,7 +28,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 export const OFFLINE_MIN = 30;     // Minuten nicht erreichbar → Warnung (kurze nächtliche Aussetzer lösen keine SMS aus)
 export const FROST_TEMP = 6;       // °C – darunter Frostwarnung
 export const FROST_CLEAR = 8;      // °C – ab hier Entwarnung (kein Hin und Her um 6 °C)
-export const FROST_MIN = 10;       // Minuten unter FROST_TEMP → Warnung
+export const FROST_MIN = 0;        // Minuten unter FROST_TEMP → Warnung (0 = sofort beim ersten Messwert)
 export const BATTERY_LOW = 15;     // % – Batterie schwach
 const HUE = 'https://api.meethue.com';
 

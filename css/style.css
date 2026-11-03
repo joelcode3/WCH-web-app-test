@@ -1049,3 +1049,4 @@ body.is-locked { padding-bottom: 0; }
 .wd-row.is-stale { color: var(--text-leise); }
 .wd-c, .wd-c span { overflow-wrap: anywhere; }
 .wd-c .wd-row > span { min-width: 0; }
+.wd-batt .wd-batt-fill { fill: currentColor; stroke: none; }

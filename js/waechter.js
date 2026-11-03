@@ -165,7 +165,9 @@
       const isBus = o.kind === 'londonbus';
       const PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/></svg>';
       const TEMP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z M12 9v6"/></svg>';
-      const BATT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M21.5 10.5v3"/></svg>';
+      // Batterie-Symbol mit Füllstand
+      const BATT = (pct) => `<svg viewBox="0 0 24 24" class="wd-batt" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M21.5 10.5v3"/>`
+        + `<rect x="4.5" y="9" width="${(13 * Math.max(0, Math.min(100, pct)) / 100).toFixed(1)}" height="6" rx="1" class="wd-batt-fill"/></svg>`;
       if (!this.available()) {
         if (this.state === 'missing' && editMode) return '<div class="wd-c"><span class="small muted">Stromwächter: <code>supabase/update-9.sql</code> fehlt (SETUP.md)</span></div>';
         return isBus ? '<div class="wd-c"><span class="small muted">Temperatur: noch kein Sensor</span></div>' : '';
@@ -181,7 +183,7 @@
       if (r.online === false) {
         const m = ago(r.last_ok || r.since);
         rows.push(`<div class="wd-row is-wrap is-${m >= OFFLINE_MIN ? 'alarm' : 'warn'}"><i></i>${PLUG}<span>Bus: offline seit ${hm(r.last_ok || r.since)}</span></div>`);
-      } else if (r.online === true) rows.push(`<div class="wd-row is-ok"><i></i>${PLUG}<span>Bus: ok</span></div>`);
+      } else if (r.online === true) rows.push(`<div class="wd-row is-ok"><i></i>${PLUG}<span>Bus: online</span></div>`);
       else rows.push(`<div class="wd-row is-wait"><i></i>${PLUG}<span>Bus: wird geprüft</span></div>`);
       // Zeile 2: Temperatur und Batterie je Melder („Bus 1 - Bad Temperatur“ → „Bad“)
       const short = (n) => String(n || '').replace(/bus\s*\d+\s*[-–:]?\s*/i, '').replace(/temperatur(sensor)?/i, '').replace(/\s*[-–]\s*$/, '').trim() || 'Innen';
@@ -190,7 +192,7 @@
         const weak = typeof x.battery === 'number' && x.battery <= 15;
         const stale = r.online === false;   // Bridge nicht erreichbar → nur der letzte bekannte Wert
         const stand = hm(r.last_ok || x.updated);   // zuletzt erfolgreich abgefragt
-        rows.push(`<div class="wd-row is-${stale ? 'wait is-stale is-wrap' : cold ? 'alarm' : weak ? 'warn' : 'ok'}"><i></i>${TEMP}<span>${h(short(x.name))}: <strong>${typeof x.temp === 'number' ? deg(x.temp) : '–'}</strong>${stale ? ` <span class="nw">(${stand})</span>` : typeof x.battery === 'number' ? `, <span class="nw">${BATT}${x.battery} %</span>` : ''}</span></div>`);
+        rows.push(`<div class="wd-row is-${stale ? 'wait is-stale is-wrap' : cold ? 'alarm' : weak ? 'warn' : 'ok'}"><i></i>${TEMP}<span>${h(short(x.name))}: <strong>${typeof x.temp === 'number' ? deg(x.temp) : '–'}</strong>${stale ? ` <span class="nw">(${stand})</span>` : typeof x.battery === 'number' ? `, <span class="nw">${BATT(x.battery)}${x.battery} %</span>` : ''}</span></div>`);
       });
       if (r.online === true && !(r.sensors || []).length) rows.push(`<div class="wd-row is-wait"><i></i>${TEMP}<span>noch kein Sensor</span></div>`);
       return `<div class="wd-c">
