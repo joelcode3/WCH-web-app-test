@@ -11,6 +11,12 @@
   const OFFLINE_MIN = 30, FROST_TEMP = 6;
   const h = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const time = (iso) => (iso ? new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '') : '');
+  // kurze Uhrzeit fürs Feld neben dem Foto: heute nur „03:20“, sonst „02.11. 03:20“
+  const hm = (iso) => {
+    if (!iso) return '–';
+    const d = new Date(iso), t = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${t}`;
+  };
   const deg = (t) => `${Number(t).toFixed(1).replace('.', ',')} °C`;
   const ago = (iso) => (iso ? (Date.now() - new Date(iso).getTime()) / 60000 : 0);
 
@@ -173,7 +179,7 @@
       // Zeile 1: Strom (Bridge erreichbar?)
       if (r.online === false) {
         const m = ago(r.last_ok || r.since);
-        rows.push(`<div class="wd-row is-wrap is-${m >= OFFLINE_MIN ? 'alarm' : 'warn'}"><i></i>${PLUG}<span>Bus: kein Kontakt seit ${time(r.last_ok || r.since)}</span></div>`);
+        rows.push(`<div class="wd-row is-wrap is-${m >= OFFLINE_MIN ? 'alarm' : 'warn'}"><i></i>${PLUG}<span>Bus: offline seit ${hm(r.last_ok || r.since)}</span></div>`);
       } else if (r.online === true) rows.push(`<div class="wd-row is-ok"><i></i>${PLUG}<span>Bus: ok</span></div>`);
       else rows.push(`<div class="wd-row is-wait"><i></i>${PLUG}<span>Bus: wird geprüft</span></div>`);
       // Zeile 2: Temperatur und Batterie je Melder („Bus 1 - Bad Temperatur“ → „Bad“)
@@ -182,16 +188,16 @@
         const cold = typeof x.temp === 'number' && x.temp < FROST_TEMP;
         const weak = typeof x.battery === 'number' && x.battery <= 15;
         const stale = r.online === false;   // Bridge nicht erreichbar → nur der letzte bekannte Wert
-        const stand = time(r.last_ok || x.updated);   // zuletzt erfolgreich abgefragt
-        rows.push(`<div class="wd-row is-${stale ? 'wait is-stale is-wrap' : cold ? 'alarm' : weak ? 'warn' : 'ok'}"><i></i>${TEMP}<span>${h(short(x.name))}: <strong>${typeof x.temp === 'number' ? deg(x.temp) : '–'}</strong>${stale ? ` <span class="nw">(Stand ${stand})</span>` : typeof x.battery === 'number' ? `, <span class="nw">${BATT}${x.battery} %</span>` : ''}</span></div>`);
+        const stand = hm(r.last_ok || x.updated);   // zuletzt erfolgreich abgefragt
+        rows.push(`<div class="wd-row is-${stale ? 'wait is-stale is-wrap' : cold ? 'alarm' : weak ? 'warn' : 'ok'}"><i></i>${TEMP}<span>${h(short(x.name))}: <strong>${typeof x.temp === 'number' ? deg(x.temp) : '–'}</strong>${stale ? ` <span class="nw">(${stand})</span>` : typeof x.battery === 'number' ? `, <span class="nw">${BATT}${x.battery} %</span>` : ''}</span></div>`);
       });
       if (r.online === true && !(r.sensors || []).length) rows.push(`<div class="wd-row is-wait"><i></i>${TEMP}<span>noch kein Sensor</span></div>`);
       return `<div class="wd-c">
         ${rows.join('')}
-        ${r.error ? `<span class="small warn">${h(r.error)}</span>` : ''}
-        ${r.sms_error ? `<span class="small warn">${h(r.sms_error)}</span>` : ''}
-        <span class="small muted">geprüft ${time(r.last_check) || '–'}</span>
-        <span class="small muted"><span class="nw">Warnung ab ${FROST_TEMP} °C</span> · <button type="button" class="link-btn muted-link" data-wd="test">Test-SMS</button>${r.error || editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="connect">Hue neu verbinden</button>' : ''}${editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="disconnect">Trennen</button>' : ''}</span>
+        ${r.error ? `<span class="small warn" title="${h(r.error)}">Hue-Zugang abgelaufen</span>` : ''}
+        ${r.sms_error ? `<span class="small warn" title="${h(r.sms_error)}">SMS-Versand fehlgeschlagen</span>` : ''}
+        <span class="small muted">geprüft ${hm(r.last_check)}</span>
+        <span class="small muted"><span class="nw">Warnung ab ${FROST_TEMP} °C</span> · <button type="button" class="link-btn muted-link" data-wd="test">Test-SMS</button>${r.error || editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="connect">neu verbinden</button>' : ''}${editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="disconnect">Trennen</button>' : ''}</span>
       </div>`;
     },
 

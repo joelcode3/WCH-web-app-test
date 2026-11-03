@@ -1047,3 +1047,5 @@ body.is-locked { padding-bottom: 0; }
 .wd-row.is-wrap { white-space: normal; align-items: flex-start; }
 .wd-row.is-wrap > i, .wd-row.is-wrap > svg { margin-top: 4px; }
 .wd-row.is-stale { color: var(--text-leise); }
+.wd-c, .wd-c span { overflow-wrap: anywhere; }
+.wd-c .wd-row > span { min-width: 0; }
