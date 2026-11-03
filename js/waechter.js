@@ -89,6 +89,7 @@
         const weak = (r.sensors || []).filter((x) => typeof x.battery === 'number' && x.battery <= 15);
         if (weak.length) add('battery', 'warn', `Batterie Temperatursensor schwach (${Math.min(...weak.map((x) => x.battery))} %)`);
         if (r.error) add('error', 'warn', 'Hue-Zugang abgelaufen – keine Überwachung, bitte neu mit Hue verbinden');
+        if (r.last_check && ago(r.last_check) >= 30) add('stale', 'warn', `Überwachung läuft nicht seit ${hm(r.last_check)} – es kommen keine SMS`);
       });
       return out.sort((a, b) => (a.level === 'alarm' ? 0 : 1) - (b.level === 'alarm' ? 0 : 1));
     },
@@ -196,7 +197,7 @@
         ${rows.join('')}
         ${r.error ? `<span class="small warn" title="${h(r.error)}">Hue-Zugang abgelaufen</span>` : ''}
         ${r.sms_error ? `<span class="small warn" title="${h(r.sms_error)}">SMS-Versand fehlgeschlagen</span>` : ''}
-        <span class="small muted">geprüft ${hm(r.last_check)}</span>
+        ${ago(r.last_check) >= 30 ? `<span class="small warn">Überwachung läuft nicht seit ${hm(r.last_check)}</span>` : ''}
         <span class="small muted"><span class="nw">Warnung ab ${FROST_TEMP} °C</span> · <button type="button" class="link-btn muted-link" data-wd="test">Test-SMS</button>${r.error || editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="connect">neu verbinden</button>' : ''}${editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="disconnect">Trennen</button>' : ''}</span>
       </div>`;
     },
