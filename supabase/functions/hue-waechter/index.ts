@@ -2,7 +2,7 @@
 //
 // Je Unterkunft (z. B. Londonbus) ist eine Philips Hue Bridge verbunden. Alle 5 Minuten
 // (Zeitplan: supabase/waechter-zeitplan.sql) prüft die Funktion über die Hue-Fernsteuerung:
-//   - Ist die Bridge erreichbar? Nein, länger als 15 Min. → SMS „möglicher Stromausfall“
+//   - Ist die Bridge erreichbar? Nein, länger als 30 Min. → SMS (Strom oder Internet weg; Hinweis, wenn andere Bridges laufen)
 //   - Temperatur der Hue-Bewegungsmelder: unter 6 °C (10 Min. lang) → SMS „Frostgefahr“ (Entwarnung ab 8 °C)
 //   - Batterie eines Melders unter 15 % → SMS
 // Kommt alles wieder in Ordnung, gibt es eine Entwarnung. Den Zustand liest die App aus der
@@ -25,7 +25,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-export const OFFLINE_MIN = 15;     // Minuten nicht erreichbar → Warnung
+export const OFFLINE_MIN = 30;     // Minuten nicht erreichbar → Warnung (kurze nächtliche Aussetzer lösen keine SMS aus)
 export const FROST_TEMP = 6;       // °C – darunter Frostwarnung
 export const FROST_CLEAR = 8;      // °C – ab hier Entwarnung (kein Hin und Her um 6 °C)
 export const FROST_MIN = 10;       // Minuten unter FROST_TEMP → Warnung
@@ -185,7 +185,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
     const now = nowFn(), iso = now.toISOString();
     const [bridges, statuses, names] = await Promise.all([db.bridges(), db.statuses(), db.placeNames()]);
     const byId = new Map(statuses.map((s) => [s.place_id, s]));
-    const alerts: { s: Status; flag?: 'alarm_offline' | 'alarm_frost' | 'alarm_battery'; value?: boolean; text: string }[] = [];
+    const alerts: { s: Status; flag?: 'alarm_offline' | 'alarm_frost' | 'alarm_battery'; value?: boolean; offline?: boolean; text: string }[] = [];
     const results: Status[] = [];
 
     for (const b of bridges) {
@@ -235,12 +235,15 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
         // gezählt ab „zuletzt erreichbar“ (der Ausfall begann irgendwann danach)
         const gone = s.last_ok || s.since;
         if (!s.alarm_offline && minutes(gone, now) >= OFFLINE_MIN - 0.5) {
-          alerts.push({ s, flag: 'alarm_offline', value: true, text: `${name} - Oha, Hue Bridge nicht erreichbar (zuletzt ${clock(gone)}). Könnte n Stromausfall sein oder Internet weg, kann mal einer checken bitte?!` });
+          alerts.push({ s, flag: 'alarm_offline', value: true, offline: true, text: `${name} - Oha, Hue Bridge nicht erreichbar (zuletzt ${clock(gone)}). Könnte n Stromausfall sein oder Internet weg, kann mal einer checken bitte?!` });
         }
       }
       results.push(s);
     }
 
+    // Ist eine andere Bridge gleichzeitig erreichbar, liegt es eher am Internet/an der Bridge im Bus als an Hue
+    const reachable = results.filter((x) => x.online === true).map((x) => smsName(names[x.place_id] || 'Unterkunft'));
+    if (reachable.length) alerts.forEach((a) => { if (a.offline) a.text += ` (${reachable.join(', ')} läuft normal. Tipp: Bridge kurz aus- und wieder einstecken.)`; });
     // eine gemeinsame SMS für alles, was sich geändert hat
     if (alerts.length) {
       const both = alerts.filter((a) => a.flag === 'alarm_offline' && a.value).length > 1;

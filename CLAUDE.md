@@ -72,7 +72,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - **Stromwächter Londonbusse – GEBAUT (22.10.2026)**: `supabase/functions/hue-waechter` (Hue Remote API,
   OAuth je Bridge, SMS über seven.io), `supabase/update-9.sql` (Tabellen hue_bridges/hue_oauth geheim,
   waechter_status für Team lesbar), `supabase/waechter-zeitplan.sql` (pg_cron alle 5 Min.), `js/waechter.js`
-  (Anzeige im airbnb-Fenster, Reiter airbnb, Warnzeichen auf der Map). Regeln: Bridge > 15 Min. nicht
+  (Anzeige im airbnb-Fenster, Reiter airbnb, Warnzeichen auf der Map). Erfahrung 03.11.2026: Bridge Bus 2 verlor nachts (ca. 3 Uhr, Router-Neueinwahl/Update?) die Hue-Cloud-Verbindung, vor Ort lief alles → Fernabfrage blind;
+  Temperatur bei fehlender Verbindung grau mit „Stand“. Regeln: Bridge > 30 Min. nicht
   erreichbar → SMS, Temperatur < 6 °C 10 Min. → SMS (Entwarnung ab 8 °C), Batterie ≤ 15 % → SMS + To-Do beim Bus; SMS-Texte locker formuliert (vom Betreiber), Bus mit Standort „LONDONBUS 2 (Teich)“ (ORTSZUSATZ in der Funktion); keine
   separate Warnung für Stromausfall im Bad (vom Betreiber so gewünscht). Einrichtung: SETUP.md.
   Tests der Funktion: Deno mit nachgestellter DB/Hue/SMS (createWaechter(db, env, fetch, now)).

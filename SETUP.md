@@ -82,7 +82,7 @@ Sie stehen nur in der geschützten Datenbank, nicht im öffentlichen GitHub-Proj
 ### Stromausfall- und Frostwarnung (Londonbusse, Hue Bridge, SMS)
 
 Die Supabase-Funktion `hue-waechter` prüft alle 5 Minuten jede verbundene Hue Bridge:
-ist sie länger als 15 Minuten nicht erreichbar (möglicher Stromausfall), fällt ein
+ist sie länger als 30 Minuten nicht erreichbar (Strom oder Internet weg), fällt ein
 Hue-Bewegungsmelder 10 Minuten lang unter 6 °C (Frostgefahr, Entwarnung ab 8 °C) oder wird eine Melder-Batterie
 schwach, kommt eine SMS – und eine Entwarnung, sobald alles wieder in Ordnung ist.
 In der App steht der Zustand beim Bus (Map → Bus antippen) und im Reiter **airbnb**.
