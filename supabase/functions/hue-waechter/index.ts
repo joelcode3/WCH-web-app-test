@@ -2,8 +2,8 @@
 //
 // Je Unterkunft (z. B. Londonbus) ist eine Philips Hue Bridge verbunden. Alle 5 Minuten
 // (Zeitplan: supabase/waechter-zeitplan.sql) prüft die Funktion über die Hue-Fernsteuerung:
-//   - Ist die Bridge erreichbar? Nein, länger als 15 Min. → SMS „möglicher Stromausfall“
-//   - Temperatur der Hue-Bewegungsmelder: unter 6 °C (10 Min. lang) → SMS „Frostgefahr“ (Entwarnung ab 8 °C)
+//   - Ist die Bridge erreichbar? Nein, länger als 30 Min. → SMS (Strom oder Internet weg; Hinweis, wenn andere Bridges laufen)
+//   - Temperatur der Hue-Bewegungsmelder: unter 6 °C → sofort SMS „Frostgefahr“ (Entwarnung ab 8 °C)
 //   - Batterie eines Melders unter 15 % → SMS
 // Kommt alles wieder in Ordnung, gibt es eine Entwarnung. Den Zustand liest die App aus der
 // Tabelle waechter_status (nur Team-Mitglieder).
@@ -25,10 +25,10 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-export const OFFLINE_MIN = 15;     // Minuten nicht erreichbar → Warnung
+export const OFFLINE_MIN = 30;     // Minuten nicht erreichbar → Warnung (kurze nächtliche Aussetzer lösen keine SMS aus)
 export const FROST_TEMP = 6;       // °C – darunter Frostwarnung
 export const FROST_CLEAR = 8;      // °C – ab hier Entwarnung (kein Hin und Her um 6 °C)
-export const FROST_MIN = 10;       // Minuten unter FROST_TEMP → Warnung
+export const FROST_MIN = 0;        // Minuten unter FROST_TEMP → Warnung (0 = sofort beim ersten Messwert)
 export const BATTERY_LOW = 15;     // % – Batterie schwach
 const HUE = 'https://api.meethue.com';
 
@@ -130,17 +130,55 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
     await db.saveBridge(b);
   }
 
-  async function hue(b: Bridge, path: string) {
-    const go = () => fetchFn(`${HUE}/route/clip/v2/resource/${path}`, {
-      headers: { Authorization: `Bearer ${b.access_token}`, 'hue-application-key': b.app_key },
-      signal: AbortSignal.timeout(12000),
-    });
+  const pause = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+
+  // Anfrage an die Hue-Cloud. Robust bei schwachem WLAN im Bus: großzügige Zeitgrenze und bis zu
+  // zwei Wiederholungen bei Zeitüberschreitung, Netzfehler, „zu viele Anfragen“ (429) oder Hue-Störung (5xx).
+  // status 0 = keine Antwort.  v1 = alte Hue-Schnittstelle (Pfad unter /route/api/<app_key>/…)
+  async function hue(b: Bridge, path: string, v1 = false) {
+    const url = v1 ? `${HUE}/route/api/${b.app_key}/${path}` : `${HUE}/route/clip/v2/resource/${path}`;
+    const go = async () => {
+      try {
+        return await fetchFn(url, {
+          headers: { Authorization: `Bearer ${b.access_token}`, 'hue-application-key': b.app_key },
+          signal: AbortSignal.timeout(25000),
+        });
+      } catch (e) {
+        return { status: 0, ok: false, error: e instanceof Error ? e.message : String(e), json: async () => ({}) } as unknown as Response;
+      }
+    };
     let res = await go();
     if (res.status === 401) { await refresh(b); res = await go(); }
-    // Hue begrenzt die Zahl der Abfragen – bei "zu viele" kurz warten und einmal wiederholen
-    if (res.status === 429) { await new Promise((ok) => setTimeout(ok, 1500)); res = await go(); }
+    for (let i = 0; i < 2 && (res.status === 0 || res.status === 429 || res.status >= 500); i++) {
+      await pause(2000 + i * 3000);
+      res = await go();
+    }
     const body = await res.json().catch(() => ({}));
-    return { status: res.status, body };
+    return { status: res.status, body, error: (res as unknown as { error?: string }).error || '' };
+  }
+
+  // Ersatzweg über die alte Hue-Schnittstelle (v1): Bridge erreichbar? Temperatur und Batterie der Melder
+  async function probeV1(b: Bridge): Promise<{ ok: boolean; sensors?: Sensor[]; info: string }> {
+    const c = await hue(b, 'config', true);
+    if (c.status !== 200 || !c.body || Array.isArray(c.body) || !(c.body.bridgeid || c.body.name)) {
+      return { ok: false, info: `v1 HTTP ${c.status}${c.error ? ' ' + c.error : ''}` };
+    }
+    const sn = await hue(b, 'sensors', true);
+    const all = sn.status === 200 && sn.body && typeof sn.body === 'object' ? Object.values(sn.body) as any[] : [];
+    // Temperatur (ZLLTemperature) und Bewegungsmelder (ZLLPresence, Batterie) hängen über die MAC-Adresse zusammen
+    const mac = (u: string) => String(u || '').split('-')[0];
+    const presence: Record<string, any> = {};
+    all.filter((x) => x.type === 'ZLLPresence').forEach((x) => { presence[mac(x.uniqueid)] = x; });
+    const sensors: Sensor[] = all.filter((x) => x.type === 'ZLLTemperature' && x.config?.on !== false).map((x) => {
+      const pr = presence[mac(x.uniqueid)];
+      return {
+        name: (pr && pr.name) || x.name || 'Sensor',
+        temp: typeof x.state?.temperature === 'number' ? x.state.temperature / 100 : null,
+        battery: typeof x.config?.battery === 'number' ? x.config.battery : null,
+        updated: x.state?.lastupdated && x.state.lastupdated !== 'none' ? x.state.lastupdated + 'Z' : null,
+      };
+    });
+    return { ok: true, sensors: sn.status === 200 ? sensors : undefined, info: 'v1 ok' };
   }
 
   // ---------- Prüfung einer Unterkunft ----------
@@ -150,9 +188,16 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
       if (b.token_expires && new Date(b.token_expires).getTime() - nowFn().getTime() < 86400000) await refresh(b);
       const r = await hue(b, 'bridge');
       if (r.status === 401 || r.status === 403) return { state: 'unknown', error: 'Hue-Zugang abgelaufen – bitte die Unterkunft neu mit Hue verbinden.' };
-      if (r.status === 429) return { state: 'unknown', error: '' };
       const data = Array.isArray(r.body?.data) ? r.body.data : [];
-      if (r.status >= 300 || !data.length) return { state: 'offline', error: '' };
+      if (r.status >= 300 || r.status === 0 || !data.length) {
+        // neue Schnittstelle antwortet nicht → alten Weg versuchen, bevor „nicht erreichbar“ gilt
+        const v1 = await probeV1(b);
+        console.log(`[${b.place_id}] v2 nicht erreichbar: HTTP ${r.status}${r.error ? ' ' + r.error : ''} ${JSON.stringify(r.body).slice(0, 200)} · ${v1.info}`);
+        if (v1.ok) return { state: 'online', error: '', sensors: v1.sensors };
+        // Hue selbst überlastet/gestört (kein klares „Bridge weg“) → Zustand unverändert lassen
+        if (r.status === 429 || r.status >= 500 && !/offline|not connected|disconnected/i.test(JSON.stringify(r.body))) return { state: 'unknown', error: '' };
+        return { state: 'offline', error: '' };
+      }
       // Temperatur, Namen und Batterie der Melder – nacheinander (Hue mag keine parallelen Abfragen)
       const t = await hue(b, 'temperature');
       const d = await hue(b, 'device');
@@ -175,8 +220,9 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
       return { state: 'online', error: '', sensors };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      console.log(`[${b.place_id}] Fehler bei der Abfrage: ${msg}`);
       if (/Hue-Anmeldung/.test(msg)) return { state: 'unknown', error: 'Hue-Zugang abgelaufen – bitte die Unterkunft neu mit Hue verbinden.' };
-      return { state: 'offline', error: '' };   // Zeitüberschreitung / keine Verbindung
+      return { state: 'unknown', error: '' };   // unerwarteter Fehler auf unserer Seite → kein Alarm, nächster Durchlauf versucht es neu
     }
   }
 
@@ -185,7 +231,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
     const now = nowFn(), iso = now.toISOString();
     const [bridges, statuses, names] = await Promise.all([db.bridges(), db.statuses(), db.placeNames()]);
     const byId = new Map(statuses.map((s) => [s.place_id, s]));
-    const alerts: { s: Status; flag?: 'alarm_offline' | 'alarm_frost' | 'alarm_battery'; value?: boolean; text: string }[] = [];
+    const alerts: { s: Status; flag?: 'alarm_offline' | 'alarm_frost' | 'alarm_battery'; value?: boolean; offline?: boolean; text: string }[] = [];
     const results: Status[] = [];
 
     for (const b of bridges) {
@@ -235,12 +281,15 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
         // gezählt ab „zuletzt erreichbar“ (der Ausfall begann irgendwann danach)
         const gone = s.last_ok || s.since;
         if (!s.alarm_offline && minutes(gone, now) >= OFFLINE_MIN - 0.5) {
-          alerts.push({ s, flag: 'alarm_offline', value: true, text: `${name} - Oha, Hue Bridge nicht erreichbar (zuletzt ${clock(gone)}). Könnte n Stromausfall sein oder Internet weg, kann mal einer checken bitte?!` });
+          alerts.push({ s, flag: 'alarm_offline', value: true, offline: true, text: `${name} - Oha, Hue Bridge nicht erreichbar (zuletzt ${clock(gone)}). Könnte n Stromausfall sein oder Internet weg, kann mal einer checken bitte?!` });
         }
       }
       results.push(s);
     }
 
+    // Ist eine andere Bridge gleichzeitig erreichbar, liegt es eher am Internet/an der Bridge im Bus als an Hue
+    const reachable = results.filter((x) => x.online === true).map((x) => smsName(names[x.place_id] || 'Unterkunft'));
+    if (reachable.length) alerts.forEach((a) => { if (a.offline) a.text += ` (${reachable.join(', ')} läuft normal. Tipp: Bridge kurz aus- und wieder einstecken.)`; });
     // eine gemeinsame SMS für alles, was sich geändert hat
     if (alerts.length) {
       const both = alerts.filter((a) => a.flag === 'alarm_offline' && a.value).length > 1;

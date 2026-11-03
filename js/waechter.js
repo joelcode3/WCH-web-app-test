@@ -8,9 +8,15 @@
 (function () {
   'use strict';
 
-  const OFFLINE_MIN = 15, FROST_TEMP = 6;
+  const OFFLINE_MIN = 30, FROST_TEMP = 6;
   const h = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const time = (iso) => (iso ? new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '') : '');
+  // kurze Uhrzeit fürs Feld neben dem Foto: heute nur „03:20“, sonst „02.11. 03:20“
+  const hm = (iso) => {
+    if (!iso) return '–';
+    const d = new Date(iso), t = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${t}`;
+  };
   const deg = (t) => `${Number(t).toFixed(1).replace('.', ',')} °C`;
   const ago = (iso) => (iso ? (Date.now() - new Date(iso).getTime()) / 60000 : 0);
 
@@ -77,12 +83,13 @@
         const r = this.get(o.id);
         if (!r || !r.connected) return;
         const add = (key, level, text) => out.push({ id: o.id, key: `${o.id}:${key}`, level, name: o.name, text });
-        if (r.online === false && ago(r.last_ok || r.since) >= OFFLINE_MIN) add('offline', 'alarm', `Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – möglicher Stromausfall oder Internet weg`);
+        if (r.online === false && ago(r.last_ok || r.since) >= OFFLINE_MIN) add('offline', 'alarm', `Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – Internet oder Strom im Bus prüfen (Bridge kurz aus- und einstecken)`);
         const cold = (r.sensors || []).filter((x) => typeof x.temp === 'number' && x.temp < FROST_TEMP);
         if (r.online !== false && cold.length) add('frost', 'alarm', `Frostgefahr: Bad bei ${deg(Math.min(...cold.map((x) => x.temp)))}`);
         const weak = (r.sensors || []).filter((x) => typeof x.battery === 'number' && x.battery <= 15);
         if (weak.length) add('battery', 'warn', `Batterie Temperatursensor schwach (${Math.min(...weak.map((x) => x.battery))} %)`);
         if (r.error) add('error', 'warn', 'Hue-Zugang abgelaufen – keine Überwachung, bitte neu mit Hue verbinden');
+        if (r.last_check && ago(r.last_check) >= 30) add('stale', 'warn', `Überwachung läuft nicht seit ${hm(r.last_check)} – es kommen keine SMS`);
       });
       return out.sort((a, b) => (a.level === 'alarm' ? 0 : 1) - (b.level === 'alarm' ? 0 : 1));
     },
@@ -131,7 +138,7 @@
       }
       const s = this.summary(o.id);
       const lines = [];
-      if (r.online === false) lines.push(`<li class="is-alarm"><i></i><span>Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – möglicher Stromausfall${ago(r.last_ok || r.since) >= OFFLINE_MIN ? (r.alarm_offline ? ' (SMS verschickt)' : '') : ' (Warnung nach 15 Min.)'}</span></li>`);
+      if (r.online === false) lines.push(`<li class="is-alarm"><i></i><span>Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – möglicher Stromausfall${ago(r.last_ok || r.since) >= OFFLINE_MIN ? (r.alarm_offline ? ' (SMS verschickt)' : '') : ' (Warnung nach 30 Min.)'}</span></li>`);
       else if (r.online === true) lines.push(`<li class="is-ok"><i></i><span>Strom ok – Hue Bridge erreichbar</span></li>`);
       else lines.push('<li class="is-wait"><i></i><span>Wird gleich geprüft …</span></li>');
       (r.sensors || []).forEach((x) => {
@@ -158,7 +165,9 @@
       const isBus = o.kind === 'londonbus';
       const PLUG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/></svg>';
       const TEMP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z M12 9v6"/></svg>';
-      const BATT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M21.5 10.5v3"/></svg>';
+      // Batterie-Symbol mit Füllstand
+      const BATT = (pct) => `<svg viewBox="0 0 24 24" class="wd-batt" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2"/><path d="M21.5 10.5v3"/>`
+        + `<rect x="4.5" y="9" width="${(13 * Math.max(0, Math.min(100, pct)) / 100).toFixed(1)}" height="6" rx="1" class="wd-batt-fill"/></svg>`;
       if (!this.available()) {
         if (this.state === 'missing' && editMode) return '<div class="wd-c"><span class="small muted">Stromwächter: <code>supabase/update-9.sql</code> fehlt (SETUP.md)</span></div>';
         return isBus ? '<div class="wd-c"><span class="small muted">Temperatur: noch kein Sensor</span></div>' : '';
@@ -173,23 +182,25 @@
       // Zeile 1: Strom (Bridge erreichbar?)
       if (r.online === false) {
         const m = ago(r.last_ok || r.since);
-        rows.push(`<div class="wd-row is-${m >= OFFLINE_MIN ? 'alarm' : 'warn'}"><i></i>${PLUG}<span>Bus: kein Kontakt seit ${time(r.last_ok || r.since)}</span></div>`);
-      } else if (r.online === true) rows.push(`<div class="wd-row is-ok"><i></i>${PLUG}<span>Bus: ok</span></div>`);
+        rows.push(`<div class="wd-row is-wrap is-${m >= OFFLINE_MIN ? 'alarm' : 'warn'}"><i></i>${PLUG}<span>Bus: offline seit ${hm(r.last_ok || r.since)}</span></div>`);
+      } else if (r.online === true) rows.push(`<div class="wd-row is-ok"><i></i>${PLUG}<span>Bus: online</span></div>`);
       else rows.push(`<div class="wd-row is-wait"><i></i>${PLUG}<span>Bus: wird geprüft</span></div>`);
       // Zeile 2: Temperatur und Batterie je Melder („Bus 1 - Bad Temperatur“ → „Bad“)
       const short = (n) => String(n || '').replace(/bus\s*\d+\s*[-–:]?\s*/i, '').replace(/temperatur(sensor)?/i, '').replace(/\s*[-–]\s*$/, '').trim() || 'Innen';
       (r.sensors || []).forEach((x) => {
         const cold = typeof x.temp === 'number' && x.temp < FROST_TEMP;
         const weak = typeof x.battery === 'number' && x.battery <= 15;
-        rows.push(`<div class="wd-row is-${cold ? 'alarm' : weak ? 'warn' : 'ok'}"><i></i>${TEMP}<span>${h(short(x.name))}: <strong>${typeof x.temp === 'number' ? deg(x.temp) : '–'}</strong>${typeof x.battery === 'number' ? `, <span class="nw">${BATT}${x.battery} %</span>` : ''}</span></div>`);
+        const stale = r.online === false;   // Bridge nicht erreichbar → nur der letzte bekannte Wert
+        const stand = hm(r.last_ok || x.updated);   // zuletzt erfolgreich abgefragt
+        rows.push(`<div class="wd-row is-${stale ? 'wait is-stale is-wrap' : cold ? 'alarm' : weak ? 'warn' : 'ok'}"><i></i>${TEMP}<span>${h(short(x.name))}: <strong>${typeof x.temp === 'number' ? deg(x.temp) : '–'}</strong>${stale ? ` <span class="nw">(${stand})</span>` : typeof x.battery === 'number' ? `, <span class="nw">${BATT(x.battery)}${x.battery} %</span>` : ''}</span></div>`);
       });
       if (r.online === true && !(r.sensors || []).length) rows.push(`<div class="wd-row is-wait"><i></i>${TEMP}<span>noch kein Sensor</span></div>`);
       return `<div class="wd-c">
         ${rows.join('')}
-        ${r.error ? `<span class="small warn">${h(r.error)}</span>` : ''}
-        ${r.sms_error ? `<span class="small warn">${h(r.sms_error)}</span>` : ''}
-        <span class="small muted">${time(r.last_check) || '–'}</span>
-        <span class="small muted"><span class="nw">Warnung ab ${FROST_TEMP} °C</span> · <button type="button" class="link-btn muted-link" data-wd="test">Test-SMS</button>${r.error || editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="connect">Hue neu verbinden</button>' : ''}${editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="disconnect">Trennen</button>' : ''}</span>
+        ${r.error ? `<span class="small warn" title="${h(r.error)}">Hue-Zugang abgelaufen</span>` : ''}
+        ${r.sms_error ? `<span class="small warn" title="${h(r.sms_error)}">SMS-Versand fehlgeschlagen</span>` : ''}
+        ${ago(r.last_check) >= 30 ? `<span class="small warn">Überwachung läuft nicht seit ${hm(r.last_check)}</span>` : ''}
+        <span class="small muted"><span class="nw">Warnung ab ${FROST_TEMP} °C</span> · <button type="button" class="link-btn muted-link" data-wd="test">Test-SMS</button>${r.error || editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="connect">neu verbinden</button>' : ''}${editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="disconnect">Trennen</button>' : ''}</span>
       </div>`;
     },
 
