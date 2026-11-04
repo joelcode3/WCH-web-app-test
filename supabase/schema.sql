@@ -531,3 +531,10 @@ alter table public.todos add constraint todos_target_type_check
 
 -- Supabase-Schnittstelle über die Änderungen informieren
 notify pgrst, 'reload schema';
+
+-- ---------- Update 12: Kalender-Kategorie Extern ----------
+alter table public.termine drop constraint if exists termine_art_check;
+alter table public.termine add constraint termine_art_check
+  check (art in ('termin', 'arbeit', 'abwesenheit', 'reservierung', 'extern'));
+
+notify pgrst, 'reload schema';

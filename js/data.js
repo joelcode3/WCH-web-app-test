@@ -110,6 +110,8 @@
     termin:      { label: 'Termin',                    color: '#1b7fc9' },
     arbeit:      { label: 'Längere Arbeit',            color: '#c77c12' },
     abwesenheit: { label: 'Abwesenheit',               color: '#8a918b' },
+    // Termine auf dem Platz, bei denen das Team nicht gebraucht wird (z. B. Veranstaltung eines Mieters)
+    extern:      { label: 'Extern',                    color: '#5c6b8a' },
     // eigener Kalender: Reservierungen und Veranstaltungen (z. B. Vantreffen) – mit Ort, Anzahl und To-Dos
     reservierung: { label: 'Reservierung / VA',        color: '#b0457e', layer: true },
   };

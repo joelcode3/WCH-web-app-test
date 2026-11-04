@@ -41,14 +41,14 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-11 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
+  Bisher: update-2 … update-12 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
   10: `termine` für den Kalender, `airbnb_belegung` = von der App aufgezeichnete Buchungen, weil airbnb vergangene nicht liefert;
-  11: Art `reservierung` + Spalte `anzahl` in `termine`, To-Do-Ziel `termin`, Spalte `todos.kalender`).
+  11: Art `reservierung` + Spalte `anzahl` in `termine`, To-Do-Ziel `termin`, Spalte `todos.kalender`; 12: Kategorie `extern`).
 - Kalender (Reiter, `Kalender` in app.js): eigene Einträge Termin/Längere Arbeit/Abwesenheit mit Orten und Personen,
   dazu Termine und Fristen aus den To-Dos, Wetter 7 Tage (kompakt, ohne Scrollen; Wetter-Symbol auch oben links auf der Map),
   Kalenderwochen, abwählbarer Kalender „Feiertage/Schulferien“ (`js/feiertage.js`: Feiertage aller Länder berechnet,
   Schulferien von openholidaysapi.org), Feiertage in Niedersachsen wie Wochenende ausgegraut, heute dunkelgrün.
-  Eigener, abwählbarer Kalender „Reservierungen / VA“ (Art `reservierung`, mit Ort, Anzahl, To-Dos; To-Do-Ziel `termin`, update-11).
+  Kategorie „Extern“ (Termine auf dem Platz ohne das Team, update-12). Eigener, abwählbarer Kalender „Reservierungen / VA“ (Art `reservierung`, mit Ort, Anzahl, To-Dos; To-Do-Ziel `termin`, update-11).
   Alle Kalender unten in der Legende einzeln abwählbar (je Gerät gemerkt). To-Dos mit Termin erscheinen im gewählten Kalender
   (Spalte `todos.kalender`), Deadlines (früher „Fristen“) als eigener Kalender.
   Mehrtägiges (längere Arbeiten, Abwesenheit, Reservierungen) als durchgehendes Band unten im Tagesfeld, Einzeltermine darüber;
