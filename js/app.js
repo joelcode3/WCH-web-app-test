@@ -2837,6 +2837,7 @@
             <span class="kal-layers">
               ${[...Object.entries(S.TERMIN_KINDS).map(([k, v]) => [k, `<i style="background:${v.color}"></i>${h(v.label)}`]),
                 ['deadline', `<i style="background:${DEADLINE_COLOR}"></i>Deadlines`],
+                ['airbnb', `<i style="background:#c45a5a"></i>airbnb`],
                 ['feiertage', `<i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien`]]
                 .map(([k, l]) => `<label class="kal-ft-toggle"><input type="checkbox" data-k-layer="${k}"${layerOn(k) ? ' checked' : ''}>${l}</label>`).join('')}
             </span>
@@ -2947,12 +2948,23 @@
         const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', free ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
         html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
-          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
+          ${this.airbnbIcons(d)}<div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
           ${week.lanes.length ? `<div class="kal-bands">${band}</div>` : ''}
         </div>`;
       }
       grid.innerHTML = html;
+    },
+
+    // airbnb: Mini-Symbol je Unterkunft, die an diesem Tag gebucht ist (An- und Abreisetag zählen mit)
+    airbnbIcons(d) {
+      if (!layerOn('airbnb') || !window.Airbnb) return '';
+      const units = S.airbnbs().filter((o) => (Airbnb.events[o.id] || []).some((e) => e.type !== 'blocked' && e.start <= d && d <= e.end));
+      if (!units.length) return '';
+      return `<div class="kal-ab">${units.map((o) => {
+        const nr = (o.name.match(/(\d+)\s*$/) || [])[1] || '';
+        return `<span class="kal-ab-i" title="${h(o.name)}: gebucht">${S.PLACE_KINDS[o.kind].icon}${nr ? `<b>${nr}</b>` : ''}</span>`;
+      }).join('')}</div>`;
     },
 
     // Spuren einer Woche: [{ line, days: [Eintrag|null ×7] }] in Reihenfolge von unten nach oben
@@ -3381,6 +3393,7 @@
       const sel = MapView.selected;
       if (!$('#view-karte').hidden && sel && sel.type === 'place') MapUI.showPanel('place', sel.id);
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
+      if (location.hash.startsWith('#/kalender')) Kalender.renderGrid();
     });
     Airbnb.load();
     // Wetter (Reiter Kalender + kleines Symbol auf der Map), alle 30 Minuten auffrischen

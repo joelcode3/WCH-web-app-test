@@ -1108,3 +1108,16 @@ body.is-locked { padding-bottom: 0; }
   .kal-band.is-start { margin-left: 0; padding-left: 0; background: linear-gradient(90deg, var(--solid) calc(100% - 6px), var(--gap)); }
   .kal-band.is-end { margin-right: 0; background: linear-gradient(90deg, var(--gap), var(--solid) 6px); }
 }
+
+/* airbnb im Kalender: Mini-Symbole der gebuchten Unterkünfte */
+.kal-ab { display: flex; flex-wrap: wrap; gap: 3px; }
+.kal-ab-i { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 18px; border-radius: 4px;
+  background: #c45a5a; color: #fff; }
+.kal-ab-i svg.pk-ico { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; }
+.kal-ab-i b { position: absolute; right: -3px; bottom: -4px; font-size: .58rem; line-height: 1.1; background: #fff; color: #9b3b3b; border-radius: 3px; padding: 0 2px; box-shadow: 0 0 0 1px #c45a5a; }
+@media (max-width: 860px) {
+  .kal-ab { gap: 1px; justify-content: center; }
+  .kal-ab-i { width: 12px; height: 12px; border-radius: 3px; }
+  .kal-ab-i svg.pk-ico { width: 9px; height: 9px; stroke-width: 2.4; }
+  .kal-ab-i b { display: none; }
+}
