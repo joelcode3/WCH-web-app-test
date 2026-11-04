@@ -1050,3 +1050,35 @@ body.is-locked { padding-bottom: 0; }
 .wd-c, .wd-c span { overflow-wrap: anywhere; }
 .wd-c .wd-row > span { min-width: 0; }
 .wd-batt .wd-batt-fill { fill: currentColor; stroke: none; }
+
+/* Mehrtägige Einträge als durchgehendes Band in der Monatsübersicht; zwischen den Tagen heller */
+.kal-day { overflow: visible; }
+.kal-band { --solid: var(--c); --gap: color-mix(in srgb, var(--c) 45%, transparent);
+  position: relative; z-index: 1; margin: 0 -10px 2px; padding: 0 10px; height: 17px; line-height: 17px; font-size: .72rem; font-weight: 600;
+  background: linear-gradient(90deg, var(--gap) 0 9px, var(--solid) 9px calc(100% - 9px), var(--gap) calc(100% - 9px));
+  color: #fff; white-space: nowrap; overflow: visible; cursor: pointer; }
+.kal-band.is-soft { --solid: color-mix(in srgb, var(--c) 22%, #fff); --gap: color-mix(in srgb, var(--c) 9%, transparent); color: var(--c); cursor: default; }
+.kal-band.is-abs { --solid: #e3e5e1; --gap: rgba(138,145,139,.18); color: var(--text); }
+.kal-band.is-start { margin-left: 0; padding-left: 6px; border-radius: 8px 0 0 8px; background: linear-gradient(90deg, var(--solid) calc(100% - 9px), var(--gap) calc(100% - 9px)); }
+.kal-band.is-end { margin-right: 0; border-radius: 0 8px 8px 0; background: linear-gradient(90deg, var(--gap) 0 9px, var(--solid) 9px); }
+.kal-band.is-start.is-end { border-radius: 8px; background: var(--solid); }
+@media (max-width: 860px) {
+  .kal-band { height: 5px; font-size: 0; padding: 0; margin: 0 -6px 2px;
+    background: linear-gradient(90deg, var(--gap) 0 5px, var(--solid) 5px calc(100% - 5px), var(--gap) calc(100% - 5px)); }
+  .kal-band.is-start { margin-left: 0; padding-left: 0; background: linear-gradient(90deg, var(--solid) calc(100% - 5px), var(--gap) calc(100% - 5px)); }
+  .kal-band.is-end { background: linear-gradient(90deg, var(--gap) 0 5px, var(--solid) 5px); }
+}
+@media (max-width: 860px) {
+  /* gleiche Kopfhöhe in allen Tagen (mit/ohne Wetter), damit die Bänder auf einer Linie liegen */
+  .kal-dh { min-height: 36px; justify-content: flex-start; }
+}
+
+/* Bänder unten im Tagesfeld (von unten nach oben gestapelt), Einzeltermine darüber */
+.kal-bands { margin-top: auto; display: flex; flex-direction: column-reverse; gap: 2px; }
+.kal-band { margin-bottom: 0; }
+/* Ferien und Feiertage: nur dünne Linie in ihrer Farbe (Name beim Hovern) */
+.kal-band.is-line { --solid: color-mix(in srgb, var(--c) 75%, #fff); --gap: color-mix(in srgb, var(--c) 30%, transparent); height: 4px; padding: 0; font-size: 0; cursor: default; }
+.kal-band.is-line.is-start { padding-left: 0; }
+@media (max-width: 860px) {
+  .kal-band.is-line { height: 3px; }
+}

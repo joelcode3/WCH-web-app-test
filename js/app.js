@@ -2924,7 +2924,23 @@
       for (let i = 0; i < weeks * 7; i++) {
         const d = addDaysIso(start, i);
         if (i % 7 === 0) html += `<span class="kal-kw" title="Kalenderwoche">${isoWeek(d)}</span>`;
-        const ent = this.entries(d);
+        // Mehrtägiges (Schulferien, längere Arbeiten, Abwesenheiten …) als durchgehendes Band,
+        // Beschriftung nur am Wochen- bzw. Eintragsanfang
+        const all = this.entries(d);
+        // Bänder unten im Feld: Ferien und Feiertage als dünne Linie, mehrtägige Einträge als Band; Einzeltermine darüber
+        const isBand = (e) => e.ft || e.multi;
+        const key = (e) => (e.ft ? `ft:${e.title}` : e.ref);
+        const prevKeys = i % 7 ? new Set(this.entries(addDaysIso(d, -1)).filter(isBand).map(key)) : new Set();
+        const nextKeys = i % 7 < 6 ? new Set(this.entries(addDaysIso(d, 1)).filter(isBand).map(key)) : new Set();
+        // Reihenfolge von unten nach oben: mehrtägige Einträge nach Beginn (gleiche Höhe über die Woche), darüber Ferien- und Feiertagslinie
+        const rank = (e) => (e.fe ? 1 : e.ft ? 2 : 0);
+        const bands = all.filter(isBand).sort((x, y) => rank(x) - rank(y) || (x.k ? x.k.start : '').localeCompare(y.k ? y.k.start : '') || key(x).localeCompare(key(y)));
+        const band = bands.map((e) => {
+          const start = !prevKeys.has(key(e)), end = !nextKeys.has(key(e));
+          const tip = `${e.kind}: ${e.title}${e.info ? `\n${e.info}` : ''}`;
+          return `<div class="kal-band${e.ft ? ' is-line' : ''}${e.abs ? ' is-abs' : ''}${start ? ' is-start' : ''}${end ? ' is-end' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(tip)}">${e.ft ? '' : start ? h(e.title) : '&nbsp;'}</div>`;
+        }).join('');
+        const ent = all.filter((e) => !isBand(e));
         const wx = window.Wetter && Wetter.day(d);
         // Wochenende und Feiertage in Niedersachsen leicht ausgegraut
         const free = i % 7 >= 5 || (window.Feiertage && Feiertage.isNiHoliday(d));
@@ -2933,6 +2949,7 @@
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
           <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
+          ${band ? `<div class="kal-bands">${band}</div>` : ''}
         </div>`;
       }
       grid.innerHTML = html;
@@ -2973,7 +2990,7 @@
       const el = $('#k-agenda');
       if (!el) return;
       const d = this.sel;
-      const ent = this.entries(d);
+      const ent = this.entries(d).filter((e) => !e.ft);   // Feiertage/Ferien nur in der Monatsübersicht
       const wx = window.Wetter && Wetter.day(d);
       // nächste Einträge ab heute (ohne den ausgewählten Tag), max. 30 Tage
       const t = today();
