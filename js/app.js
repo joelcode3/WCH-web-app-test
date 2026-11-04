@@ -2964,12 +2964,13 @@
       return `<div class="kal-ab">${units.map((o) => {
         const nr = (o.name.match(/(\d+)\s*$/) || [])[1] || '';
         // eigenes Mini-Symbol mit der Nummer im Bus bzw. Zelt (weiß gefüllt, Ziffer in Rot)
-        const t = `<text x="12" y="${o.kind === 'glamping' ? 19.2 : 14.6}" text-anchor="middle" font-size="${o.kind === 'glamping' ? 9.5 : 10.5}" font-weight="800">${h(nr)}</text>`;
+        const t = `<text x="12" y="${o.kind === 'glamping' ? 17.6 : 14.6}" text-anchor="middle" font-size="${o.kind === 'glamping' ? 9.5 : 10.5}" font-weight="800">${h(nr)}</text>`;
         const svg = o.kind === 'londonbus'
           ? `<svg viewBox="0 0 24 24" class="kal-ab-svg" aria-hidden="true"><rect x="4" y="2.5" width="16" height="16" rx="3" class="f"/><path d="M7.5 18.5v2.5M16.5 18.5v2.5" class="w"/>${nr ? t : ''}</svg>`
           : o.kind === 'glamping'
-            ? `<svg viewBox="0 0 24 24" class="kal-ab-svg" aria-hidden="true"><path d="M12 2.5 L22 21 H2 Z" class="f"/>${nr ? t : ''}</svg>`
-            : S.PLACE_KINDS[o.kind].icon;
+            ? `<svg viewBox="0 0 24 24" class="kal-ab-svg" aria-hidden="true"><path d="M12 1.5 L22 20.5 H2 Z" class="f"/>${nr ? t : ''}</svg>`
+            : `<svg viewBox="0 0 24 24" class="kal-ab-svg" aria-hidden="true"><rect x="1" y="5" width="13.5" height="11" rx="1.5" class="f"/>`
+              + `<path d="M15.5 8h4.3l3.2 4.2V16h-7.5z" class="f"/><circle cx="6" cy="17.5" r="2.4" class="f wh"/><circle cx="18" cy="17.5" r="2.4" class="f wh"/></svg>`;
         return `<span class="kal-ab-i" title="${h(o.name)}: gebucht">${svg}</span>`;
       }).join('')}</div>`;
     },
