@@ -2838,9 +2838,9 @@
           <div class="kal-grid" id="k-grid"></div>
           <div class="kal-legend">
             <span class="kal-layers">
-              ${[['airbnb', `<i style="background:#c45a5a"></i>airbnb`],
-                ...Object.entries(S.TERMIN_KINDS).map(([k, v]) => [k, `<i style="background:${v.color}"></i>${h(v.label)}`]),
-                ['feiertage', `<i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien`]]
+              ${[...Object.entries(S.TERMIN_KINDS).map(([k, v]) => [k, `<i style="background:${v.color}"></i>${h(v.label)}`]),
+                ['feiertage', `<i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien`],
+                ['airbnb', `<i style="background:#c45a5a"></i>airbnb`]]
                 .map(([k, l]) => `<label class="kal-ft-toggle"><input type="checkbox" data-k-layer="${k}"${layerOn(k) ? ' checked' : ''}>${l}</label>`).join('')}
             </span>
           </div>
