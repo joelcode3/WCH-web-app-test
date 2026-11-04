@@ -1095,3 +1095,16 @@ body.is-locked { padding-bottom: 0; }
 .kal-band-t { position: relative; z-index: 3; display: block; width: max-content; max-width: calc(var(--n, 1) * 100% + (var(--n, 1) - 1) * 4px - 10px);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kal-band.is-start { z-index: 2; }
+
+/* weicher Übergang zwischen den Tagen: Bänder treffen sich in der Mitte des Zwischenraums und blenden dort sanft heller */
+.kal-band { margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px;
+  background: linear-gradient(90deg, var(--gap), var(--solid) 12px, var(--solid) calc(100% - 12px), var(--gap)); }
+.kal-band.is-start { margin-left: 0; padding-left: 6px; background: linear-gradient(90deg, var(--solid) calc(100% - 12px), var(--gap)); }
+.kal-band.is-end { margin-right: 0; padding-right: 0; background: linear-gradient(90deg, var(--gap), var(--solid) 12px); }
+.kal-band.is-start.is-end { background: var(--solid); }
+@media (max-width: 860px) {
+  .kal-band { margin-left: -4px; margin-right: -4px; padding: 0;
+    background: linear-gradient(90deg, var(--gap), var(--solid) 6px, var(--solid) calc(100% - 6px), var(--gap)); }
+  .kal-band.is-start { margin-left: 0; padding-left: 0; background: linear-gradient(90deg, var(--solid) calc(100% - 6px), var(--gap)); }
+  .kal-band.is-end { margin-right: 0; background: linear-gradient(90deg, var(--gap), var(--solid) 6px); }
+}
