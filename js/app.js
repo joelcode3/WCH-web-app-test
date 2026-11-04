@@ -2963,7 +2963,14 @@
       if (!units.length) return '';
       return `<div class="kal-ab">${units.map((o) => {
         const nr = (o.name.match(/(\d+)\s*$/) || [])[1] || '';
-        return `<span class="kal-ab-i${nr ? ' has-nr' : ''}${nr === '2' ? ' is-2' : ''}" title="${h(o.name)}: gebucht">${S.PLACE_KINDS[o.kind].icon}${nr ? `<b>${nr}</b>` : ''}</span>`;
+        // eigenes Mini-Symbol mit der Nummer im Bus bzw. Zelt (weiß gefüllt, Ziffer in Rot)
+        const t = `<text x="12" y="${o.kind === 'glamping' ? 19.2 : 14.6}" text-anchor="middle" font-size="${o.kind === 'glamping' ? 9.5 : 10.5}" font-weight="800">${h(nr)}</text>`;
+        const svg = o.kind === 'londonbus'
+          ? `<svg viewBox="0 0 24 24" class="kal-ab-svg" aria-hidden="true"><rect x="4" y="2.5" width="16" height="16" rx="3" class="f"/><path d="M7.5 18.5v2.5M16.5 18.5v2.5" class="w"/>${nr ? t : ''}</svg>`
+          : o.kind === 'glamping'
+            ? `<svg viewBox="0 0 24 24" class="kal-ab-svg" aria-hidden="true"><path d="M12 2.5 L22 21 H2 Z" class="f"/>${nr ? t : ''}</svg>`
+            : S.PLACE_KINDS[o.kind].icon;
+        return `<span class="kal-ab-i" title="${h(o.name)}: gebucht">${svg}</span>`;
       }).join('')}</div>`;
     },
 

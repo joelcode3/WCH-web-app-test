@@ -1123,3 +1123,14 @@ body.is-locked { padding-bottom: 0; }
   .kal-ab-i svg.pk-ico, .kal-ab-i.has-nr svg.pk-ico { width: 7px; height: 7px; margin: 0; stroke-width: 2.6; }
   .kal-ab-i b { display: none; }
 }
+
+/* Mini-Symbole: Bus/Zelt weiß gefüllt mit roter Ziffer darin, alle gleiche Farbe */
+.kal-ab-i { flex-direction: row; }
+.kal-ab-i svg.kal-ab-svg { width: 13px; height: 13px; flex: none; }
+.kal-ab-svg .f { fill: #fff; stroke: none; }
+.kal-ab-svg .w { stroke: #fff; stroke-width: 2.6; stroke-linecap: round; fill: none; }
+.kal-ab-svg text { fill: #c45a5a; stroke: none; font-family: var(--font-body); }
+@media (max-width: 860px) {
+  .kal-ab-i { width: 13px; height: 13px; }
+  .kal-ab-i svg.kal-ab-svg { width: 10px; height: 10px; }
+}
