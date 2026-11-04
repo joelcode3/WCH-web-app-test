@@ -2963,7 +2963,7 @@
       if (!units.length) return '';
       return `<div class="kal-ab">${units.map((o) => {
         const nr = (o.name.match(/(\d+)\s*$/) || [])[1] || '';
-        return `<span class="kal-ab-i" title="${h(o.name)}: gebucht">${S.PLACE_KINDS[o.kind].icon}${nr ? `<b>${nr}</b>` : ''}</span>`;
+        return `<span class="kal-ab-i${nr ? ' has-nr' : ''}${nr === '2' ? ' is-2' : ''}" title="${h(o.name)}: gebucht">${S.PLACE_KINDS[o.kind].icon}${nr ? `<b>${nr}</b>` : ''}</span>`;
       }).join('')}</div>`;
     },
 
