@@ -2950,8 +2950,8 @@
         const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', free ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
         html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
-          ${this.airbnbIcons(d)}<div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
-            ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
+          ${this.airbnbIcons(d)}<div class="kal-chips">${ent.slice(0, 4).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
+            ${ent.length > 4 ? `<span class="kal-more">+${ent.length - 4} weitere</span>` : ''}</div>
           ${week.lanes.length ? `<div class="kal-bands">${band}</div>` : ''}
         </div>`;
       }

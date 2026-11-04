@@ -1136,3 +1136,6 @@ body.is-locked { padding-bottom: 0; }
 }
 .kal-ab-svg .wh { stroke: #c45a5a; stroke-width: 1.4; }
 .kal-day.is-past { opacity: .5; }   /* vergangene Tage wie Tage des Nachbarmonats */
+/* höhere Tagesfelder, damit mehrere Einträge aus verschiedenen Kalendern Platz haben */
+.kal-day { min-height: 132px; }
+@media (max-width: 860px) { .kal-day { min-height: 74px; } }
