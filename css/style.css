@@ -1082,3 +1082,60 @@ body.is-locked { padding-bottom: 0; }
 @media (max-width: 860px) {
   .kal-band.is-line { height: 3px; }
 }
+
+/* feste Spuren: leere Plätze halten die Höhe; Ferien-/Feiertagslinie etwas dicker */
+.kal-band-empty { height: 17px; }
+.kal-band.is-line, .kal-band-empty.is-line { height: 6px; }
+@media (max-width: 860px) {
+  .kal-band-empty { height: 5px; }
+  .kal-band.is-line, .kal-band-empty.is-line { height: 4px; }
+}
+
+/* Beschriftung eines Bands darf über die folgenden Tage desselben Bands laufen */
+.kal-band-t { position: relative; z-index: 3; display: block; width: max-content; max-width: calc(var(--n, 1) * 100% + (var(--n, 1) - 1) * 4px - 10px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kal-band.is-start { z-index: 2; }
+
+/* weicher Übergang zwischen den Tagen: Bänder treffen sich in der Mitte des Zwischenraums und blenden dort sanft heller */
+.kal-band { margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px;
+  background: linear-gradient(90deg, var(--gap), var(--solid) 12px, var(--solid) calc(100% - 12px), var(--gap)); }
+.kal-band.is-start { margin-left: 0; padding-left: 6px; background: linear-gradient(90deg, var(--solid) calc(100% - 12px), var(--gap)); }
+.kal-band.is-end { margin-right: 0; padding-right: 0; background: linear-gradient(90deg, var(--gap), var(--solid) 12px); }
+.kal-band.is-start.is-end { background: var(--solid); }
+@media (max-width: 860px) {
+  .kal-band { margin-left: -4px; margin-right: -4px; padding: 0;
+    background: linear-gradient(90deg, var(--gap), var(--solid) 6px, var(--solid) calc(100% - 6px), var(--gap)); }
+  .kal-band.is-start { margin-left: 0; padding-left: 0; background: linear-gradient(90deg, var(--solid) calc(100% - 6px), var(--gap)); }
+  .kal-band.is-end { margin-right: 0; background: linear-gradient(90deg, var(--gap), var(--solid) 6px); }
+}
+
+/* airbnb im Kalender: runde Mini-Symbole der gebuchten Unterkünfte, Nummer im Kreis unter dem Symbol */
+.kal-ab { display: flex; flex-wrap: wrap; gap: 2px; }
+.kal-ab-i { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%;
+  background: #c45a5a; color: #fff; line-height: 1; }
+.kal-ab-i svg.pk-ico { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+.kal-ab-i.has-nr svg.pk-ico { width: 8px; height: 8px; margin-top: 1px; }
+.kal-ab-i b { font-size: 6.5px; font-weight: 800; margin-top: 0; }
+.kal-ab-i.is-2 { background: #9b3b3b; }
+@media (max-width: 860px) {
+  .kal-ab { gap: 1px; justify-content: center; }
+  .kal-ab-i { width: 11px; height: 11px; }
+  .kal-ab-i svg.pk-ico, .kal-ab-i.has-nr svg.pk-ico { width: 7px; height: 7px; margin: 0; stroke-width: 2.6; }
+  .kal-ab-i b { display: none; }
+}
+
+/* Mini-Symbole: Bus/Zelt weiß gefüllt mit roter Ziffer darin, alle gleiche Farbe */
+.kal-ab-i { flex-direction: row; }
+.kal-ab-i svg.kal-ab-svg { width: 13px; height: 13px; flex: none; }
+.kal-ab-svg .f { fill: #fff; stroke: none; }
+.kal-ab-svg .w { stroke: #fff; stroke-width: 2.6; stroke-linecap: round; fill: none; }
+.kal-ab-svg text { fill: #c45a5a; stroke: none; font-family: var(--font-body); }
+@media (max-width: 860px) {
+  .kal-ab-i { width: 13px; height: 13px; }
+  .kal-ab-i svg.kal-ab-svg { width: 10px; height: 10px; }
+}
+.kal-ab-svg .wh { stroke: #c45a5a; stroke-width: 1.4; }
+.kal-day.is-past { opacity: .5; }   /* vergangene Tage wie Tage des Nachbarmonats */
+/* höhere Tagesfelder, damit mehrere Einträge aus verschiedenen Kalendern Platz haben */
+.kal-day { min-height: 132px; }
+@media (max-width: 860px) { .kal-day { min-height: 74px; } }

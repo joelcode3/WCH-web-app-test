@@ -107,13 +107,14 @@
 
   // Kalender: eigene Einträge (zusätzlich zu den Terminen/Fristen aus den To-Dos)
   const TERMIN_KINDS = {
-    termin:      { label: 'Termin',                    color: '#1b7fc9' },
-    arbeit:      { label: 'Längere Arbeit',            color: '#c77c12' },
-    abwesenheit: { label: 'Abwesenheit',               color: '#8a918b' },
+    // Reihenfolge = Reihenfolge in Auswahllisten und Legende; im Tagesfeld von oben nach unten
+    termin:      { label: 'Termin',                    color: '#d0453b' },   // inkl. Deadlines der To-Dos
+    arbeit:      { label: 'Arbeiten',                  color: '#d9822b' },
+    // Reservierungen und Veranstaltungen (z. B. Vantreffen) – mit Ort, Anzahl und To-Dos
+    reservierung: { label: 'Reservierung / VA',        color: '#3f8f4e', layer: true },
     // Termine auf dem Platz, bei denen das Team nicht gebraucht wird (z. B. Veranstaltung eines Mieters)
-    extern:      { label: 'Extern',                    color: '#5c6b8a' },
-    // eigener Kalender: Reservierungen und Veranstaltungen (z. B. Vantreffen) – mit Ort, Anzahl und To-Dos
-    reservierung: { label: 'Reservierung / VA',        color: '#b0457e', layer: true },
+    extern:      { label: 'Extern',                    color: '#2f6fb5' },
+    abwesenheit: { label: 'Abwesenheit',               color: '#8a918b' },
   };
 
   // Farbschema "Versorgung" auf der Karte
