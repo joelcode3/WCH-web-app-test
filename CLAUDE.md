@@ -54,6 +54,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Mehrtägiges (längere Arbeiten, Abwesenheit, Reservierungen) als durchgehendes Band unten im Tagesfeld, Einzeltermine darüber;
   Ferien und Feiertage als Linie ganz unten (Hover: „Ferien (BY)“); feste Spuren je Woche (`weekLanes`), damit nichts verrutscht. Beschriftung nur am Wochen-/Eintragsanfang,
   zwischen den Tagen heller; Feiertage/Ferien nicht in der Terminliste unten.
+  Kalender (Legende links→rechts = im Tag oben→unten): airbnb, Termin (rot, inkl. Deadlines), Arbeiten (orange), Reservierung / VA (grün),
+  Extern (blau), Abwesenheit (grau), Feiertage/Schulferien (Linien ganz unten). Vergangene Tage ausgegraut wie Nachbarmonat.
   Kalender „airbnb“ (abwählbar): je gebuchter Unterkunft ein rundes Mini-Symbol (Bus/Zelt mit Nummer darin, Bäckerwagen), An-/Abreisetag zählen mit.
   airbnb-Belegung in % zählt nur belegt, nicht geblockt. To-Do-Liste: Status/Löschen direkt per Menü rechts.
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;

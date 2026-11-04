@@ -2759,7 +2759,8 @@
     if (on) s.delete(key); else s.add(key);
     try { localStorage.setItem('wch-kal-aus', JSON.stringify([...s])); } catch (e) { /* egal */ }
   };
-  const DEADLINE_COLOR = '#dc3545';
+  // Rang je Kalender: im Tagesfeld von unten (0) nach oben – Abwesenheit, Extern, Reservierungen, Arbeiten, Termine
+  const KIND_RANK = { abwesenheit: 0, extern: 1, reservierung: 2, arbeit: 3, termin: 4 };
   const showFt = () => layerOn('feiertage');
   const resMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missingCols.has('termine.anzahl');
   const termineMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missing.has('termine');
@@ -2789,16 +2790,17 @@
       S.data.termine.forEach((k) => {
         if (k.start > d || (k.end || k.start) < d) return;
         if (!layerOn(k.kind)) return;
-        out.push({ ref: `termin:${k.id}`, color: S.TERMIN_KINDS[k.kind].color, title: terminTitle(k) + (k.kind === 'reservierung' && k.count ? ` (${k.count})` : ''), kind: S.TERMIN_KINDS[k.kind].label,
+        out.push({ ref: `termin:${k.id}`, color: S.TERMIN_KINDS[k.kind].color, title: terminTitle(k) + (k.kind === 'reservierung' && k.count ? ` (${k.count})` : ''), kind: S.TERMIN_KINDS[k.kind].label, cal: k.kind,
           time: k.start === d ? k.timeFrom : '', multi: k.end > k.start, first: k.start === d, k, abs: k.kind === 'abwesenheit' });
       });
       S.data.todos.forEach((t) => {
         if (t.appointment && t.appointment.slice(0, 10) === d) {
           const cal = S.TERMIN_KINDS[t.calendar] ? t.calendar : 'termin';
-          if (layerOn(cal)) out.push({ ref: `todo:${t.id}`, color: S.TERMIN_KINDS[cal].color, title: t.title || '(ohne Titel)', kind: `${S.TERMIN_KINDS[cal].label} (To-Do)`, time: t.appointment.slice(11, 16), t, done: t.status === 'erledigt' });
+          if (layerOn(cal)) out.push({ ref: `todo:${t.id}`, color: S.TERMIN_KINDS[cal].color, title: t.title || '(ohne Titel)', kind: `${S.TERMIN_KINDS[cal].label} (To-Do)`, cal, time: t.appointment.slice(11, 16), t, done: t.status === 'erledigt' });
         }
-        if (t.deadline === d && t.status !== 'erledigt' && layerOn('deadline')) {
-          out.push({ ref: `todo:${t.id}`, color: DEADLINE_COLOR, title: t.title || '(ohne Titel)', kind: 'Deadline (To-Do)', time: '', t, frist: true });
+        // Deadlines gehören zum Kalender „Termin“
+        if (t.deadline === d && t.status !== 'erledigt' && layerOn('termin')) {
+          out.push({ ref: `todo:${t.id}`, color: S.TERMIN_KINDS.termin.color, title: t.title || '(ohne Titel)', kind: 'Deadline (To-Do)', cal: 'termin', time: '', t, frist: true });
         }
       });
       // eigener, abwählbarer Kalender: Feiertage (alle Bundesländer) und Schulferien
@@ -2807,8 +2809,9 @@
         const st = Feiertage.ferienOn(d);
         if (st.length) out.push({ ref: '', color: FERIEN_COLOR, title: `Ferien (${st.length === 16 ? 'bundesweit' : st.join(', ')})`, kind: 'Schulferien', time: '', ft: true, fe: true, info: Feiertage.ferienNames(d).join(' · ') });
       }
-      // Feiertage/Ferien zuerst, dann mehrtägige, dann nach Uhrzeit
-      return out.sort((a, b) => (b.ft ? 1 : 0) - (a.ft ? 1 : 0) || (b.multi ? 1 : 0) - (a.multi ? 1 : 0) || (a.time || '99').localeCompare(b.time || '99') || a.title.localeCompare(b.title, 'de'));
+      // Feiertage/Ferien zuerst, dann mehrtägige, dann Kalender von oben (Termine) nach unten, dann nach Uhrzeit
+      return out.sort((a, b) => (b.ft ? 1 : 0) - (a.ft ? 1 : 0) || (b.multi ? 1 : 0) - (a.multi ? 1 : 0)
+        || (KIND_RANK[b.cal] ?? 9) - (KIND_RANK[a.cal] ?? 9) || (a.time || '99').localeCompare(b.time || '99') || a.title.localeCompare(b.title, 'de'));
     },
 
     render(root) {
@@ -2835,9 +2838,8 @@
           <div class="kal-grid" id="k-grid"></div>
           <div class="kal-legend">
             <span class="kal-layers">
-              ${[...Object.entries(S.TERMIN_KINDS).map(([k, v]) => [k, `<i style="background:${v.color}"></i>${h(v.label)}`]),
-                ['deadline', `<i style="background:${DEADLINE_COLOR}"></i>Deadlines`],
-                ['airbnb', `<i style="background:#c45a5a"></i>airbnb`],
+              ${[['airbnb', `<i style="background:#c45a5a"></i>airbnb`],
+                ...Object.entries(S.TERMIN_KINDS).map(([k, v]) => [k, `<i style="background:${v.color}"></i>${h(v.label)}`]),
                 ['feiertage', `<i style="background:${FT_COLOR}"></i>Feiertage <i style="background:${FERIEN_COLOR}"></i>Schulferien`]]
                 .map(([k, l]) => `<label class="kal-ft-toggle"><input type="checkbox" data-k-layer="${k}"${layerOn(k) ? ' checked' : ''}>${l}</label>`).join('')}
             </span>
@@ -2992,10 +2994,12 @@
         it.to = j; items.set(e.ref, it);
       }));
       const multi = [];
-      [...items.values()].sort((a, b) => (a.e.k ? a.e.k.start : '').localeCompare(b.e.k ? b.e.k.start : '') || a.from - b.from || a.e.ref.localeCompare(b.e.ref))
+      // von unten: Abwesenheit, Extern, Reservierungen, Arbeiten, Termine – eine Spur enthält nur einen Kalender
+      const rk = (e) => KIND_RANK[e.cal] ?? 9;
+      [...items.values()].sort((a, b) => rk(a.e) - rk(b.e) || (a.e.k ? a.e.k.start : '').localeCompare(b.e.k ? b.e.k.start : '') || a.from - b.from || a.e.ref.localeCompare(b.e.ref))
         .forEach((it) => {
-          let lane = multi.find((l) => l.days.slice(it.from, it.to + 1).every((x) => !x));
-          if (!lane) { lane = { line: false, days: Array(7).fill(null) }; multi.push(lane); }
+          let lane = multi.find((l) => l.rank === rk(it.e) && l.days.slice(it.from, it.to + 1).every((x) => !x));
+          if (!lane) { lane = { line: false, rank: rk(it.e), days: Array(7).fill(null) }; multi.push(lane); }
           for (let j = it.from; j <= it.to; j++) lane.days[j] = { ...it.e, key: it.e.ref };
         });
       return { lanes: [...lanes, ...multi] };
@@ -3076,7 +3080,7 @@
       formDialog({
         title: o ? `${S.TERMIN_KINDS[k.kind].label} bearbeiten` : k.kind === 'abwesenheit' ? 'Abwesenheit eintragen' : 'Neuer Kalender-Eintrag',
         fields: [
-          { name: 'kind', label: 'Art', type: 'select', value: k.kind, options: Object.entries(S.TERMIN_KINDS).map(([v, x]) => [v, v === 'arbeit' ? 'Längere Arbeit (mehrere Tage)' : v === 'reservierung' ? 'Reservierung / VA (z. B. Vantreffen)' : x.label]) },
+          { name: 'kind', label: 'Art', type: 'select', value: k.kind, options: Object.entries(S.TERMIN_KINDS).map(([v, x]) => [v, v === 'reservierung' ? 'Reservierung / VA (z. B. Vantreffen)' : x.label]) },
           { name: 'title', label: 'Titel', value: k.title, placeholder: 'z. B. Wasser abstellen, Urlaub …' },
           { name: 'start', label: 'Von', type: 'date', value: k.start },
           { name: 'end', label: 'Bis', type: 'date', value: k.end },

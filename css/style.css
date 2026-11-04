@@ -1135,3 +1135,4 @@ body.is-locked { padding-bottom: 0; }
   .kal-ab-i svg.kal-ab-svg { width: 10px; height: 10px; }
 }
 .kal-ab-svg .wh { stroke: #c45a5a; stroke-width: 1.4; }
+.kal-day.is-past { opacity: .5; }   /* vergangene Tage wie Tage des Nachbarmonats */
