@@ -1082,3 +1082,11 @@ body.is-locked { padding-bottom: 0; }
 @media (max-width: 860px) {
   .kal-band.is-line { height: 3px; }
 }
+
+/* feste Spuren: leere Plätze halten die Höhe; Ferien-/Feiertagslinie etwas dicker */
+.kal-band-empty { height: 17px; }
+.kal-band.is-line, .kal-band-empty.is-line { height: 6px; }
+@media (max-width: 860px) {
+  .kal-band-empty { height: 5px; }
+  .kal-band.is-line, .kal-band-empty.is-line { height: 4px; }
+}

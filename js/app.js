@@ -2805,7 +2805,7 @@
       if (showFt() && window.Feiertage) {
         Feiertage.holidaysOn(d).forEach((f) => out.push({ ref: '', color: FT_COLOR, title: f.name + (f.states.length ? ` (${f.states.join(', ')})` : ''), kind: 'Feiertag', time: '', ft: true }));
         const st = Feiertage.ferienOn(d);
-        if (st.length) out.push({ ref: '', color: FERIEN_COLOR, title: `Ferien: ${st.length === 16 ? 'bundesweit' : st.join(', ')}`, kind: 'Schulferien', time: '', ft: true, fe: true, info: Feiertage.ferienNames(d).join(' · ') });
+        if (st.length) out.push({ ref: '', color: FERIEN_COLOR, title: `Ferien (${st.length === 16 ? 'bundesweit' : st.join(', ')})`, kind: 'Schulferien', time: '', ft: true, fe: true, info: Feiertage.ferienNames(d).join(' · ') });
       }
       // Feiertage/Ferien zuerst, dann mehrtägige, dann nach Uhrzeit
       return out.sort((a, b) => (b.ft ? 1 : 0) - (a.ft ? 1 : 0) || (b.multi ? 1 : 0) - (a.multi ? 1 : 0) || (a.time || '99').localeCompare(b.time || '99') || a.title.localeCompare(b.title, 'de'));
@@ -2920,25 +2920,23 @@
       const t = today();
       // Schulferien der sichtbaren Jahre nachladen
       if (window.Feiertage && showFt()) new Set([start.slice(0, 4), addDaysIso(start, weeks * 7 - 1).slice(0, 4)]).forEach((yy) => Feiertage.loadFerien(+yy));
+      let week = null;
       let html = '<span class="kal-wd kal-kw-h">KW</span>' + KAL_WD.map((w, i) => `<span class="kal-wd${i >= 5 ? ' is-we' : ''}">${w}</span>`).join('');
       for (let i = 0; i < weeks * 7; i++) {
         const d = addDaysIso(start, i);
         if (i % 7 === 0) html += `<span class="kal-kw" title="Kalenderwoche">${isoWeek(d)}</span>`;
-        // Mehrtägiges (Schulferien, längere Arbeiten, Abwesenheiten …) als durchgehendes Band,
-        // Beschriftung nur am Wochen- bzw. Eintragsanfang
+        // Bänder unten im Feld mit festen „Spuren“ je Woche, damit nichts verrutscht:
+        // ganz unten Ferien, darüber Feiertage (je dünne Linie), darüber mehrtägige Einträge; Einzeltermine oben
+        if (i % 7 === 0) week = this.weekLanes(start, i);
         const all = this.entries(d);
-        // Bänder unten im Feld: Ferien und Feiertage als dünne Linie, mehrtägige Einträge als Band; Einzeltermine darüber
         const isBand = (e) => e.ft || e.multi;
-        const key = (e) => (e.ft ? `ft:${e.title}` : e.ref);
-        const prevKeys = i % 7 ? new Set(this.entries(addDaysIso(d, -1)).filter(isBand).map(key)) : new Set();
-        const nextKeys = i % 7 < 6 ? new Set(this.entries(addDaysIso(d, 1)).filter(isBand).map(key)) : new Set();
-        // Reihenfolge von unten nach oben: mehrtägige Einträge nach Beginn (gleiche Höhe über die Woche), darüber Ferien- und Feiertagslinie
-        const rank = (e) => (e.fe ? 1 : e.ft ? 2 : 0);
-        const bands = all.filter(isBand).sort((x, y) => rank(x) - rank(y) || (x.k ? x.k.start : '').localeCompare(y.k ? y.k.start : '') || key(x).localeCompare(key(y)));
-        const band = bands.map((e) => {
-          const start = !prevKeys.has(key(e)), end = !nextKeys.has(key(e));
-          const tip = `${e.kind}: ${e.title}${e.info ? `\n${e.info}` : ''}`;
-          return `<div class="kal-band${e.ft ? ' is-line' : ''}${e.abs ? ' is-abs' : ''}${start ? ' is-start' : ''}${end ? ' is-end' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(tip)}">${e.ft ? '' : start ? h(e.title) : '&nbsp;'}</div>`;
+        const band = week.lanes.map((lane) => {
+          const e = lane.days[i % 7];
+          if (!e) return `<div class="kal-band-empty${lane.line ? ' is-line' : ''}"></div>`;
+          const startB = !lane.days[i % 7 - 1] || lane.days[i % 7 - 1].key !== e.key;
+          const endB = !lane.days[i % 7 + 1] || lane.days[i % 7 + 1].key !== e.key;
+          const tip = e.ft ? `${e.title}${e.fe ? '' : ' – Feiertag'}` : `${e.kind}: ${e.title}`;
+          return `<div class="kal-band${lane.line ? ' is-line' : ''}${e.abs ? ' is-abs' : ''}${startB ? ' is-start' : ''}${endB ? ' is-end' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(tip)}">${lane.line ? '' : startB ? h(e.title) : '&nbsp;'}</div>`;
         }).join('');
         const ent = all.filter((e) => !isBand(e));
         const wx = window.Wetter && Wetter.day(d);
@@ -2949,10 +2947,36 @@
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
           <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
-          ${band ? `<div class="kal-bands">${band}</div>` : ''}
+          ${week.lanes.length ? `<div class="kal-bands">${band}</div>` : ''}
         </div>`;
       }
       grid.innerHTML = html;
+    },
+
+    // Spuren einer Woche: [{ line, days: [Eintrag|null ×7] }] in Reihenfolge von unten nach oben
+    weekLanes(start, offset) {
+      const days = Array.from({ length: 7 }, (_, j) => this.entries(addDaysIso(start, offset + j)));
+      const keyOf = (e) => (e.ft ? `${e.fe ? 'fe' : 'ft'}:${e.title}` : e.ref);
+      const lanes = [];
+      // Ferien und Feiertage je eine eigene Linie (nur wenn in der Woche vorhanden)
+      [(e) => e.fe, (e) => e.ft && !e.fe].forEach((pick) => {
+        const row = days.map((list) => { const e = list.find(pick); return e ? { ...e, key: keyOf(e) } : null; });
+        if (row.some(Boolean)) lanes.push({ line: true, days: row });
+      });
+      // mehrtägige Einträge: nach Beginn sortiert in die unterste freie Spur
+      const items = new Map();
+      days.forEach((list, j) => list.filter((e) => e.multi && !e.ft).forEach((e) => {
+        const it = items.get(e.ref) || { e, from: j, to: j };
+        it.to = j; items.set(e.ref, it);
+      }));
+      const multi = [];
+      [...items.values()].sort((a, b) => (a.e.k ? a.e.k.start : '').localeCompare(b.e.k ? b.e.k.start : '') || a.from - b.from || a.e.ref.localeCompare(b.e.ref))
+        .forEach((it) => {
+          let lane = multi.find((l) => l.days.slice(it.from, it.to + 1).every((x) => !x));
+          if (!lane) { lane = { line: false, days: Array(7).fill(null) }; multi.push(lane); }
+          for (let j = it.from; j <= it.to; j++) lane.days[j] = { ...it.e, key: it.e.ref };
+        });
+      return { lanes: [...lanes, ...multi] };
     },
 
     itemHtml(e, d) {
