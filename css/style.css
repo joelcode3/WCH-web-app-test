@@ -1050,3 +1050,15 @@ body.is-locked { padding-bottom: 0; }
 .wd-c, .wd-c span { overflow-wrap: anywhere; }
 .wd-c .wd-row > span { min-width: 0; }
 .wd-batt .wd-batt-fill { fill: currentColor; stroke: none; }
+
+/* Schulferien als durchgehendes Band in der Monatsübersicht */
+.kal-day { overflow: visible; }
+.kal-band { position: relative; z-index: 1; margin: 0 -10px; padding: 0 10px; height: 16px; line-height: 16px; font-size: .7rem; font-weight: 600;
+  background: color-mix(in srgb, var(--c) 22%, #fff); color: var(--c); white-space: nowrap; overflow: visible; cursor: default; }
+.kal-band.is-start { margin-left: 0; padding-left: 6px; border-radius: 8px 0 0 8px; }
+.kal-band.is-end { margin-right: 0; border-radius: 0 8px 8px 0; }
+.kal-band.is-start.is-end { border-radius: 8px; }
+@media (max-width: 860px) {
+  .kal-band { height: 5px; font-size: 0; padding: 0; margin: 0 -6px; }
+  .kal-band.is-start { margin-left: 0; padding-left: 0; }
+}

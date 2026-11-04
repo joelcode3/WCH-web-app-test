@@ -2924,14 +2924,24 @@
       for (let i = 0; i < weeks * 7; i++) {
         const d = addDaysIso(start, i);
         if (i % 7 === 0) html += `<span class="kal-kw" title="Kalenderwoche">${isoWeek(d)}</span>`;
-        const ent = this.entries(d);
+        // Schulferien nicht als Eintrag, sondern als durchgehendes Band (Beschriftung nur am Wochen- bzw. Ferienanfang)
+        const all = this.entries(d);
+        const fe = all.find((e) => e.fe);
+        const ent = all.filter((e) => !e.fe);
+        let band = '';
+        if (fe) {
+          const prev = i % 7 ? this.entries(addDaysIso(d, -1)).find((e) => e.fe) : null;
+          const next = i % 7 < 6 ? this.entries(addDaysIso(d, 1)).find((e) => e.fe) : null;
+          const start = !prev || prev.title !== fe.title, end = !next || next.title !== fe.title;
+          band = `<div class="kal-band${start ? ' is-start' : ''}${end ? ' is-end' : ''}" style="--c:${fe.color}" title="${h(fe.title)}${fe.info ? `\n${h(fe.info)}` : ''}">${start ? h(fe.title) : '&nbsp;'}</div>`;
+        }
         const wx = window.Wetter && Wetter.day(d);
         // Wochenende und Feiertage in Niedersachsen leicht ausgegraut
         const free = i % 7 >= 5 || (window.Feiertage && Feiertage.isNiHoliday(d));
         const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', free ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
         html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
-          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
+          ${band}<div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
         </div>`;
       }
@@ -2973,7 +2983,7 @@
       const el = $('#k-agenda');
       if (!el) return;
       const d = this.sel;
-      const ent = this.entries(d);
+      const ent = this.entries(d).filter((e) => !e.ft);   // Feiertage/Ferien nur in der Monatsübersicht
       const wx = window.Wetter && Wetter.day(d);
       // nächste Einträge ab heute (ohne den ausgewählten Tag), max. 30 Tage
       const t = today();
