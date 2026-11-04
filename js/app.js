@@ -2933,10 +2933,12 @@
         const band = week.lanes.map((lane) => {
           const e = lane.days[i % 7];
           if (!e) return `<div class="kal-band-empty${lane.line ? ' is-line' : ''}"></div>`;
+          // Länge des Bands ab hier (Tage in dieser Woche) – so weit darf die Beschriftung laufen
+          const run = (l, j) => { let n = 0; while (j + n < 7 && l.days[j + n] && l.days[j + n].key === l.days[j].key) n++; return n; };
           const startB = !lane.days[i % 7 - 1] || lane.days[i % 7 - 1].key !== e.key;
           const endB = !lane.days[i % 7 + 1] || lane.days[i % 7 + 1].key !== e.key;
           const tip = e.ft ? `${e.title}${e.fe ? '' : ' – Feiertag'}` : `${e.kind}: ${e.title}`;
-          return `<div class="kal-band${lane.line ? ' is-line' : ''}${e.abs ? ' is-abs' : ''}${startB ? ' is-start' : ''}${endB ? ' is-end' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(tip)}">${lane.line ? '' : startB ? h(e.title) : '&nbsp;'}</div>`;
+          return `<div class="kal-band${lane.line ? ' is-line' : ''}${e.abs ? ' is-abs' : ''}${startB ? ' is-start' : ''}${endB ? ' is-end' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(tip)}">${lane.line ? '' : startB ? `<span class="kal-band-t" style="--n:${run(lane, i % 7)}">${h(e.title)}</span>` : '&nbsp;'}</div>`;
         }).join('');
         const ent = all.filter((e) => !isBand(e));
         const wx = window.Wetter && Wetter.day(d);

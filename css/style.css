@@ -1090,3 +1090,8 @@ body.is-locked { padding-bottom: 0; }
   .kal-band-empty { height: 5px; }
   .kal-band.is-line, .kal-band-empty.is-line { height: 4px; }
 }
+
+/* Beschriftung eines Bands darf über die folgenden Tage desselben Bands laufen */
+.kal-band-t { position: relative; z-index: 3; display: block; width: max-content; max-width: calc(var(--n, 1) * 100% + (var(--n, 1) - 1) * 4px - 10px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kal-band.is-start { z-index: 2; }
