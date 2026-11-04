@@ -2971,7 +2971,7 @@
             ? `<svg viewBox="0 0 24 24" class="kal-ab-svg" aria-hidden="true"><path d="M12 1.5 L22 20.5 H2 Z" class="f"/>${nr ? t : ''}</svg>`
             : `<svg viewBox="0 0 24 24" class="kal-ab-svg" aria-hidden="true"><rect x="1" y="5" width="13.5" height="11" rx="1.5" class="f"/>`
               + `<path d="M15.5 8h4.3l3.2 4.2V16h-7.5z" class="f"/><circle cx="6" cy="17.5" r="2.4" class="f wh"/><circle cx="18" cy="17.5" r="2.4" class="f wh"/></svg>`;
-        return `<span class="kal-ab-i" title="${h(o.name)}: gebucht">${svg}</span>`;
+        return `<span class="kal-ab-i" title="${h(o.name)}">${svg}</span>`;
       }).join('')}</div>`;
     },
 
