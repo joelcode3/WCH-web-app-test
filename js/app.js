@@ -2927,15 +2927,18 @@
         // Mehrtägiges (Schulferien, längere Arbeiten, Abwesenheiten …) als durchgehendes Band,
         // Beschriftung nur am Wochen- bzw. Eintragsanfang
         const all = this.entries(d);
-        const isBand = (e) => e.fe || (e.multi && !e.ft);
-        const key = (e) => (e.fe ? `fe:${e.title}` : e.ref);
+        // Bänder unten im Feld: Ferien und Feiertage als dünne Linie, mehrtägige Einträge als Band; Einzeltermine darüber
+        const isBand = (e) => e.ft || e.multi;
+        const key = (e) => (e.ft ? `ft:${e.title}` : e.ref);
         const prevKeys = i % 7 ? new Set(this.entries(addDaysIso(d, -1)).filter(isBand).map(key)) : new Set();
         const nextKeys = i % 7 < 6 ? new Set(this.entries(addDaysIso(d, 1)).filter(isBand).map(key)) : new Set();
-        const bands = all.filter(isBand).sort((x, y) => (x.fe ? 1 : 0) - (y.fe ? 1 : 0) || (x.k ? x.k.start : '').localeCompare(y.k ? y.k.start : '') || key(x).localeCompare(key(y)));
+        // Reihenfolge von unten nach oben: mehrtägige Einträge nach Beginn (gleiche Höhe über die Woche), darüber Ferien- und Feiertagslinie
+        const rank = (e) => (e.fe ? 1 : e.ft ? 2 : 0);
+        const bands = all.filter(isBand).sort((x, y) => rank(x) - rank(y) || (x.k ? x.k.start : '').localeCompare(y.k ? y.k.start : '') || key(x).localeCompare(key(y)));
         const band = bands.map((e) => {
           const start = !prevKeys.has(key(e)), end = !nextKeys.has(key(e));
           const tip = `${e.kind}: ${e.title}${e.info ? `\n${e.info}` : ''}`;
-          return `<div class="kal-band${e.fe ? ' is-soft' : ''}${e.abs ? ' is-abs' : ''}${start ? ' is-start' : ''}${end ? ' is-end' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(tip)}">${start ? h(e.title) : '&nbsp;'}</div>`;
+          return `<div class="kal-band${e.ft ? ' is-line' : ''}${e.abs ? ' is-abs' : ''}${start ? ' is-start' : ''}${end ? ' is-end' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(tip)}">${e.ft ? '' : start ? h(e.title) : '&nbsp;'}</div>`;
         }).join('');
         const ent = all.filter((e) => !isBand(e));
         const wx = window.Wetter && Wetter.day(d);
@@ -2944,8 +2947,9 @@
         const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', free ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
         html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
           <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
-          ${band}<div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
+          <div class="kal-chips">${ent.slice(0, 3).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 3 ? `<span class="kal-more">+${ent.length - 3} weitere</span>` : ''}</div>
+          ${band ? `<div class="kal-bands">${band}</div>` : ''}
         </div>`;
       }
       grid.innerHTML = html;

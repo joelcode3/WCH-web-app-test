@@ -1072,3 +1072,13 @@ body.is-locked { padding-bottom: 0; }
   /* gleiche Kopfhöhe in allen Tagen (mit/ohne Wetter), damit die Bänder auf einer Linie liegen */
   .kal-dh { min-height: 36px; justify-content: flex-start; }
 }
+
+/* Bänder unten im Tagesfeld (von unten nach oben gestapelt), Einzeltermine darüber */
+.kal-bands { margin-top: auto; display: flex; flex-direction: column-reverse; gap: 2px; }
+.kal-band { margin-bottom: 0; }
+/* Ferien und Feiertage: nur dünne Linie in ihrer Farbe (Name beim Hovern) */
+.kal-band.is-line { --solid: color-mix(in srgb, var(--c) 75%, #fff); --gap: color-mix(in srgb, var(--c) 30%, transparent); height: 4px; padding: 0; font-size: 0; cursor: default; }
+.kal-band.is-line.is-start { padding-left: 0; }
+@media (max-width: 860px) {
+  .kal-band.is-line { height: 3px; }
+}

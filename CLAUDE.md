@@ -51,7 +51,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Eigener, abwählbarer Kalender „Reservierungen / VA“ (Art `reservierung`, mit Ort, Anzahl, To-Dos; To-Do-Ziel `termin`, update-11).
   Alle Kalender unten in der Legende einzeln abwählbar (je Gerät gemerkt). To-Dos mit Termin erscheinen im gewählten Kalender
   (Spalte `todos.kalender`), Deadlines (früher „Fristen“) als eigener Kalender.
-  Mehrtägiges (Schulferien, längere Arbeiten, Abwesenheit, Reservierungen) als durchgehendes Band, Beschriftung nur am Wochen-/Eintragsanfang,
+  Mehrtägiges (längere Arbeiten, Abwesenheit, Reservierungen) als durchgehendes Band unten im Tagesfeld, Einzeltermine darüber;
+  Ferien und Feiertage nur als dünne farbige Linie (Name beim Hovern). Beschriftung nur am Wochen-/Eintragsanfang,
   zwischen den Tagen heller; Feiertage/Ferien nicht in der Terminliste unten.
   airbnb-Belegung in % zählt nur belegt, nicht geblockt. To-Do-Liste: Status/Löschen direkt per Menü rechts.
 - Lageplan: `tools/plan_import.py` erzeugt `assets/platzplan.svg`, `js/plan-data.js`, Luftbild;
