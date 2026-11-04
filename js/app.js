@@ -2924,17 +2924,20 @@
       for (let i = 0; i < weeks * 7; i++) {
         const d = addDaysIso(start, i);
         if (i % 7 === 0) html += `<span class="kal-kw" title="Kalenderwoche">${isoWeek(d)}</span>`;
-        // Schulferien nicht als Eintrag, sondern als durchgehendes Band (Beschriftung nur am Wochen- bzw. Ferienanfang)
+        // Mehrtägiges (Schulferien, längere Arbeiten, Abwesenheiten …) als durchgehendes Band,
+        // Beschriftung nur am Wochen- bzw. Eintragsanfang
         const all = this.entries(d);
-        const fe = all.find((e) => e.fe);
-        const ent = all.filter((e) => !e.fe);
-        let band = '';
-        if (fe) {
-          const prev = i % 7 ? this.entries(addDaysIso(d, -1)).find((e) => e.fe) : null;
-          const next = i % 7 < 6 ? this.entries(addDaysIso(d, 1)).find((e) => e.fe) : null;
-          const start = !prev || prev.title !== fe.title, end = !next || next.title !== fe.title;
-          band = `<div class="kal-band${start ? ' is-start' : ''}${end ? ' is-end' : ''}" style="--c:${fe.color}" title="${h(fe.title)}${fe.info ? `\n${h(fe.info)}` : ''}">${start ? h(fe.title) : '&nbsp;'}</div>`;
-        }
+        const isBand = (e) => e.fe || (e.multi && !e.ft);
+        const key = (e) => (e.fe ? `fe:${e.title}` : e.ref);
+        const prevKeys = i % 7 ? new Set(this.entries(addDaysIso(d, -1)).filter(isBand).map(key)) : new Set();
+        const nextKeys = i % 7 < 6 ? new Set(this.entries(addDaysIso(d, 1)).filter(isBand).map(key)) : new Set();
+        const bands = all.filter(isBand).sort((x, y) => (x.fe ? 1 : 0) - (y.fe ? 1 : 0) || (x.k ? x.k.start : '').localeCompare(y.k ? y.k.start : '') || key(x).localeCompare(key(y)));
+        const band = bands.map((e) => {
+          const start = !prevKeys.has(key(e)), end = !nextKeys.has(key(e));
+          const tip = `${e.kind}: ${e.title}${e.info ? `\n${e.info}` : ''}`;
+          return `<div class="kal-band${e.fe ? ' is-soft' : ''}${e.abs ? ' is-abs' : ''}${start ? ' is-start' : ''}${end ? ' is-end' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(tip)}">${start ? h(e.title) : '&nbsp;'}</div>`;
+        }).join('');
+        const ent = all.filter((e) => !isBand(e));
         const wx = window.Wetter && Wetter.day(d);
         // Wochenende und Feiertage in Niedersachsen leicht ausgegraut
         const free = i % 7 >= 5 || (window.Feiertage && Feiertage.isNiHoliday(d));
