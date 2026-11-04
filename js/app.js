@@ -2219,6 +2219,12 @@
               <p class="small">Es ist noch keine Datenbank verbunden. Die Daten liegen <strong>nur in diesem Browser auf diesem Gerät</strong> – ideal zum Ausprobieren.</p>
               <p class="small muted">Sobald in <code>js/config.js</code> die Supabase-Zugangsdaten eingetragen sind, erscheint eine Anmeldung und alle Geräte arbeiten mit demselben Datenbestand (siehe SETUP.md).</p>
             </section>`}
+            ${window.Waechter ? `<section class="card">
+              <h2>Stromwächter (SMS)</h2>
+              <p class="small" style="margin-top:0">Warnt per SMS bei Stromausfall in den Londonbussen und wenn die Temperatur im Bad unter 6 °C fällt.</p>
+              <div class="card-actions" style="margin-top:0"><button class="btn btn-ghost" data-wd="test">Test-SMS senden</button></div>
+              <p class="small muted">Geht an alle Nummern, die in Supabase unter Edge Functions → Secrets bei <code>SMS_EMPFAENGER</code> eingetragen sind.</p>
+            </section>` : ''}
             <section class="card">
               <h2>Zurücksetzen</h2>
               <div class="card-actions" style="margin-top:0">
@@ -2230,6 +2236,7 @@
           </div>
         </div>`;
 
+      if (window.Waechter) Waechter.bind(root, {}, toast);
       $('#d-export', root).onclick = () => download(`platzverwaltung-sicherung-${today()}.json`, JSON.stringify(S.data, null, 2), 'application/json');
       $('#d-import', root).onchange = (e) => {
         const file = e.target.files[0];
