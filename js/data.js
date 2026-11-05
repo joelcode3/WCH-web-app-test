@@ -43,6 +43,53 @@
     bottle: 'Gasflaschen',
   };
 
+  // Miete: Standardpreise (werden beim Bearbeiten vorgeschlagen, je Mieter anpassbar)
+  const RENT_DEFAULTS = {
+    grund: 960,          // Jahrespacht in €/Jahr …
+    grundFlaeche: 160,   // … für so viele m²
+    qmPreis: 5.5,        // jeder weitere m² in €/Jahr
+    nk: 18.75,           // Nebenkostenpauschale (Müll, Wasser …) in €/Monat
+    dauer: 60,           // Dauerbewohnerpauschale in € je Person und Monat
+    gastank: 36,         // Gastankmiete in €/Jahr
+  };
+  const RENT_RHYTHM = {
+    monatlich: { label: 'monatlich', n: 12 },
+    vierteljaehrlich: { label: 'vierteljährlich', n: 4 },
+    halbjaehrlich: { label: 'halbjährlich', n: 2 },
+    jaehrlich: { label: 'jährlich', n: 1 },
+  };
+  const numOr = (v, d) => (v === '' || v === null || v === undefined || isNaN(Number(v)) ? d : Number(v));
+
+  // Vorschlag für einen Mieter nach Standardpreisen
+  function rentDefaults(p) {
+    return {
+      ...RENT_DEFAULTS,
+      personen: p.status === 'fest' ? (p.residents || 0) : 0,
+      gastank: p.gas === 'tank' ? RENT_DEFAULTS.gastank : 0,
+      sonstiges: 0, sonstigesText: '', rhythmus: 'monatlich', kaution: '', notiz: '',
+    };
+  }
+
+  // Zusammensetzung der Miete: Positionen in €/Jahr, Summe, Betrag je Zahlung
+  function rentCalc(p, m) {
+    m = m || { ...rentDefaults(p), ...(p.miete || {}) };
+    const size = numOr(p.size, 0);
+    const base = numOr(m.grundFlaeche, RENT_DEFAULTS.grundFlaeche);
+    const extra = Math.max(0, size - base);
+    const pers = numOr(m.personen, 0);
+    const items = [
+      { key: 'grund', label: `${p.objectType === 'miet' ? 'Jahresmiete' : 'Jahrespacht'} bis ${base} m²`, year: numOr(m.grund, 0) },
+      { key: 'qm', label: `Mehrfläche ${extra.toLocaleString('de-DE')} m² × ${numOr(m.qmPreis, 0).toLocaleString('de-DE', { minimumFractionDigits: 2 })} €`, year: extra * numOr(m.qmPreis, 0), hide: !extra },
+      { key: 'nk', label: `Nebenkosten ${numOr(m.nk, 0).toLocaleString('de-DE', { minimumFractionDigits: 2 })} €/Monat`, year: numOr(m.nk, 0) * 12 },
+      { key: 'dauer', label: `Dauerbewohner ${pers} × ${numOr(m.dauer, 0).toLocaleString('de-DE')} €/Monat`, year: pers * numOr(m.dauer, 0) * 12, hide: !pers },
+      { key: 'gastank', label: 'Gastankmiete', year: numOr(m.gastank, 0), hide: !numOr(m.gastank, 0) },
+      { key: 'sonstiges', label: m.sonstigesText || 'Sonstiges / Sonderregelung', year: numOr(m.sonstiges, 0), hide: !numOr(m.sonstiges, 0) },
+    ];
+    const year = items.reduce((a, x) => a + x.year, 0);
+    const rh = RENT_RHYTHM[m.rhythmus] || RENT_RHYTHM.monatlich;
+    return { items: items.filter((x) => !x.hide), year, month: year / 12, rhythm: rh, perPayment: year / rh.n };
+  }
+
   const HEATING = {
     strom: 'Strom',
     gas:   'Gas',
@@ -215,6 +262,11 @@
         leaseStart: free ? '' : `${2005 + Math.floor(rnd() * 20)}-${pad(1 + Math.floor(rnd() * 12))}-01`,
         freeFrom: (status === 'fest' || status === 'wochenende') && rnd() < 0.07 ? `2027-${pad(3 + Math.floor(rnd() * 6))}-01` : '',
       });
+      if (!free && rnd() < 0.75) {
+        p.size = p.size || Math.round(140 + rnd() * 120);
+        p.miete = { ...rentDefaults(p), rhythmus: rnd() < 0.7 ? 'monatlich' : rnd() < 0.5 ? 'halbjaehrlich' : 'jaehrlich',
+          kaution: rnd() < 0.6 ? 500 : '', erfasst: true, abrechnung: { 2025: { strom: rnd() < 0.8, gas: p.gas === 'tank' && rnd() < 0.8 } } };
+      }
       if (!free) {
         const fn = pick(first), ln = pick(last);
         p.tenant = {
@@ -295,7 +347,7 @@
   /* ---------- Store ---------- */
 
   const Store = {
-    STATUS, MOVE_OUT_COLOR, GAS, HEATING, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, TERMIN_KINDS, AIRBNB_DEFAULTS, supplyOf, uid, compareNr,
+    STATUS, MOVE_OUT_COLOR, GAS, HEATING, RENT_DEFAULTS, RENT_RHYTHM, rentDefaults, rentCalc, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, TERMIN_KINDS, AIRBNB_DEFAULTS, supplyOf, uid, compareNr,
     isAirbnb: (o) => !!(o && (PLACE_KINDS[o.kind] || {}).airbnb),
     // Fehlende Orte aus dem Lageplan einmal je Gerät anlegen (feste IDs → kein Doppel bei mehreren Geräten).
     // Danach gelöschte Orte kommen auf diesem Gerät nicht wieder.
@@ -404,6 +456,8 @@
         if (!OBJECT_TYPES[p.objectType]) p.objectType = 'pacht';
         if (p.rent === undefined || p.rent === null) p.rent = '';
         p.winterWater = !!p.winterWater;
+        p.miete = p.miete && typeof p.miete === 'object' ? p.miete : null;
+        if (p.miete && (!p.miete.abrechnung || typeof p.miete.abrechnung !== 'object')) p.miete.abrechnung = {};
         p.dogs = Math.max(0, parseInt(p.dogs, 10) || 0);
         p.residents = Math.max(0, parseInt(p.residents, 10) || 0);
         p.leaseStart = p.leaseStart || '';

@@ -13,7 +13,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Größere Aufträge komplett abarbeiten, vorher im Browser testen (Computer- und iPhone-Ansicht).
 
 ## Begriffe und Gestaltung (vom Betreiber festgelegt)
-- Reiter: **Map · Kalender · Parzellen · Infrastruktur · airbnb · To-Dos · Daten** (Infrastruktur hat Unterreiter
+- Reiter: **Map · Kalender · Mieter · Infrastruktur · airbnb · To-Dos · Daten** (Mieter = Route `#/kartei`, früher „Parzellen“) (Infrastruktur hat Unterreiter
   Strom, Gas, Ablesen, Verbrauch, Auslastung). Kein Zähler am Reiter To-Dos.
 - „airbnb“ immer klein geschrieben.
 - Status: Festwohnsitz (#1f4e8c), Freizeitgrundstück (#6fa8dc), Reserviert (#2b6a33),
@@ -41,9 +41,15 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-12 (8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
+  Bisher: update-2 … update-13 (13: Spalte `parcels.miete` jsonb; 8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
   10: `termine` für den Kalender, `airbnb_belegung` = von der App aufgezeichnete Buchungen, weil airbnb vergangene nicht liefert;
   11: Art `reservierung` + Spalte `anzahl` in `termine`, To-Do-Ziel `termin`, Spalte `todos.kalender`; 12: Kategorie `extern`).
+- Mieter-Ansicht (Parzelle): oben Mieter · Grundstück · **Miete**; unten ein Block **Infrastruktur** (Strom + Gas/Gasflaschen + Heizung).
+  Miete nur nach Passwort **MONEY** sichtbar (`MoneyLock` in app.js, je Gerät 1 Std. offen, Sperren-Knopf; nur Sichtschutz).
+  Standardpreise (`RENT_DEFAULTS` in data.js, je Mieter anpassbar): Jahrespacht 960 €/Jahr bis 160 m², jeder weitere m² 5,50 €/Jahr,
+  Nebenkosten 18,75 €/Monat, Dauerbewohner 60 € je Person/Monat, Gastankmiete 36 € (als €/Jahr angenommen). Dazu Zahlungsrhythmus, Kaution,
+  Sonstiges/Notiz. Miete kommt per Dauerauftrag (keine Buchhaltung); Häkchen nur für die jährlichen Strom-/Gas-Abrechnungen
+  (`miete.abrechnung[Jahr] = {strom, gas}`), zentral in der Mieterliste (entsperrt: Jahr wählen, Filter „offen“).
 - Kalender (Reiter, `Kalender` in app.js): eigene Einträge Termin/Längere Arbeit/Abwesenheit mit Orten und Personen,
   dazu Termine und Fristen aus den To-Dos, Wetter 7 Tage (kompakt, ohne Scrollen; Wetter-Symbol auch oben links auf der Map),
   Kalenderwochen, abwählbarer Kalender „Feiertage/Schulferien“ (`js/feiertage.js`: Feiertage aller Länder berechnet,
