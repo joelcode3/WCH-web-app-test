@@ -540,6 +540,7 @@ body.is-locked { padding-bottom: 0; }
   .meter-edit, .meter-edit-box { grid-template-columns: 1fr auto; }
   .meter-edit > .field { grid-column: 1; }
   .meter-edit .meter-remove { grid-column: 2; grid-row: 1; }
+  .filters .search { flex: 1 1 100%; }
   .filters select { flex: 1; min-width: 0; }
   .toast { bottom: auto; top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 10px); }
   .form-footer { flex-wrap: nowrap; gap: 8px; }
@@ -1139,3 +1140,57 @@ body.is-locked { padding-bottom: 0; }
 /* höhere Tagesfelder, damit mehrere Einträge aus verschiedenen Kalendern Platz haben */
 .kal-day { min-height: 132px; }
 @media (max-width: 860px) { .kal-day { min-height: 74px; } }
+/* Kalender nutzt die volle Breite am Computer (breitere Tage, mehr Platz für Text) */
+.page.kal { max-width: 1800px; padding-left: 24px; padding-right: 24px; }
+
+/* Mieter: Miete (mit Passwort), Abrechnung Strom/Gas, Infrastruktur */
+.money-btn svg { width: 18px; height: 18px; }
+.money-btn small { font-weight: 500; opacity: .75; }
+.money-btn.is-open { border-color: #d9b44a; background: #fbf1d6; }
+.money-locked { display: flex; align-items: center; gap: 10px; color: var(--text-leise); padding: 8px 0; }
+.money-locked svg { width: 26px; height: 26px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.money-locked p { margin: 0; }
+.miete-card.is-locked { background: repeating-linear-gradient(135deg, var(--papier) 0 10px, #f3f1ea 10px 20px); }
+.rent-table { width: 100%; border-collapse: collapse; font-size: .93rem; }
+.rent-table td, .rent-table th { padding: 5px 0; border-bottom: 1px solid var(--linie); text-align: left; font-weight: 500; }
+.rent-table .num { text-align: right; white-space: nowrap; padding-left: 10px; font-variant-numeric: tabular-nums; }
+.rent-table tfoot th { font-weight: 700; border-bottom: 0; padding-top: 8px; }
+.rent-table tfoot .per td { border-bottom: 0; color: var(--text-leise); }
+.rent-table tfoot .per strong { color: var(--text); font-size: 1.05rem; }
+.bill-box { margin-top: 12px; padding: 10px 12px; background: #fff; border: 1px solid var(--linie); border-radius: var(--radius-s); }
+.bill-t { font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
+.bill-row { display: flex; align-items: center; gap: 14px; padding: 3px 0; flex-wrap: wrap; }
+.bill-y { font-weight: 700; min-width: 3em; font-variant-numeric: tabular-nums; }
+.pay-chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: .92rem; cursor: pointer; color: #9a3a2c; white-space: nowrap; }
+.pay-chk input { width: 20px; height: 20px; accent-color: #2b8a3e; margin: 0; }
+.pay-chk.is-paid { color: #2b6a33; }
+.rent-hint { margin: 0; align-self: end; padding-bottom: 10px; }
+.rent-sum { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; background: #eef5ea; border-radius: var(--radius-s); }
+.rent-sum strong { font-size: 1.1rem; }
+.rent-actions { margin-top: 8px; }
+.pay-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -4px 0 12px; padding: 10px 12px; background: #fbf1d6; border: 1px solid #eedcab; border-radius: var(--radius-s); }
+.pay-bar-t { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.pay-bar-t svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.card-list.has-pay > li { display: flex; align-items: stretch; gap: 0; }
+.card-list.has-pay > li > .card-row { flex: 1; min-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.pay-col { flex: none; width: 118px; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 8px 12px;
+  background: #fffaf0; border: 1px solid var(--linie); border-left: 1px dashed #e2d3a6; border-radius: 0 var(--radius) var(--radius) 0; }
+.pay-col.is-empty { background: var(--papier); }
+.pay-y { font-size: .75rem; color: var(--text-leise); font-weight: 700; }
+.pay-na { font-size: .78rem; color: var(--text-leise); }
+.infra-h { display: flex; align-items: center; gap: 8px; font-size: 1rem; margin: 14px 0 8px; }
+.infra-h:first-of-type { margin-top: 0; }
+.infra-facts { margin-bottom: 8px; }
+.pay-bar select { width: auto; min-width: 0; flex: none; }
+.rent-table tfoot th { text-transform: none; letter-spacing: 0; background: none; color: var(--text); font-size: .95rem; }
+.rent-table tfoot td { background: none; }
+.card-list.has-pay .card-row .main { min-width: 0; }
+@media (max-width: 860px) {
+  .card-list.has-pay > li { flex-direction: column; }
+  .card-list.has-pay > li > .card-row { border-radius: var(--radius) var(--radius) 0 0; }
+  .pay-col { width: auto; flex-direction: row; align-items: center; gap: 16px; padding: 6px 14px;
+    border-left: 1px solid var(--linie); border-top: 1px dashed #e2d3a6; border-radius: 0 0 var(--radius) var(--radius); }
+  .pay-col.is-empty { display: none; }
+  .card-list.has-pay > li:has(.pay-col.is-empty) > .card-row { border-radius: var(--radius); }
+  .money-btn small { display: none; }
+}

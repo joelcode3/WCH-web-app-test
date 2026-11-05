@@ -52,6 +52,9 @@
     rotL: '<svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M4.5 10A8 8 0 1 1 6 17"/></svg>',
     rotR: '<svg viewBox="0 0 24 24"><path d="M20 4v6h-6"/><path d="M19.5 10A8 8 0 1 0 18 17"/></svg>',
     house: '<svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h14V10M10 20v-5h4v5"/></svg>',
+    euro: '<svg viewBox="0 0 24 24"><path d="M17.5 6.2A7 7 0 1 0 17.5 17.8M4 10h10M4 14h10"/></svg>',
+    lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg>',
+    unlock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 7.6-1.7"/></svg>',
   };
 
   const statusOf = (p) => S.STATUS[p.status] || S.STATUS.leer;
@@ -143,6 +146,76 @@
     }
     return `<label class="field${f.full ? ' full' : ''}"><span>${h(f.label)}${f.required ? ' *' : ''}</span>${input}</label>`;
   }
+
+  /* ---------- Mietangaben: mit Passwort verborgen, 1 Stunde offen (je Gerät) ---------- */
+  // Hinweis: nur ein Sichtschutz in der App – wer im Team angemeldet ist, kann die Daten grundsätzlich laden.
+  const MoneyLock = {
+    KEY: 'wch-miete-offen-bis',
+    PASS: 'MONEY',
+    OPEN_MS: 60 * 60000,
+    _mem: 0,
+    editHook: null,   // Formular "Parzelle bearbeiten": Mietfelder ein-/ausblenden ohne Neuaufbau
+    until() { try { return +localStorage.getItem(this.KEY) || 0; } catch (e) { return this._mem; } },
+    isOpen() { return this.until() > Date.now(); },
+    set(t) {
+      this._mem = t;
+      try { localStorage.setItem(this.KEY, String(t || 0)); } catch (e) { /* egal */ }
+      this.schedule();
+      this.refresh();
+    },
+    schedule() {
+      clearTimeout(this._t);
+      const left = this.until() - Date.now();
+      if (left > 0) this._t = setTimeout(() => { this.set(0); toast('Mietangaben wieder gesperrt'); }, Math.min(left + 500, 2 ** 31 - 1));
+    },
+    refresh() {
+      const page = $('#view-page');
+      if (!page || page.hidden || $('#dialog').open) return;
+      const hash = location.hash;
+      const m = hash.match(/^#\/parzelle\/([^/?]+)$/);
+      if (/^#\/kartei/.test(hash)) Kartei.render(page);
+      else if (m) Detail.render(page, m[1]);
+      else if (this.editHook) this.editHook();
+    },
+    lock() { this.set(0); toast('Mietangaben gesperrt'); },
+    ask() {
+      formDialog({
+        title: 'Mietangaben entsperren',
+        fields: [{ name: 'pw', label: 'Passwort', type: 'password', autocomplete: 'off', full: true }],
+        extra: '<p class="small muted" style="margin:0">Bleibt auf diesem Gerät 1 Stunde offen, dann sperrt es sich wieder.</p>',
+        submitLabel: 'Entsperren',
+        onSubmit: (v) => {
+          if (String(v.pw || '').trim().toUpperCase() !== this.PASS) { toast('Passwort stimmt nicht'); return false; }
+          setTimeout(() => { this.set(Date.now() + this.OPEN_MS); toast('Mietangaben 1 Stunde entsperrt'); }, 0);
+          return true;
+        },
+      });
+    },
+    // Knopf zum Entsperren bzw. Sperren (mit Uhrzeit, bis wann offen)
+    button(small) {
+      const cls = `btn btn-ghost${small ? ' btn-sm' : ''} money-btn`;
+      if (!this.isOpen()) return `<button type="button" class="${cls}" data-money="open" title="Mietangaben mit Passwort entsperren">${ICON.lock}<span>Miete</span></button>`;
+      const t = new Date(this.until()).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      return `<button type="button" class="${cls} is-open" data-money="close" title="Offen bis ${t} – jetzt sperren">${ICON.unlock}<span>Sperren <small>bis ${t}</small></span></button>`;
+    },
+    bind(root) {
+      $$('[data-money]', root).forEach((b) => b.onclick = () => (b.dataset.money === 'open' ? this.ask() : this.lock()));
+    },
+  };
+  const mieteMissing = () => S.mode === 'cloud' && window.Cloud && Cloud.missingCols.has('parcels.miete');
+  const fmtEuro2 = (v) => Number(v || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+  // Abrechnungsjahr für Strom/Gas: Rechnungen gehen im Folgejahr raus → Vorjahr
+  const billYear = () => new Date().getFullYear() - 1;
+  const hasGasBill = (p) => p.gas === 'tank' || S.metersOf(p.id).some((m) => m.type === 'gas');
+  const billOf = (p, y) => (p.miete && p.miete.abrechnung && p.miete.abrechnung[y]) || {};
+  function setBill(p, y, kind, val) {
+    if (!p.miete) p.miete = { abrechnung: {} };
+    if (!p.miete.abrechnung) p.miete.abrechnung = {};
+    p.miete.abrechnung[y] = { ...(p.miete.abrechnung[y] || {}), [kind]: !!val };
+    S.save();
+  }
+  // Mietwerte eines Mieters: gespeicherte Werte, fehlende aus den Standardpreisen
+  const mieteOf = (p) => ({ ...S.rentDefaults(p), ...(p.miete || {}) });
 
   /* ---------- freie Nummern vorschlagen ---------- */
 
@@ -1021,15 +1094,29 @@
      ====================================================================== */
 
   const Kartei = {
-    q: '', status: 'alle', supply: 'alle', extra: 'alle',
+    q: '', status: 'alle', supply: 'alle', extra: 'alle', year: null, pay: 'alle',
 
     render(root) {
+      const open = MoneyLock.isOpen();
+      const y0 = billYear();
+      if (!this.year) this.year = y0;
       root.innerHTML = `
         <div class="page">
           <div class="page-head">
-            <h1>Parzellen</h1>
+            <h1>Mieter</h1>
+            ${MoneyLock.button()}
             <a class="btn" href="#/neu">${ICON.plus} Parzelle</a>
           </div>
+          ${open ? `<div class="pay-bar">
+            <span class="pay-bar-t">${ICON.euro} Abrechnung Strom / Gas</span>
+            <select id="k-year" aria-label="Abrechnungsjahr">${[y0 + 1, y0, y0 - 1, y0 - 2].map((y) => `<option value="${y}"${+this.year === y ? ' selected' : ''}>${y}</option>`).join('')}</select>
+            <select id="k-pay" aria-label="Zahlungsstatus filtern">
+              ${[['alle', 'Alle Mieter'], ['offen', 'Noch nicht bezahlt'], ['strom', 'Strom offen'], ['gas', 'Gas offen'], ['bezahlt', 'Alles bezahlt']]
+                .map(([k, l]) => `<option value="${k}"${this.pay === k ? ' selected' : ''}>${l}</option>`).join('')}
+            </select>
+            <span class="muted small" id="k-paysum"></span>
+            ${mieteMissing() ? '<span class="warn small">Speichern erst nach Datenbank-Update 13 (supabase/update-13.sql)</span>' : ''}
+          </div>` : ''}
           <div class="filters">
             <div class="search">${ICON.search}<input type="search" id="k-q" placeholder="Nr., Name, Telefon, Zählernummer…" value="${h(this.q)}" aria-label="Parzellen durchsuchen"></div>
             <select id="k-supply" aria-label="Versorgung filtern">
@@ -1048,6 +1135,11 @@
           <div class="result-count" id="k-count"></div>
           <ul class="card-list" id="k-list"></ul>
         </div>`;
+      MoneyLock.bind(root);
+      if (open) {
+        $('#k-year', root).onchange = (e) => { this.year = +e.target.value; this.renderList(); };
+        $('#k-pay', root).onchange = (e) => { this.pay = e.target.value; this.renderList(); };
+      }
       $('#k-q', root).addEventListener('input', (e) => { this.q = e.target.value; this.renderList(); });
       $('#k-supply', root).addEventListener('change', (e) => { this.supply = e.target.value; this.renderList(); });
       $('#k-extra', root).addEventListener('change', (e) => { this.extra = e.target.value; this.renderList(); });
@@ -1061,7 +1153,22 @@
 
     renderList() {
       const q = this.q.trim().toLowerCase();
+      const open = MoneyLock.isOpen();
+      const y = this.year || billYear();
+      const billed = (p) => !S.isFree(p) || p.tenant.name;
+      const due = (p) => {   // offene Rechnungen eines Mieters im gewählten Jahr
+        const b = billOf(p, y);
+        return { strom: !b.strom, gas: hasGasBill(p) && !b.gas };
+      };
       const list = S.parcelsSorted().filter((p) => {
+        if (open && this.pay !== 'alle') {
+          if (!billed(p)) return false;
+          const d = due(p);
+          if (this.pay === 'offen' && !d.strom && !d.gas) return false;
+          if (this.pay === 'strom' && !d.strom) return false;
+          if (this.pay === 'gas' && !d.gas) return false;
+          if (this.pay === 'bezahlt' && (d.strom || d.gas)) return false;
+        }
         if (this.status !== 'alle' && p.status !== this.status) return false;
         if (this.supply !== 'alle' && S.supplyOf(p) !== this.supply) return false;
         if ((this.extra === 'pacht' || this.extra === 'miet') && p.objectType !== this.extra) return false;
@@ -1076,6 +1183,20 @@
       });
       const counts = Object.keys(S.STATUS).map((k) => `${list.filter((p) => p.status === k).length} ${S.STATUS[k].short}`);
       $('#k-count').textContent = `${list.length} Parzelle${list.length === 1 ? '' : 'n'} · ${counts.join(' · ')}`;
+      if (open) {
+        const all = S.data.parcels.filter(billed);
+        const os = all.filter((p) => due(p).strom).length, og = all.filter((p) => due(p).gas).length;
+        const el = $('#k-paysum');
+        if (el) el.textContent = `${y}: Strom ${os} offen · Gas ${og} offen`;
+      }
+      const payCol = (p) => {
+        if (!open) return '';
+        if (!billed(p)) return '<div class="pay-col is-empty"></div>';
+        const b = billOf(p, y);
+        const box = (k, l) => `<label class="pay-chk${b[k] ? ' is-paid' : ''}"><input type="checkbox" data-pay="${k}" data-p="${p.id}"${b[k] ? ' checked' : ''}> ${l}</label>`;
+        return `<div class="pay-col"><span class="pay-y">${y}</span>${box('strom', 'Strom')}${hasGasBill(p) ? box('gas', 'Gas') : '<span class="pay-na">kein Gas&shy;zähler</span>'}</div>`;
+      };
+      $('#k-list').classList.toggle('has-pay', open);
       $('#k-list').innerHTML = list.length ? list.map((p) => {
         const meters = S.metersOf(p.id);
         const strom = [...new Set(meters.filter((m) => m.type === 'strom').map((m) => S.meterPlace(m) || 'ohne Kasten'))].map(h);
@@ -1094,8 +1215,16 @@
             </div>
           </div>
           <div class="side">${statusBadge(p)}<span class="muted small">${p.objectType === 'miet' ? 'Mietobjekt · ' : ''}${p.size ? fmtNum(p.size) + ' m²' : ''}</span></div>
-        </a></li>`;
+        </a>${payCol(p)}</li>`;
       }).join('') : '<li class="muted" style="padding:20px;text-align:center">Keine Parzellen gefunden.</li>';
+      $$('#k-list [data-pay]').forEach((c) => c.onchange = () => {
+        const p = S.parcel(c.dataset.p);
+        setBill(p, y, c.dataset.pay, c.checked);
+        c.closest('.pay-chk').classList.toggle('is-paid', c.checked);
+        toast(`${p.nr}: ${c.dataset.pay === 'strom' ? 'Strom' : 'Gas'} ${y} ${c.checked ? 'bezahlt' : 'offen'}`);
+        if (this.pay !== 'alle') setTimeout(() => this.renderList(), 400);
+        else this.renderList();
+      });
     },
   };
 
@@ -1112,22 +1241,10 @@
       const gas = meters.filter((m) => m.type === 'gas');
       const tank = p.gas === 'tank' ? S.tank(p.gasTankId) : null;
 
-      const meterBlock = (m) => {
-        const last = S.lastReading(m.id);
-        const b = S.box(m.boxId);
-        return `<dl class="facts" style="margin-bottom:10px">
-          <dt>Zähler-Nr.</dt><dd class="mono">${h(m.number || '—')}</dd>
-          ${m.type === 'strom' ? `<dt>Zählerort</dt><dd>${m.inHouse ? 'im Haus des Mieters' : b ? `<a href="#/karte/box/${b.id}">Kasten ${h(b.nr)}</a>${b.location ? ` <span class="muted small">(${h(b.location)})</span>` : ''}` : '<span class="warn">nicht zugeordnet</span>'}</dd>`
-            : `<dt>Ort</dt><dd>${h(m.location || '–')}</dd>`}
-          ${m.type === 'strom' ? `<dt>Sicherung${(m.fuses || []).length > 1 ? 'en' : ''}</dt><dd>${S.fusesText(m) ? `${h(S.fusesText(m))}${m.inHouse && S.box(m.fuseBoxId) ? ` <span class="muted small">(Kasten ${h(S.box(m.fuseBoxId).nr)})</span>` : ''}` : '–'}</dd>` : ''}
-          <dt>Letzter Stand</dt><dd>${last ? `${fmtNum(last.value)} ${unit(m.type)} <span class="muted small">(${fmtDate(last.date)})</span>` : '–'}</dd>
-        </dl>`;
-      };
-
       // Ablesehistorie je Zähler; Zähler ohne Ablesung erscheinen mit einer leeren Zeile
       const meterPlaceHtml = (m) => (m.type !== 'strom' ? h(m.location || '–')
         : m.inHouse ? 'im Haus' : S.box(m.boxId) ? `<a href="#/karte/box/${m.boxId}">Kasten ${h(S.box(m.boxId).nr)}</a>` : '<span class="warn">kein Kasten</span>');
-      const histTable = (list, full) => {
+      const histTable = (list, full, fuses = true) => {
         const rows = [];
         list.forEach((m) => {
           const rs = S.readingsOf(m.id);
@@ -1137,11 +1254,11 @@
         rows.sort((a, b) => (b.r ? b.r.date : '').localeCompare(a.r ? a.r.date : '') || (a.m.number || '').localeCompare(b.m.number || ''));
         if (!full && !rows.some((x) => x.r)) return '';
         return `<div class="table-wrap"><table class="table-cards">
-          <thead><tr>${full ? '<th>Zählerort</th><th>Zählernummer</th><th>Sicherung</th>' : ''}<th>Datum</th><th class="num">Stand</th><th class="num">Verbrauch</th></tr></thead>
+          <thead><tr>${full ? `<th>Zählerort</th><th>Zählernummer</th>${fuses ? '<th>Sicherung</th>' : ''}` : ''}<th>Datum</th><th class="num">Stand</th><th class="num">Verbrauch</th></tr></thead>
           <tbody>${rows.map(({ m, r, diff }) => `<tr>
             ${full ? `<td data-label="Zählerort">${meterPlaceHtml(m)}</td>
             <td data-label="Zählernummer" class="mono">${h(m.number || '—')}</td>
-            <td data-label="Sicherung">${h(S.fusesText(m) || '–')}</td>` : ''}
+            ${fuses ? `<td data-label="Sicherung">${h(S.fusesText(m) || '–')}</td>` : ''}` : ''}
             <td data-label="Datum">${r ? fmtDate(r.date) : '–'}</td>
             <td data-label="Stand" class="num">${r ? `${fmtNum(r.value)} ${unit(m.type)}` : '–'}</td>
             <td data-label="Verbrauch" class="num">${diff === null ? '–' : `${fmtNum(diff)} ${unit(m.type)}`}</td></tr>`).join('')}
@@ -1150,7 +1267,7 @@
 
       root.innerHTML = `
         <div class="page">
-          <a class="back" href="#/kartei">${ICON.back} Parzellen</a>
+          <a class="back" href="#/kartei">${ICON.back} Mieter</a>
           <div class="detail-head">
             ${nrBadge(p, 'nr-lg')}
             <div class="title"><h1>Parzelle ${h(p.nr)}</h1>${statusBadge(p)}</div>
@@ -1179,33 +1296,76 @@
               <dl class="facts">
                 <dt>Status</dt><dd>${h(statusOf(p).label)}</dd>
                 <dt>Objektart</dt><dd>${h(objectOf(p).label)}</dd>
-                <dt>${h(objectOf(p).rentLabel)}</dt><dd>${fmtEuro(p.rent)}</dd>
                 <dt>Winterwasser</dt><dd>${yesNo(p.winterWater)}</dd>
                 <dt>Größe</dt><dd>${p.size ? fmtNum(p.size) + ' m²' : '–'}</dd>
               </dl>
             </section>
-            <section class="card">
-              <h2>${ICON.gas} Gas &amp; Heizung</h2>
-              <dl class="facts" style="margin-bottom:10px">
-                <dt>Heizung</dt><dd>${h(S.HEATING[p.heating] || '–')}</dd>
-                <dt>Gas</dt><dd>${tank ? `<a href="#/karte/tank/${tank.id}">Gastank ${h(tank.nr)}</a>` : gasText(p)}</dd>
-              </dl>
-              ${gas.map(meterBlock).join('')}
-              ${p.gas === 'tank' && !gas.length ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
-              ${histTable(gas, false)}
-            </section>
+            ${mieteCard(p)}
             ${p.notes ? `<section class="card span-all"><h2>Notizen</h2><p style="margin:0;white-space:pre-line">${h(p.notes)}</p></section>` : ''}
             <section class="card span-all todo-card">${todoSection('parcel', p.id)}</section>
-            <section class="card span-all">
-              <h2>${ICON.strom} Strom</h2>
+            <section class="card span-all infra-card">
+              <h2>Infrastruktur</h2>
+              <h3 class="infra-h">${ICON.strom} Strom</h3>
               ${strom.length ? histTable(strom, true) : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
+              <h3 class="infra-h">${ICON.gas} Gas</h3>
+              <dl class="facts infra-facts">
+                <dt>Versorgung</dt><dd>${tank ? `<a href="#/karte/tank/${tank.id}">Gastank ${h(tank.nr)}</a>` : p.gas === 'bottle' ? '<strong>Gasflaschen</strong>' : gasText(p)}</dd>
+                <dt>Heizung</dt><dd>${h(S.HEATING[p.heating] || '–')}</dd>
+              </dl>
+              ${gas.length ? histTable(gas, true, false) : p.gas === 'tank' ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
             </section>
           </div>
         </div>`;
       $$('[data-draw]', root).forEach((b) => b.onclick = () => Actions.drawParcel(p.id));
+      MoneyLock.bind(root);
+      $$('[data-bill]', root).forEach((c) => c.onchange = () => {
+        const [y, k] = c.dataset.bill.split(':');
+        setBill(p, y, k, c.checked);
+        c.closest('.pay-chk').classList.toggle('is-paid', c.checked);
+        toast(`${k === 'strom' ? 'Strom' : 'Gas'} ${y} ${c.checked ? 'bezahlt' : 'offen'}`);
+      });
       $$('[data-goto]', root).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
     },
   };
+
+  // Karte "Miete" in der Parzellen-Ansicht (gesperrt: nur Schloss)
+  function mieteCard(p) {
+    const head = `<div class="card-title-row"><h2>${ICON.euro} Miete</h2>${MoneyLock.button(true)}</div>`;
+    if (!MoneyLock.isOpen()) {
+      return `<section class="card miete-card is-locked">${head}
+        <div class="money-locked">${ICON.lock}<p>Mietangaben sind gesperrt.</p></div></section>`;
+    }
+    const m = mieteOf(p);
+    const c = S.rentCalc(p, m);
+    const saved = !!(p.miete && p.miete.erfasst);
+    const y0 = billYear();
+    const years = [...new Set([y0 + 1, y0, ...Object.keys((p.miete && p.miete.abrechnung) || {}).map(Number)])].filter((y) => y <= y0 + 1).sort((a, b) => b - a).slice(0, 4);
+    const gasBill = hasGasBill(p);
+    const chk = (y, k, l) => {
+      const on = !!billOf(p, y)[k];
+      return `<label class="pay-chk${on ? ' is-paid' : ''}"><input type="checkbox" data-bill="${y}:${k}"${on ? ' checked' : ''}> ${l}</label>`;
+    };
+    return `<section class="card miete-card">${head}
+      ${saved ? '' : '<p class="notice small" style="margin:0 0 10px">Noch nicht eingetragen – Vorschlag nach Standardpreisen. Über „Bearbeiten“ prüfen und speichern.</p>'}
+      <table class="rent-table">
+        <tbody>${c.items.map((x) => `<tr><td>${h(x.label)}</td><td class="num">${fmtEuro2(x.year)}</td></tr>`).join('')}</tbody>
+        <tfoot>
+          <tr><th>Summe pro Jahr</th><th class="num">${fmtEuro2(c.year)}</th></tr>
+          <tr class="per"><td>Zahlung ${h(c.rhythm.label)}</td><td class="num"><strong>${fmtEuro2(c.perPayment)}</strong></td></tr>
+        </tfoot>
+      </table>
+      <dl class="facts" style="margin-top:10px">
+        <dt>Zahlungsweise</dt><dd>Dauerauftrag, ${h(c.rhythm.label)}</dd>
+        <dt>Kaution</dt><dd>${m.kaution === '' || m.kaution == null ? '–' : fmtEuro2(m.kaution)}</dd>
+        ${m.notiz ? `<dt>Sonderregelung</dt><dd style="white-space:pre-line">${h(m.notiz)}</dd>` : ''}
+      </dl>
+      <div class="bill-box">
+        <div class="bill-t">Abrechnung Strom / Gas bezahlt</div>
+        ${years.map((y) => `<div class="bill-row"><span class="bill-y">${y}</span>${chk(y, 'strom', 'Strom')}${gasBill ? chk(y, 'gas', 'Gas') : ''}</div>`).join('')}
+        ${mieteMissing() ? '<p class="warn small" style="margin:6px 0 0">Wird erst nach dem Datenbank-Update 13 gespeichert.</p>' : ''}
+      </div>
+    </section>`;
+  }
 
   // Wem gehört ein Zähler? ("Parzelle 12 (Name)" oder "Sanitäranlagen – WC")
   function meterOwner(m) {
@@ -1324,7 +1484,7 @@
 
       root.innerHTML = `
         <div class="page">
-          <a class="back" href="${backHref}">${ICON.back} ${isNew ? 'Parzellen' : 'Zurück'}</a>
+          <a class="back" href="${backHref}">${ICON.back} ${isNew ? 'Mieter' : 'Zurück'}</a>
           <div class="page-head"><h1>${isNew ? 'Neue Parzelle' : `Parzelle ${h(p.nr)} bearbeiten`}</h1></div>
           <form id="edit-form" novalidate>
             <div class="cards">
@@ -1335,7 +1495,6 @@
                   ${fieldHtml({ name: 'size', label: 'Größe (m²)', type: 'number', value: p.size })}
                   ${fieldHtml({ name: 'status', label: 'Status', type: 'select', value: p.status, options: Object.entries(S.STATUS).map(([k, v]) => [k, v.label]), full: true })}
                   ${fieldHtml({ name: 'objectType', label: 'Objektart', type: 'select', value: p.objectType, options: Object.entries(S.OBJECT_TYPES).map(([k, v]) => [k, v.label]), full: true })}
-                  <label class="field"><span id="rent-label">${h(objectOf(p).rentLabel)} (€)</span><input type="number" name="rent" inputmode="decimal" step="any" value="${h(p.rent)}"></label>
                   <label class="check"><input type="checkbox" name="winterWater" ${p.winterWater ? 'checked' : ''}> Winterwasser</label>
                 </div>
               </section>
@@ -1353,6 +1512,7 @@
                   ${fieldHtml({ name: 'dogs', label: 'Hunde', type: 'select', value: String(p.dogs || 0), options: [['0', 'keine'], ['1', '1 Hund'], ['2', '2 Hunde'], ['3', '3 Hunde'], ['4', '4 oder mehr']] })}
                 </div>
               </section>
+              <section class="card miete-card" id="miete-edit"></section>
               <section class="card">
                 <h2>${ICON.strom} Stromzähler</h2>
                 <div id="strom-list"></div>
@@ -1408,9 +1568,84 @@
       };
       f.nr.addEventListener('input', checkNr);
       attachSuggest(f.nr, suggestParcelNr, isNew ? null : () => !!checkNr());
-      f.objectType.addEventListener('change', () => {
-        $('#rent-label', root).textContent = `${S.OBJECT_TYPES[f.objectType.value].rentLabel} (€)`;
-      });
+
+      // Miete: Arbeitskopie; Felder nur sichtbar, solange entsperrt (Standardpreise als Vorschlag)
+      const mw = { ...mieteOf(p), abrechnung: { ...((p.miete && p.miete.abrechnung) || {}) } };
+      let mieteShown = false;   // nur dann werden die Mietwerte mit "Speichern" übernommen
+      const MIETE_NUM = ['grund', 'grundFlaeche', 'qmPreis', 'nk', 'dauer', 'personen', 'gastank', 'sonstiges', 'kaution'];
+      const readMiete = () => {
+        const box = $('#miete-edit', root);
+        $$('[data-mk]', box).forEach((inp) => {
+          const k = inp.dataset.mk;
+          if (MIETE_NUM.includes(k)) { const v = parseNum(inp.value); mw[k] = isNaN(v) ? '' : v; } else mw[k] = inp.value;
+        });
+      };
+      const calcPreview = () => {
+        const el = $('#miete-sum', root);
+        if (!el) return;
+        readMiete();
+        const size = parseNum(f.size.value);
+        const c = S.rentCalc({ ...p, size: isNaN(size) ? '' : size, objectType: f.objectType.value }, mw);
+        el.innerHTML = `<span>${fmtEuro2(c.year)} pro Jahr</span><strong>${fmtEuro2(c.perPayment)} ${h(c.rhythm.label)}</strong>`;
+        const ex = $('#miete-extra', root);
+        const base = Number(mw.grundFlaeche) || 0;
+        if (ex) ex.textContent = isNaN(size) || !size ? 'Größe fehlt (oben unter Grundstück)' : size > base ? `${fmtNum(size - base)} m² über ${fmtNum(base)} m²` : `nicht über ${fmtNum(base)} m²`;
+      };
+      const mf = (k, label, opts = {}) => `<label class="field${opts.full ? ' full' : ''}"><span>${label}</span>${opts.options
+        ? `<select data-mk="${k}">${opts.options.map(([v, l]) => `<option value="${h(v)}"${String(mw[k]) === String(v) ? ' selected' : ''}>${h(l)}</option>`).join('')}</select>`
+        : `<input type="${opts.text ? 'text' : 'number'}" data-mk="${k}" value="${h(mw[k] ?? '')}"${opts.text ? '' : ' inputmode="decimal" step="any"'}${opts.ph ? ` placeholder="${h(opts.ph)}"` : ''} autocomplete="off">`}</label>`;
+      const renderMiete = () => {
+        const box = $('#miete-edit', root);
+        if (!box) return;
+        if (mieteShown) readMiete();
+        const head = `<div class="card-title-row"><h2>${ICON.euro} Miete</h2>${MoneyLock.button(true)}</div>`;
+        if (!MoneyLock.isOpen()) {
+          box.innerHTML = `${head}<div class="money-locked">${ICON.lock}<p>Mietangaben sind gesperrt.${mieteShown ? ' Bereits geänderte Werte werden trotzdem gespeichert.' : ''}</p></div>`;
+          box.classList.add('is-locked');
+        } else {
+          mieteShown = true;
+          box.classList.remove('is-locked');
+          const D = S.RENT_DEFAULTS;
+          box.innerHTML = `${head}
+            ${p.miete && p.miete.erfasst ? '' : '<p class="notice small" style="margin:0 0 10px">Vorschlag nach Standardpreisen – bei alten Verträgen oder Sonderregelungen einfach anpassen.</p>'}
+            <div class="form-grid">
+              ${mf('grund', `${f.objectType.value === 'miet' ? 'Jahresmiete' : 'Jahrespacht'} (€/Jahr)`)}
+              ${mf('grundFlaeche', 'für bis zu (m²)')}
+              ${mf('qmPreis', 'jeder weitere m² (€/Jahr)')}
+              <p class="small muted rent-hint" id="miete-extra"></p>
+              ${mf('nk', 'Nebenkostenpauschale (€/Monat)')}
+              <p class="small muted rent-hint">Müll, Wasser usw.</p>
+              ${mf('dauer', 'Dauerbewohner (€ je Person/Monat)')}
+              ${mf('personen', 'Dauerbewohner (Personen)')}
+              ${mf('gastank', 'Gastankmiete (€/Jahr)')}
+              <p class="small muted rent-hint">Standard ${fmtEuro2(D.gastank)}, nur mit Gastank</p>
+              ${mf('sonstiges', 'Sonstiges (€/Jahr, minus = Nachlass)')}
+              ${mf('sonstigesText', 'Bezeichnung', { text: true, ph: 'z. B. Stellplatz Anhänger' })}
+              ${mf('rhythmus', 'Zahlungsrhythmus', { options: Object.entries(S.RENT_RHYTHM).map(([k, v]) => [k, v.label]) })}
+              ${mf('kaution', 'Hinterlegte Kaution (€)')}
+              <label class="field full"><span>Sonderregelung / Notiz zur Miete</span><textarea data-mk="notiz" rows="2">${h(mw.notiz || '')}</textarea></label>
+            </div>
+            <div class="rent-sum" id="miete-sum"></div>
+            <div class="rent-actions">
+              <button type="button" class="link-btn" data-miete-std>Standardpreise einsetzen</button>
+            </div>
+            ${mieteMissing() ? '<p class="warn small">Wird erst nach dem Datenbank-Update 13 (supabase/update-13.sql) gespeichert.</p>' : ''}`;
+          $$('[data-mk]', box).forEach((inp) => inp.addEventListener('input', calcPreview));
+          $('[data-miete-std]', box).onclick = () => {
+            const keep = { rhythmus: mw.rhythmus, kaution: mw.kaution, notiz: mw.notiz, sonstiges: mw.sonstiges, sonstigesText: mw.sonstigesText };
+            Object.assign(mw, S.rentDefaults({ ...p, status: f.status.value, residents: parseInt(f.residents.value, 10) || 0, gas: f.gas.value }), keep);
+            mieteShown = false;
+            renderMiete();
+            toast('Standardpreise eingesetzt');
+          };
+          calcPreview();
+        }
+        MoneyLock.bind(box);
+      };
+      renderMiete();
+      MoneyLock.editHook = renderMiete;
+      ['size', 'objectType'].forEach((k) => f[k].addEventListener('input', calcPreview));
+      f.objectType.addEventListener('change', () => { if (MoneyLock.isOpen()) renderMiete(); });
 
       const renderMeters = () => {
         ['strom', 'gas'].forEach((type) => {
@@ -1496,7 +1731,11 @@
         }
         if (!confirmMeterDuplicates(meters, removed)) return;
         const size = parseNum(f.size.value);
-        const rent = parseNum(f.rent.value);
+        if (mieteShown) {
+          if (MoneyLock.isOpen()) readMiete();
+          p.miete = { ...mw, erfasst: true };
+        }
+        const rent = p.miete && p.miete.erfasst ? Math.round(S.rentCalc({ ...p, size: isNaN(size) ? '' : size, objectType: f.objectType.value }, p.miete).month * 100) / 100 : parseNum(p.rent);
         Object.assign(p, {
           nr,
           size: isNaN(size) ? '' : size,
@@ -2219,6 +2458,12 @@
               <p class="small">Es ist noch keine Datenbank verbunden. Die Daten liegen <strong>nur in diesem Browser auf diesem Gerät</strong> – ideal zum Ausprobieren.</p>
               <p class="small muted">Sobald in <code>js/config.js</code> die Supabase-Zugangsdaten eingetragen sind, erscheint eine Anmeldung und alle Geräte arbeiten mit demselben Datenbestand (siehe SETUP.md).</p>
             </section>`}
+            ${window.Waechter ? `<section class="card">
+              <h2>Stromwächter (SMS)</h2>
+              <p class="small" style="margin-top:0">Warnt per SMS bei Stromausfall in den Londonbussen und wenn die Temperatur im Bad unter 6 °C fällt.</p>
+              <div class="card-actions" style="margin-top:0"><button class="btn btn-ghost" data-wd="test">Test-SMS senden</button></div>
+              <p class="small muted">Geht an alle Nummern, die in Supabase unter Edge Functions → Secrets bei <code>SMS_EMPFAENGER</code> eingetragen sind.</p>
+            </section>` : ''}
             <section class="card">
               <h2>Zurücksetzen</h2>
               <div class="card-actions" style="margin-top:0">
@@ -2230,6 +2475,7 @@
           </div>
         </div>`;
 
+      if (window.Waechter) Waechter.bind(root, {}, toast);
       $('#d-export', root).onclick = () => download(`platzverwaltung-sicherung-${today()}.json`, JSON.stringify(S.data, null, 2), 'application/json');
       $('#d-import', root).onchange = (e) => {
         const file = e.target.files[0];
@@ -3248,9 +3494,10 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { kalender: 'Kalender', airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Parzellen', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
+    const titles = { kalender: 'Kalender', airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Mieter', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
+    MoneyLock.editHook = null;
     switch (parts[0]) {
       case 'kalender': Kalender.render(viewPage); break;
       case 'kartei': Kartei.render(viewPage); break;
@@ -3386,6 +3633,7 @@
     MapUI.init();
     S.onSync(renderSync);
     renderSync();
+    MoneyLock.schedule();
 
     // Änderungen an den Daten → sichtbare Ansicht aktualisieren
     S.onChange(() => {

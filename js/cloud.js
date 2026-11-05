@@ -38,6 +38,7 @@
         object_type: p.objectType || 'pacht', rent: num(p.rent), winter_water: !!p.winterWater,
         dogs: Math.max(0, parseInt(p.dogs, 10) || 0), lease_start: nz(p.leaseStart), free_from: nz(p.freeFrom),
         residents: Math.max(0, parseInt(p.residents, 10) || 0),
+        miete: p.miete || null,
       }),
       fromRow: (r) => ({
         id: r.id, nr: r.nr, status: r.status,
@@ -47,6 +48,7 @@
         objectType: r.object_type || 'pacht', rent: r.rent === null || r.rent === undefined ? '' : Number(r.rent),
         winterWater: !!r.winter_water,
         dogs: r.dogs || 0, leaseStart: r.lease_start || '', freeFrom: r.free_from || '', residents: r.residents || 0,
+        miete: r.miete || null,
       }),
     },
     {
@@ -114,7 +116,7 @@
   ];
 
   // Spalten aus späteren Updates: fehlen sie noch, werden sie beim Speichern weggelassen
-  const OPTIONAL_COLS = { meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo'], termine: ['anzahl'], todos: ['kalender'] };
+  const OPTIONAL_COLS = { parcels: ['miete'], meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo'], termine: ['anzahl'], todos: ['kalender'] };
 
   const PAGE = 1000;
   const BUCKET = 'todo-fotos';
