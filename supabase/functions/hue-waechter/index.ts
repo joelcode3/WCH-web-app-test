@@ -2,7 +2,7 @@
 //
 // Je Unterkunft (z. B. Londonbus) ist eine Philips Hue Bridge verbunden. Alle 5 Minuten
 // (Zeitplan: supabase/waechter-zeitplan.sql) prüft die Funktion über die Hue-Fernsteuerung:
-//   - Ist die Bridge erreichbar? Nein, länger als 30 Min. → SMS (Strom oder Internet weg; Hinweis, wenn andere Bridges laufen)
+//   - Ist die Bridge erreichbar? Nein, länger als 30 Min. (nachts 22–8 Uhr: 3 Std.) → SMS (Strom oder Internet weg; Hinweis, wenn andere Bridges laufen)
 //   - Temperatur der Hue-Bewegungsmelder: unter 6 °C → sofort SMS „Frostgefahr“ (Entwarnung ab 8 °C)
 //   - Batterie eines Melders unter 15 % → SMS
 // Kommt alles wieder in Ordnung, gibt es eine Entwarnung. Den Zustand liest die App aus der
@@ -25,7 +25,9 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-export const OFFLINE_MIN = 30;     // Minuten nicht erreichbar → Warnung (kurze nächtliche Aussetzer lösen keine SMS aus)
+export const OFFLINE_MIN = 30;     // Minuten nicht erreichbar → Warnung (tagsüber)
+export const OFFLINE_MIN_NIGHT = 180; // Ausfall beginnt nachts → erst nach 3 Std. (nächtliche Hue-/Router-Aussetzer lösen keine SMS aus)
+export const NIGHT_FROM = 22, NIGHT_TO = 8; // Nacht = 22:00–7:59 Uhr (deutsche Zeit)
 export const FROST_TEMP = 6;       // °C – darunter Frostwarnung
 export const FROST_CLEAR = 8;      // °C – ab hier Entwarnung (kein Hin und Her um 6 °C)
 export const FROST_MIN = 0;        // Minuten unter FROST_TEMP → Warnung (0 = sofort beim ersten Messwert)
@@ -78,6 +80,14 @@ const emptyStatus = (placeId: string): Status => ({
 });
 
 const minutes = (from: string | null, now: Date) => (from ? (now.getTime() - new Date(from).getTime()) / 60000 : 0);
+// Stunde in deutscher Zeit (Sommer/Winter automatisch)
+export const berlinHour = (d: Date) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: 'numeric', hourCycle: 'h23' }).formatToParts(d).find((p) => p.type === 'hour')!.value);
+// Wartezeit bis zur Warnung: hängt davon ab, wann die Bridge zuletzt erreichbar war
+export const offlineLimit = (from: string | null) => {
+  if (!from) return OFFLINE_MIN;
+  const hr = berlinHour(new Date(from));
+  return hr >= NIGHT_FROM || hr < NIGHT_TO ? OFFLINE_MIN_NIGHT : OFFLINE_MIN;
+};
 const clock = (iso: string | null) => {
   if (!iso) return '?';
   return new Date(iso).toLocaleString('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
@@ -280,7 +290,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
         s.online = false;
         // gezählt ab „zuletzt erreichbar“ (der Ausfall begann irgendwann danach)
         const gone = s.last_ok || s.since;
-        if (!s.alarm_offline && minutes(gone, now) >= OFFLINE_MIN - 0.5) {
+        if (!s.alarm_offline && minutes(gone, now) >= offlineLimit(gone) - 0.5) {
           alerts.push({ s, flag: 'alarm_offline', value: true, offline: true, text: `${name} - Oha, Hue Bridge nicht erreichbar (zuletzt ${clock(gone)}). Könnte n Stromausfall sein oder Internet weg, kann mal einer checken bitte?!` });
         }
       }

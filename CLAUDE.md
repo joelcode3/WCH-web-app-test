@@ -86,7 +86,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   waechter_status für Team lesbar), `supabase/waechter-zeitplan.sql` (pg_cron alle 5 Min.), `js/waechter.js`
   (Anzeige im airbnb-Fenster, Reiter airbnb, Warnzeichen auf der Map). Erfahrung 03.11.2026: Bridge Bus 2 verlor nachts (ca. 3 Uhr, Router-Neueinwahl/Update?) die Hue-Cloud-Verbindung, vor Ort lief alles → Fernabfrage blind;
   Temperatur bei fehlender Verbindung grau mit „Stand“. Regeln: Bridge > 30 Min. nicht
-  erreichbar → SMS, Temperatur < 6 °C → sofort SMS (Entwarnung ab 8 °C), Batterie ≤ 15 % → SMS + To-Do beim Bus; SMS-Texte locker formuliert (vom Betreiber), Bus mit Standort „LONDONBUS 2 (Teich)“ (ORTSZUSATZ in der Funktion); keine
+  erreichbar → SMS (Ausfall ab 22–8 Uhr: erst nach 3 Std., wegen nächtlicher Fehlalarme; Gäste merkten nichts), Temperatur < 6 °C → sofort SMS (Entwarnung ab 8 °C), Batterie ≤ 15 % → SMS + To-Do beim Bus; SMS-Texte locker formuliert (vom Betreiber), Bus mit Standort „LONDONBUS 2 (Teich)“ (ORTSZUSATZ in der Funktion); keine
   separate Warnung für Stromausfall im Bad (vom Betreiber so gewünscht). Einrichtung: SETUP.md.
   Tests der Funktion: Deno mit nachgestellter DB/Hue/SMS (createWaechter(db, env, fetch, now)).
 - **Kalender-Reiter GEBAUT (29.10.2026)**. Noch offen: großer Touchscreen (Touch-/Kiosk-Ansicht), ggf. airbnb An-/Abreisen
