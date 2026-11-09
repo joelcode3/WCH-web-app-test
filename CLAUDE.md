@@ -13,15 +13,15 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Größere Aufträge komplett abarbeiten, vorher im Browser testen (Computer- und iPhone-Ansicht).
 
 ## Begriffe und Gestaltung (vom Betreiber festgelegt)
-- Reiter: **Map · Kalender · Mieter · Infrastruktur · airbnb · To-Dos · Daten** (Mieter = Route `#/kartei`, früher „Parzellen“) (Infrastruktur hat Unterreiter
-  Strom, Gas, Ablesen, Verbrauch, Auslastung). Kein Zähler am Reiter To-Dos.
+- Reiter: **Map · Kalender · To-Dos · airbnb · Mieter · Infrastruktur · Einstellungen** (Mieter = Route `#/kartei`, früher „Parzellen“; Einstellungen = Route `#/daten`, früher „Daten“) (Infrastruktur hat Unterreiter
+  Strom, Gas, Ablesen, Verbrauch, Auslastung; Kästen/Tanks als kompakte Zeilen zum Aufklappen). Kein Zähler am Reiter To-Dos.
 - „airbnb“ immer klein geschrieben.
 - Status: Festwohnsitz (#1f4e8c), Freizeitgrundstück (#6fa8dc), Reserviert (#2b6a33),
   Frei – bezugsfertig (#6cbf5a), Frei – zu räumen (#ec8a2c); „wird frei“ = bewohnt mit Auszugstermin (diagonal).
 - Objektart nur „Pachtgrundstück“ / „Mietobjekt“ (ohne Zusätze).
 - airbnb-Kalender: belegt rot (#c45a5a), frei hellgrün (#e3f2da), geblockt grau. Kopfzeile im airbnb-Fenster:
   belegt (rot) / frei (grün) / geblockt (grau); Anreisetag ab 16 Uhr belegt, Abreisetag bis 11 Uhr belegt.
-- Stromwächter kompakt rechts neben dem Foto (Bus: online, Bad: °C + Batterie-Symbol mit Füllstand, Warnung ab 6 °C; Test-SMS im Reiter Daten; „Überwachung läuft nicht“ erst ab 30 Min. ohne Prüfung).
+- Stromwächter kompakt rechts neben dem Foto (Bus: online, Bad: °C + Batterie-Symbol mit Füllstand, Warnung ab 6 °C; Test-SMS im Reiter Einstellungen; „Überwachung läuft nicht“ erst ab 30 Min. ohne Prüfung).
   Solange ein Problem besteht: rote/gelbe Leiste unter der Kopfzeile auf allen Seiten, bei neuem Alarm einmal ein Fenster (`renderAlarms` in app.js).
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
@@ -55,7 +55,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Kalenderwochen, abwählbarer Kalender „Feiertage/Schulferien“ (`js/feiertage.js`: Feiertage aller Länder berechnet,
   Schulferien von openholidaysapi.org), Feiertage in Niedersachsen wie Wochenende ausgegraut, heute dunkelgrün.
   Kategorie „Extern“ (Termine auf dem Platz ohne das Team, update-12). Eigener, abwählbarer Kalender „Reservierungen / VA“ (Art `reservierung`, mit Ort, Anzahl, To-Dos; To-Do-Ziel `termin`, update-11).
-  Alle Kalender unten in der Legende einzeln abwählbar (je Gerät gemerkt). To-Dos mit Termin erscheinen im gewählten Kalender
+  Ausgewählter Tag hat ein Plus (neuer Eintrag an diesem Tag, `data-k-plus`). Alle Kalender unten in der Legende einzeln abwählbar (je Gerät gemerkt). To-Dos mit Termin erscheinen im gewählten Kalender
   (Spalte `todos.kalender`), Deadlines (früher „Fristen“) als eigener Kalender.
   Mehrtägiges (längere Arbeiten, Abwesenheit, Reservierungen) als durchgehendes Band unten im Tagesfeld, Einzeltermine darüber;
   Ferien und Feiertage als Linie ganz unten (Hover: „Ferien (BY)“); feste Spuren je Woche (`weekLanes`), damit nichts verrutscht. Beschriftung nur am Wochen-/Eintragsanfang,
@@ -71,7 +71,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   mit nahtlosen Übergängen, Wald (Bäume fest in der JSON, einzeln löschbar), Teiche, Spielplatz, Seilbahn, Shelter,
   Hundewiese, Terrasse, Gebäude. Dann `node tools/render_plan.js`. Flugzeug (Fokker-100-Bug) ist ein drehbarer Ort
   (Art `flugzeug`, `top: true`). Orte aus dem Plan legt `Store.ensurePlanPlaces()` einmal je Gerät an (feste IDs `o-plan-*`).
-  Geänderte Nummern/Umrisse übernimmt die App über „Daten → Neue Nummern/Umrisse übernehmen“ (Zuordnung über die Lage,
+  Geänderte Nummern/Umrisse übernimmt die App über „Einstellungen → Neue Nummern/Umrisse übernehmen“ (Zuordnung über die Lage,
   Mieter/Zähler bleiben erhalten). Nie die Daten durch einen leeren Plan ersetzen.
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in
@@ -93,6 +93,10 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   und Auszüge/Pachtbeginn im Kalender. Betreiber kauft erst einen Monitor
   (Vorschläge: Samsung Flip Pro WM55B, Optoma N3551K, iiyama TF4339MSC + Mini-PC mit Windows 11 Pro).
   Vor dem Bau klären: nur Team oder auch Gäste (dann Gästeansicht ohne Namen), Ausrichtung, Gerät.
+- **Vorschläge 09.11.2026 (offen):** To-Dos je Mitarbeiter mit eigenem Login und Rolle (RLS, nur eigene To-Dos, abhaken) –
+  Fragen offen: darf er To-Dos anlegen, Termine sehen? Klimasplit Kältebringer in airbnb steuern (Ist/Soll, Automatik nach
+  Belegung: Abreise 11 Uhr Sparbetrieb, vor Anreise hochheizen) – erst klären, welche App/Cloud die Geräte nutzen.
+  Check-in-Infos 24 Std. vorher: nicht über die App (airbnb gibt keine Gastdaten), sondern airbnb „Geplante Nachrichten“.
 - **Versions-Check** („Neue Version verfügbar – neu laden“) angeboten, Betreiber hat noch nicht entschieden.
 - **Eigene Adresse** (z. B. `platz.waldcamping-hesedorf.de` per CNAME auf `joelcode3.github.io`,
   danach Supabase „Site URL“ anpassen) – Betreiber entscheidet noch.

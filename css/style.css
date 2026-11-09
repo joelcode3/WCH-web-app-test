@@ -1194,3 +1194,44 @@ body.is-locked { padding-bottom: 0; }
   .card-list.has-pay > li:has(.pay-col.is-empty) > .card-row { border-radius: var(--radius); }
   .money-btn small { display: none; }
 }
+
+/* Kalender: Plus im ausgewählten Tag */
+.kal-plus { flex: none; width: 24px; height: 24px; margin: -2px auto -2px 2px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--wald); color: #fff; display: inline-grid; place-items: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.kal-plus svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; }
+.kal-plus:hover { background: var(--wald-hell); }
+@media (max-width: 860px) { .kal-plus { width: 22px; height: 22px; } .kal-plus svg { width: 14px; height: 14px; } }
+
+/* Infrastruktur: Kästen/Tanks kompakt, Inhalt zum Aufklappen */
+.infra-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 8px; align-items: start; }
+.infra-fold { background: var(--papier); border: 1px solid var(--linie); border-radius: var(--radius); min-width: 0; }
+.infra-fold[open] { box-shadow: var(--shadow); border-color: var(--wald-hell); }
+.infra-fold > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; min-height: 56px; }
+.infra-fold > summary::-webkit-details-marker { display: none; }
+.infra-fold .pin { flex: none; }
+.pin-house { width: 30px; height: 30px; display: inline-grid; place-items: center; }
+.pin-house svg { width: 18px; height: 18px; }
+.if-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.if-t { font-weight: 700; }
+.if-loc { font-size: .85rem; color: var(--text-leise); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.if-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.if-c { font-size: .8rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #eef0ea; white-space: nowrap; }
+.if-c.is-free { background: #e3f2da; color: #2b6a33; }
+.if-chev { flex: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; color: var(--text-leise); transition: transform .15s; }
+.infra-fold[open] .if-chev { transform: rotate(180deg); }
+.if-body { padding: 4px 14px 14px; border-top: 1px dashed var(--linie); }
+.section-head .btn-ghost[data-fold-all] { margin-left: auto; }
+@media (max-width: 860px) {
+  .infra-list { grid-template-columns: 1fr; }
+  .infra-fold > summary { gap: 10px; padding: 8px 12px; }
+}
+@media (max-width: 860px) {
+  .infra-fold > summary { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "pin main chev" "pin counts chev"; row-gap: 4px; }
+  .infra-fold > summary > .pin { grid-area: pin; }
+  .infra-fold .if-main { grid-area: main; }
+  .infra-fold .if-counts { grid-area: counts; justify-content: flex-start; }
+  .infra-fold .if-chev { grid-area: chev; }
+  .kal-day { position: relative; }
+  .kal-plus { position: absolute; top: -7px; right: -7px; margin: 0; z-index: 5; width: 20px; height: 20px; border: 2px solid var(--papier); }
+  .kal-plus svg { width: 12px; height: 12px; }
+}

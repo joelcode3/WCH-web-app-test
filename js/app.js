@@ -1919,6 +1919,7 @@
      ====================================================================== */
 
   const Technik = {
+    openIds: new Set(),   // aufgeklappte Kästen/Tanks (bleiben beim Neuzeichnen offen)
     // typ: 'strom' (Stromkästen, Zähler im Haus) | 'gas' (Gastanks, Gasflaschen)
     render(root, typ = 'strom') {
       const boxes = S.boxesSorted();
@@ -1933,6 +1934,12 @@
         const list = parcels.filter((p) => p && !seen.has(p.id) && seen.add(p.id)).sort((x, y) => S.compareNr(x.nr, y.nr));
         return list.length ? `<ul class="tenant-rows">${list.map((p) => `<li><a href="#/parzelle/${p.id}">${nrBadge(p, 'nr-sm')}<span class="${p.tenant.name ? '' : 'muted'}">${h(tenantName(p))}</span></a></li>`).join('')}</ul>` : '';
       };
+      // kompakte Zeile zum Aufklappen: Kopf mit Symbol, Name, Ort und Zahlen; Inhalt erst nach Klick
+      const fold = (id, head, sub, counts, body) => `<details class="infra-fold" data-fold="${id}"${this.openIds.has(id) ? ' open' : ''}>
+        <summary>${head}<span class="if-main"><span class="if-t">${sub[0]}</span>${sub[1] ? `<span class="if-loc">${h(sub[1])}</span>` : ''}</span>
+          <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="if-body">${body}</div></details>`;
+      const cnt = (n, one, many, cls = '') => (n ? `<span class="if-c${cls ? ' ' + cls : ''}">${n} ${n === 1 ? one : many}</span>` : '');
       const otherRows = (ms) => (ms.length ? `<ul class="tenant-rows">${ms.map((m) => `<li><span class="tr-static">${S.isFreeMeter(m) ? '<span class="nr nr-sm nr-free">F</span>' : serviceBadge()}<span>${h(S.purposeText(m))}${m.number ? ` <span class="mono muted small">${h(m.number)}</span>` : ''}</span></span></li>`).join('')}</ul>` : '');
 
       root.innerHTML = `
@@ -1943,60 +1950,54 @@
           ${unassigned.length ? `<p class="notice">${unassigned.length} Stromzähler sind keinem Kasten zugeordnet: ${unassigned.map((m) => { const p = S.parcel(m.parcelId); return p ? chip(p) : h(S.purposeText(m)); }).join(' ')}</p>` : ''}
           <div class="page-head section-head">
             <h2>Stromkästen</h2>
+            <button type="button" class="btn btn-ghost btn-sm" data-fold-all></button>
             <button class="btn btn-sm" data-new="box">${ICON.plus} Stromkasten</button>
           </div>
-          <div class="cards">
+          <div class="infra-list">
             ${boxes.map((b) => {
               const ms = S.metersInBox(b.id);
-              const svc = ms.filter((m) => S.isService(m));
-              return `<section class="card">
-                <h3><span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(b.nr)}</span></span> Stromkasten ${h(b.nr)}</h3>
-                ${b.location ? `<p class="muted small" style="margin:-6px 0 10px">${h(b.location)}</p>` : ''}
-                ${rows(ms.map((m) => S.parcel(m.parcelId))) || (svc.length ? '' : '<p class="muted small">Noch keine Zähler.</p>')}
-                ${otherRows(svc)}
+              const svc = ms.filter((m) => S.isService(m) && !S.isFreeMeter(m));
+              const free = ms.filter((m) => S.isFreeMeter(m));
+              const ps = new Set(ms.filter((m) => m.parcelId && S.parcel(m.parcelId)).map((m) => m.parcelId)).size;
+              return fold(`box:${b.id}`, `<span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(b.nr)}</span></span>`,
+                [`Stromkasten ${h(b.nr)}`, b.location || (b.pos ? '' : 'noch nicht auf der Map')],
+                (cnt(ps, 'Parzelle', 'Parzellen') + cnt(svc.length, 'Betrieb', 'Betrieb') + cnt(free.length, 'frei', 'frei', 'is-free')) || '<span class="if-c muted">keine Zähler</span>',
+                `${rows(ms.map((m) => S.parcel(m.parcelId))) || (svc.length || free.length ? '' : '<p class="muted small">Noch keine Zähler.</p>')}
+                ${otherRows(ms.filter((m) => S.isService(m)))}
                 <div class="card-actions">
                   ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-box="${b.id}">${ICON.edit} Bearbeiten</button>
                   <a class="btn btn-ghost btn-sm" href="#/ablesung?typ=strom&gruppe=${b.id}">Ablesen</a>
-                </div>
-              </section>`;
+                </div>`);
             }).join('') || '<p class="muted">Noch keine Stromkästen angelegt.</p>'}
-          </div>
-
-          <div class="cards" style="margin-top:14px">
-            <section class="card">
-              <h3>${ICON.strom} Zähler im Haus</h3>
-              <p class="small muted" style="margin:0 0 8px">Stromzähler, die beim Mieter im Haus hängen (kein Kasten)</p>
-              ${rows(inHouse.map((m) => S.parcel(m.parcelId))) || '<p class="muted small">–</p>'}
-            </section>
+            ${fold('haus', `<span class="pin pin-box pin-house" style="transform:none">${ICON.house}</span>`, ['Zähler im Haus', 'beim Mieter, kein Kasten'],
+              cnt(inHouse.length, 'Zähler', 'Zähler') || '<span class="if-c muted">keine</span>',
+              rows(inHouse.map((m) => S.parcel(m.parcelId))) || '<p class="muted small">–</p>')}
           </div>
 
           ` : `
           <div class="page-head section-head">
             <h2>Gastanks</h2>
+            <button type="button" class="btn btn-ghost btn-sm" data-fold-all></button>
             <button class="btn btn-sm" data-new="tank">${ICON.plus} Gastank</button>
           </div>
-          <div class="cards">
+          <div class="infra-list">
             ${tanks.map((t) => {
               const ps = S.parcelsOnTank(t.id);
               const info = [t.capacity, t.notes].filter(Boolean).join(' · ');
-              return `<section class="card">
-                <h3><span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span> Gastank ${h(t.nr)}</h3>
-                ${info ? `<p class="muted small" style="margin:-6px 0 10px">${h(info)}</p>` : ''}
-                ${rows(ps) || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
+              return fold(`tank:${t.id}`, `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span>`,
+                [`Gastank ${h(t.nr)}`, info || (t.pos ? '' : 'noch nicht auf der Map')],
+                cnt(ps.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine Parzellen</span>',
+                `${rows(ps) || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
                 <div class="card-actions">
                   ${t.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/tank/${t.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-tank="${t.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-tank="${t.id}">${ICON.edit} Bearbeiten</button>
                   <a class="btn btn-ghost btn-sm" href="#/ablesung?typ=gas&gruppe=${t.id}">Ablesen</a>
-                </div>
-              </section>`;
+                </div>`);
             }).join('') || '<p class="muted">Noch keine Gastanks angelegt.</p>'}
-          </div>
-
-          <div class="card" style="margin-top:14px">
-            <h3>${ICON.gas} Gasflaschen</h3>
-            <p class="small muted" style="margin:0 0 8px">Parzellen, die mit Gasflaschen versorgt werden (kein Zähler)</p>
-            ${rows(S.parcelsSorted().filter((p) => p.gas === 'bottle')) || '<p class="muted small">–</p>'}
+            ${(() => { const bt = S.parcelsSorted().filter((p) => p.gas === 'bottle');
+              return fold('flaschen', `<span class="pin pin-tank pin-house" style="transform:none">${ICON.gas}</span>`, ['Gasflaschen', 'kein Zähler'],
+                cnt(bt.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine</span>', rows(bt) || '<p class="muted small">–</p>'); })()}
           </div>
           `}
         </div>`;
@@ -2009,6 +2010,16 @@
       $$('[data-edit-tank]', root).forEach((b) => b.onclick = () => Actions.editTank(b.dataset.editTank));
       $$('[data-place-box]', root).forEach((b) => b.onclick = () => Actions.placeBox(b.dataset.placeBox));
       $$('[data-place-tank]', root).forEach((b) => b.onclick = () => Actions.placeTank(b.dataset.placeTank));
+      // Auf-/Zuklappen merken; Knopf „Alle aufklappen / zuklappen“
+      const folds = $$('.infra-fold', root);
+      const allBtn = $('[data-fold-all]', root);
+      const syncAll = () => { if (allBtn) allBtn.textContent = folds.length && folds.every((d) => d.open) ? 'Alle zuklappen' : 'Alle aufklappen'; };
+      folds.forEach((d) => d.addEventListener('toggle', () => {
+        if (d.open) this.openIds.add(d.dataset.fold); else this.openIds.delete(d.dataset.fold);
+        syncAll();
+      }));
+      if (allBtn) allBtn.onclick = () => { const open = !folds.every((d) => d.open); folds.forEach((d) => { d.open = open; }); };
+      syncAll();
       this._rerender = rerender;
     },
   };
@@ -2411,7 +2422,7 @@
       const d = S.data;
       root.innerHTML = `
         <div class="page">
-          <div class="page-head"><h1>Daten</h1></div>
+          <div class="page-head"><h1>Einstellungen</h1></div>
           <div class="summary">
             <div class="stat"><div class="v">${d.parcels.length}</div><div class="l">Parzellen</div></div>
             <div class="stat"><div class="v">${d.boxes.length}</div><div class="l">Stromkästen</div></div>
@@ -3109,6 +3120,8 @@
         this.renderGrid(); this.renderAgenda();
       };
       $('#k-grid', root).addEventListener('click', (e) => {
+        const plus = e.target.closest('[data-k-plus]');
+        if (plus) { this.edit(null, 'termin', plus.dataset.kPlus); return; }
         const chip = e.target.closest('[data-k-open]');
         if (chip && window.matchMedia('(min-width: 861px)').matches) { this.open(chip.dataset.kOpen); return; }
         const cell = e.target.closest('[data-d]');
@@ -3195,7 +3208,7 @@
         const free = i % 7 >= 5 || (window.Feiertage && Feiertage.isNiHoliday(d));
         const cls = ['kal-day', +d.slice(5, 7) - 1 !== m ? 'is-other' : '', d === t ? 'is-today' : '', d === this.sel ? 'is-sel' : '', free ? 'is-we' : '', d < t ? 'is-past' : ''].filter(Boolean).join(' ');
         html += `<div class="${cls}" data-d="${d}" role="button" tabindex="0" aria-label="${fmtDayLong(d)}${ent.length ? `, ${ent.length} Einträge` : ''}">
-          <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
+          <div class="kal-dh"><span class="kal-num">${+d.slice(8)}</span>${d === this.sel ? `<button type="button" class="kal-plus" data-k-plus="${d}" title="Neuer Eintrag am ${fmtDayLong(d)}" aria-label="Neuer Eintrag an diesem Tag">${ICON.plus}</button>` : ''}${wx ? `<span class="kal-wx" title="${h(Wetter.kind(wx.code)[1])}">${Wetter.icon(Wetter.kind(wx.code)[0])}${deg0(wx.max)}°</span>` : ''}</div>
           ${this.airbnbIcons(d)}<div class="kal-chips">${ent.slice(0, 4).map((e) => `<span class="kal-chip${e.multi ? ' is-multi' : ''}${e.multi && !e.first ? ' is-cont' : ''}${e.done ? ' is-done' : ''}${e.abs ? ' is-abs' : ''}${e.ft ? ' is-ft' : ''}" style="--c:${e.color}"${e.ref ? ` data-k-open="${e.ref}"` : ''} title="${h(e.kind)}: ${h(e.info || e.title)}">${e.time ? `<b>${h(e.time)}</b> ` : ''}${e.frist ? 'Deadline: ' : ''}${h(e.title)}</span>`).join('')}
             ${ent.length > 4 ? `<span class="kal-more">+${ent.length - 4} weitere</span>` : ''}</div>
           ${week.lanes.length ? `<div class="kal-bands">${band}</div>` : ''}
@@ -3494,7 +3507,7 @@
     viewMap.hidden = true;
     viewPage.hidden = false;
     viewPage.scrollTop = 0;
-    const titles = { kalender: 'Kalender', airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Mieter', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Daten' };
+    const titles = { kalender: 'Kalender', airbnb: 'airbnb', todos: 'To-Dos', todo: 'To-Do', kasten: 'Stromkasten', kartei: 'Mieter', parzelle: 'Parzelle', neu: 'Neue Parzelle', technik: 'Infrastruktur', ablesung: 'Ablesung', verbrauch: 'Verbrauch', auslastung: 'Auslastung', daten: 'Einstellungen' };
     document.title = `${titles[parts[0]] || ''} · Platzverwaltung`;
 
     MoneyLock.editHook = null;
@@ -3692,7 +3705,7 @@
     route();
     if (Daten.planDiff() && !sessionStorage.getItem('wch-plan-hint')) {
       try { sessionStorage.setItem('wch-plan-hint', '1'); } catch (_) { /* egal */ }
-      setTimeout(() => toast('Neue Parzellennummern im Lageplan – unter „Daten“ übernehmen'), 800);
+      setTimeout(() => toast('Neue Parzellennummern im Lageplan – unter „Einstellungen“ übernehmen'), 800);
     }
   }
 
