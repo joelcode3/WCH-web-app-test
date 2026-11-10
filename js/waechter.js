@@ -8,7 +8,11 @@
 (function () {
   'use strict';
 
-  const OFFLINE_MIN = 30, FROST_TEMP = 6;
+  const OFFLINE_MIN = 30, OFFLINE_MIN_NIGHT = 180, FROST_TEMP = 6;
+  // wie in der Funktion hue-waechter: Ausfall ab 22–8 Uhr gilt erst nach 3 Std. als Alarm
+  const berlinHour = (d) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: 'numeric', hourCycle: 'h23' }).formatToParts(d).find((p) => p.type === 'hour').value);
+  const limitFor = (iso) => { if (!iso) return OFFLINE_MIN; const hr = berlinHour(new Date(iso)); return hr >= 22 || hr < 8 ? OFFLINE_MIN_NIGHT : OFFLINE_MIN; };
+  const isLong = (r) => ago(r.last_ok || r.since) >= limitFor(r.last_ok || r.since);
   const h = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const time = (iso) => (iso ? new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '') : '');
   // kurze Uhrzeit fürs Feld neben dem Foto: heute nur „03:20“, sonst „02.11. 03:20“
@@ -65,8 +69,7 @@
       if (!r || !r.connected) return null;
       if (r.error) return { level: 'warn', text: 'Hue-Zugang erneuern' };
       if (r.online === false) {
-        const m = ago(r.last_ok || r.since);
-        return { level: m >= OFFLINE_MIN ? 'alarm' : 'warn', text: `kein Kontakt seit ${time(r.last_ok || r.since)}` };
+        return { level: isLong(r) ? 'alarm' : 'warn', text: `kein Kontakt seit ${time(r.last_ok || r.since)}` };
       }
       if (r.online == null) return { level: 'wait', text: 'wird geprüft' };
       const cold = (r.sensors || []).filter((x) => typeof x.temp === 'number' && x.temp < FROST_TEMP);
@@ -83,7 +86,7 @@
         const r = this.get(o.id);
         if (!r || !r.connected) return;
         const add = (key, level, text) => out.push({ id: o.id, key: `${o.id}:${key}`, level, name: o.name, text });
-        if (r.online === false && ago(r.last_ok || r.since) >= OFFLINE_MIN) add('offline', 'alarm', `Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – Internet oder Strom im Bus prüfen (Bridge kurz aus- und einstecken)`);
+        if (r.online === false && isLong(r)) add('offline', 'alarm', `Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – Internet oder Strom im Bus prüfen (Bridge kurz aus- und einstecken)`);
         const cold = (r.sensors || []).filter((x) => typeof x.temp === 'number' && x.temp < FROST_TEMP);
         if (r.online !== false && cold.length) add('frost', 'alarm', `Frostgefahr: Bad bei ${deg(Math.min(...cold.map((x) => x.temp)))}`);
         const weak = (r.sensors || []).filter((x) => typeof x.battery === 'number' && x.battery <= 15);
@@ -138,7 +141,7 @@
       }
       const s = this.summary(o.id);
       const lines = [];
-      if (r.online === false) lines.push(`<li class="is-alarm"><i></i><span>Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – möglicher Stromausfall${ago(r.last_ok || r.since) >= OFFLINE_MIN ? (r.alarm_offline ? ' (SMS verschickt)' : '') : ' (Warnung nach 30 Min.)'}</span></li>`);
+      if (r.online === false) lines.push(`<li class="is-alarm"><i></i><span>Hue Bridge nicht erreichbar seit ${time(r.last_ok || r.since)} – möglicher Stromausfall${isLong(r) ? (r.alarm_offline ? ' (SMS verschickt)' : '') : limitFor(r.last_ok || r.since) > OFFLINE_MIN ? ' (nachts Warnung erst nach 3 Std.)' : ' (Warnung nach 30 Min.)'}</span></li>`);
       else if (r.online === true) lines.push(`<li class="is-ok"><i></i><span>Strom ok – Hue Bridge erreichbar</span></li>`);
       else lines.push('<li class="is-wait"><i></i><span>Wird gleich geprüft …</span></li>');
       (r.sensors || []).forEach((x) => {
@@ -181,8 +184,7 @@
       const rows = [];
       // Zeile 1: Strom (Bridge erreichbar?)
       if (r.online === false) {
-        const m = ago(r.last_ok || r.since);
-        rows.push(`<div class="wd-row is-wrap is-${m >= OFFLINE_MIN ? 'alarm' : 'warn'}"><i></i>${PLUG}<span>Bus: offline seit ${hm(r.last_ok || r.since)}</span></div>`);
+        rows.push(`<div class="wd-row is-wrap is-${isLong(r) ? 'alarm' : 'warn'}"><i></i>${PLUG}<span>Bus: offline seit ${hm(r.last_ok || r.since)}</span></div>`);
       } else if (r.online === true) rows.push(`<div class="wd-row is-ok"><i></i>${PLUG}<span>Bus: online</span></div>`);
       else rows.push(`<div class="wd-row is-wait"><i></i>${PLUG}<span>Bus: wird geprüft</span></div>`);
       // Zeile 2: Temperatur und Batterie je Melder („Bus 1 - Bad Temperatur“ → „Bad“)
