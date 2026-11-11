@@ -2,7 +2,7 @@
  * Klimaanlagen (Heizung) in den airbnb-Unterkünften – Anzeige und Bedienung.
  *
  * Gesteuert wird über die Supabase-Funktion "klima" (Tuya-Cloud). Die Funktion liest stündlich
- * den Zustand und schaltet nach der Belegung (Abreise ab 11 Uhr Sparbetrieb, Anreise ab 13 Uhr
+ * den Zustand und schaltet nach der Belegung (Abreise ab 11 Uhr Sparbetrieb, Anreise ab 15 Uhr
  * Wohlfühltemperatur). Die App zeigt den Zustand aus der Tabelle "klima" und bietet an/aus,
  * Soll-Temperatur − / +, Automatik an/aus und „Aktualisieren“ (fragt Klima und Stromwächter live ab).
  * Ohne Supabase (Testmodus) gibt es Beispielwerte.
@@ -55,7 +55,7 @@
       window.Store.airbnbs().filter((o) => o.kind === 'londonbus').forEach((o, i) => {
         this.rows[o.id] = { place_id: o.id, device_id: 'demo' + i, auto: true, temp_spar: 16, temp_komfort: 22, online: true,
           an: true, modus: 'hot', soll: i ? 16 : 22, ist: i ? 17 : 22, geprueft: now, auto_letzte: '', fehler: '',
-          auto_info: i ? 'Abreise heute – Sparbetrieb: 16 °C (11:00)' : 'Anreise heute – hochgeheizt: 22 °C (13:00)' };
+          auto_info: i ? 'Abreise heute – Sparbetrieb: 16 °C (11:00)' : 'Anreise heute – hochgeheizt: 22 °C (15:00)' };
       });
     },
 
@@ -114,6 +114,7 @@
           const r = this.get(o.id);
           if (!r) return;
           if (act === 'temps') { this.editTemps(o, toast); return; }
+          if (['power', 'plus', 'minus'].includes(act) && !this.confirmBusy(o, act, r)) return;
           if (window.Store.mode !== 'cloud') {
             // Testmodus: nur in der Anzeige ändern
             if (act === 'power') r.an = !r.an;
@@ -153,12 +154,25 @@
       });
     },
 
+    // Bus gerade belegt oder geblockt? Dann vor dem Schalten nachfragen (je Bus höchstens alle 5 Minuten)
+    asked: {},
+    confirmBusy(o, act, r) {
+      const st = window.Airbnb && Airbnb.nowStatus(o);
+      if (!st || (st.cls !== 'busy' && st.cls !== 'blk')) return true;
+      if (this.asked[o.id] && Date.now() - this.asked[o.id] < 5 * 60000) return true;
+      const what = act === 'power' ? (r.an ? 'ausschalten' : 'einschalten') : 'die Temperatur ändern';
+      const why = st.cls === 'busy' ? 'ist gerade belegt – Gäste sind im Bus' : 'ist gerade geblockt';
+      if (!confirm(`${o.name} ${why}.\n\nHeizung trotzdem ${what}?`)) return false;
+      this.asked[o.id] = Date.now();
+      return true;
+    },
+
     // Spar- und Wohlfühltemperatur ändern (im Bearbeiten-Modus der Map)
     async editTemps(o, toast) {
       const r = this.get(o.id);
       const spar = prompt(`Sparbetrieb nach der Abreise für „${o.name}“ (°C, 16–30):`, String(r.temp_spar).replace('.', ','));
       if (spar === null) return;
-      const komfort = prompt(`Wohlfühltemperatur am Anreisetag ab 13 Uhr (°C, 16–30):\nGemessen wird oben am Gerät – unten ist es etwas kühler.`, String(r.temp_komfort).replace('.', ','));
+      const komfort = prompt(`Wohlfühltemperatur am Anreisetag ab 15 Uhr (°C, 16–30):\nGemessen wird oben am Gerät – unten ist es etwas kühler.`, String(r.temp_komfort).replace('.', ','));
       if (komfort === null) return;
       const n = (v) => Math.min(30, Math.max(16, Math.round(parseFloat(String(v).replace(',', '.')) * 2) / 2));
       const vals = { temp_spar: n(spar), temp_komfort: n(komfort) };

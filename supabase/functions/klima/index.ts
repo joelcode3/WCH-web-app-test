@@ -9,7 +9,7 @@
 //   - Zustand aller Geräte lesen und in "klima" speichern (für die Anzeige in der App)
 //   - Automatik (Oktober–April, je Unterkunft abschaltbar), nach dem airbnb-Kalender:
 //       Abreisetag ab 11 Uhr → Heizen auf Sparbetrieb (Standard 16 °C)
-//       Anreisetag ab 13 Uhr → Heizen auf Wohlfühltemperatur (Standard 22 °C)
+//       Anreisetag ab 15 Uhr → Heizen auf Wohlfühltemperatur (Standard 22 °C)
 //     Geschaltet wird nur einmal je Ereignis – was Gäste danach einstellen, bleibt.
 // Verweigert Tuya den Zugriff (z. B. Probezeitraum abgelaufen), gibt es einmal eine SMS.
 //
@@ -27,7 +27,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 export const AUTO_MONTHS = [10, 11, 12, 1, 2, 3, 4];   // Automatik nur in der Heizperiode
 export const SPAR_AB = 11;                              // Abreisetag: ab 11 Uhr Sparbetrieb
-export const KOMFORT_AB = 13;                           // Anreisetag: ab 13 Uhr hochheizen
+export const KOMFORT_AB = 15;                           // Anreisetag: ab 15 Uhr hochheizen (Anreise 16 Uhr)
 const MIN_SOLL = 16, MAX_SOLL = 30;
 
 const CORS = {
