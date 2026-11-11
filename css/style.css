@@ -1235,3 +1235,33 @@ body.is-locked { padding-bottom: 0; }
   .kal-plus { position: absolute; top: -7px; right: -7px; margin: 0; z-index: 5; width: 20px; height: 20px; border: 2px solid var(--papier); }
   .kal-plus svg { width: 12px; height: 12px; }
 }
+
+/* Heizung (Klimaanlage über Tuya) im airbnb-Fenster */
+.kl-box { display: flex; flex-direction: column; gap: 6px; background: #fbf4ec; border: 1px solid #efdcc6; border-radius: var(--radius); padding: 8px 10px; margin: -2px 0 12px; }
+.kl-box.is-warn { border-color: #e7c66d; background: #fbf1d6; }
+.kl-box.is-busy { opacity: .65; }
+.kl-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kl-t { display: inline-flex; align-items: center; gap: 6px; font-size: .92rem; }
+.kl-t svg { width: 17px; height: 17px; fill: none; stroke: #d9822b; stroke-width: 2; stroke-linejoin: round; }
+.kl-state { font-weight: 700; }
+.kl-state.is-on { color: #2b8a3e; }
+.kl-state.is-aus { color: var(--text-leise); }
+.kl-state.is-off { color: var(--gefahr); }
+.kl-icon { border: 0; background: none; padding: 4px; border-radius: 50%; cursor: pointer; color: var(--text-leise); display: inline-grid; place-items: center; }
+.kl-icon:hover { background: rgba(0,0,0,.06); color: var(--text); }
+.kl-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.kl-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kl-ist { flex: 1; min-width: 92px; white-space: nowrap; }
+.kl-ist strong { font-size: 1.15rem; }
+.kl-soll { display: inline-flex; align-items: center; gap: 6px; }
+.kl-sv { white-space: nowrap; }
+.kl-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--linie); background: #fff; font-size: 1.2rem; font-weight: 700; line-height: 1;
+  display: inline-grid; place-items: center; cursor: pointer; color: var(--text); padding: 0; }
+.kl-btn:hover:not(:disabled) { border-color: var(--wald-hell); }
+.kl-btn:disabled { opacity: .45; cursor: default; }
+.kl-power svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.kl-power.is-on { background: #2b8a3e; border-color: #2b8a3e; color: #fff; }
+.kl-auto { display: flex; align-items: flex-start; gap: 6px; font-size: .82rem; color: var(--text-leise); cursor: pointer; }
+.kl-auto input { margin: 1px 0 0; width: 16px; height: 16px; accent-color: #2b8a3e; flex: none; }
+.kl-box .small { font-size: .78rem; }
+.kl-auto .nw { white-space: nowrap; }

@@ -722,6 +722,7 @@
               ${window.Waechter ? Waechter.compactHtml(o, MapView.editMode) : ''}
             </div>
           </div>
+          ${window.Klima ? Klima.panelHtml(o, MapView.editMode) : ''}
           <div class="airbnb-notes">
             ${!o.icalUrl ? '<span class="muted small">Kein Kalender-Link hinterlegt (Bearbeiten)</span>' : ''}
             ${Airbnb.state === 'demo' ? '<span class="muted small">Testmodus: Beispiel-Belegung</span>' : ''}
@@ -754,6 +755,7 @@
 
     bindAirbnbPanel(panel, o) {
       if (window.Waechter) Waechter.bind(panel, o, toast);
+      if (window.Klima) Klima.bind(panel, o, toast);
       const cal = $('#airbnb-cal', panel);
       cal.addEventListener('click', (e) => {
         const b = e.target.closest('[data-cal]');
@@ -3458,6 +3460,7 @@
               <div class="ab-info"><strong>${h(o.name)}</strong>
                 <span class="muted small">${h(S.PLACE_KINDS[o.kind].label)}</span>
                 ${window.Waechter ? Waechter.chipHtml(o.id) : ''}
+                ${window.Klima ? Klima.chipHtml(o.id) : ''}
                 ${Airbnb.errors[o.id] ? `<span class="small warn">${h(Airbnb.errors[o.id])}</span>` : ''}
                 ${!o.icalUrl ? '<span class="small muted">kein Kalender-Link hinterlegt</span>' : ''}
                 ${occ !== null ? `<span class="muted small">${occ} % belegt im ${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][t.getMonth()]}</span>` : ''}
@@ -3689,6 +3692,16 @@
     Waechter.load();
     setInterval(() => { if (document.visibilityState === 'visible') Waechter.load(); }, 2 * 60000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Waechter.load(); });
+    // Heizung (Klimaanlagen über Tuya): Zustand aus der Datenbank, alle 5 Minuten auffrischen
+    // (die Funktion "klima" liest die Geräte stündlich; „Aktualisieren“ fragt sofort ab)
+    Klima.onChange(() => {
+      const sel = MapView.selected;
+      if (!$('#view-karte').hidden && sel && sel.type === 'place') MapUI.showPanel('place', sel.id);
+      if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
+    });
+    Klima.load();
+    setInterval(() => { if (document.visibilityState === 'visible') Klima.load(); }, 5 * 60000);
+    S.onSync(() => { if (S.mode === 'cloud' && !Klima.syncedOnce) { Klima.syncedOnce = true; Klima.load(); } });
     // Daten erst nach dem Start aus der Cloud geladen? Dann Kalender sofort nachholen
     S.onSync(() => { if (!Airbnb.fetchedAt && S.airbnbs().length) Airbnb.load(); });
     S.onSync(() => { if (S.mode === 'cloud' && !Waechter.syncedOnce) { Waechter.syncedOnce = true; Waechter.load(); } });
