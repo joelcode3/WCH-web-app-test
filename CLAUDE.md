@@ -31,17 +31,17 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 ## Technik
 - Statische Web-App (Vanilla JS, Hash-Router), gehostet auf **GitHub Pages**:
   https://joelcode3.github.io/WCH-web-app-test/
-- **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Functions `airbnb-kalender`, `hue-waechter`, `klima`).
+- **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Functions `airbnb-kalender`, `hue-waechter`, `klima`, `ms-todo`).
   Zugangsdaten in `js/config.js` (nur der öffentliche Publishable Key – **nie** nach dem Secret-/Service-Key fragen).
   Zugriff nur für E-Mails in der Tabelle `team` (RLS über `is_team_member()`).
 - Dateien: `js/data.js` (Datenmodell, Store), `js/cloud.js` (Supabase-Sync, nur Änderungen),
-  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/waechter.js`, `js/klima.js`, `js/wetter.js` (Open-Meteo, Hesedorf 53.23/9.32), `js/feiertage.js`, `js/photos.js`, `js/auth.js`.
+  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/waechter.js`, `js/klima.js`, `js/mstodo.js`, `js/wetter.js` (Open-Meteo, Hesedorf 53.23/9.32), `js/feiertage.js`, `js/photos.js`, `js/auth.js`.
 - **Versionsnummer** `?v=JJJJMMTT-n` an allen CSS/JS-/Plan-Dateien in `index.html` und `js/config.js`
   bei jeder Änderung hochzählen (sonst zeigt der Browser alte Dateien).
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-14 (14: Tabelle `klima` für die Heizung; 13: Spalte `parcels.miete` jsonb; 8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
+  Bisher: update-2 … update-15 (15: Microsoft To Do – ms_todo_konto/oauth/aufgaben geheim, ms_todo_status lesbar; 14: Tabelle `klima` für die Heizung; 13: Spalte `parcels.miete` jsonb; 8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
   10: `termine` für den Kalender, `airbnb_belegung` = von der App aufgezeichnete Buchungen, weil airbnb vergangene nicht liefert;
   11: Art `reservierung` + Spalte `anzahl` in `termine`, To-Do-Ziel `termin`, Spalte `todos.kalender`; 12: Kategorie `extern`).
 - Mieter-Ansicht (Parzelle): oben Mieter · Grundstück · **Miete**; unten ein Block **Infrastruktur** (Strom + Gas/Gasflaschen + Heizung).
@@ -82,6 +82,11 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   (Gäste-Einstellungen bleiben; geblockte Tage sind keine Gäste). Schalten in der App fragt nach, wenn der Bus gerade belegt/geblockt ist. App `js/klima.js`: Kasten „Heizung“ im airbnb-Fenster (an/aus, Soll −/+, Automatik,
   Aktualisieren = Klima + Stromwächter live). Bewusst schlicht: keine Modus-Auswahl (vom Betreiber so gewünscht).
   Stromwächter bleibt bei 5 Minuten (Schutzfunktion, Hue kostenlos).
+- **Microsoft To Do (GEBAUT 11.11.2026)**: Kollege nutzt weiter To Do (privates Konto, eine Liste). Funktion `supabase/functions/ms-todo`
+  (Graph API, OAuth „consumers“, Scope Tasks.ReadWrite, alle 15 Min. per `ms-todo-zeitplan.sql`): nur Titel mit „Camping“ am Anfang
+  (Wort fällt weg), To-Do-ID `ms-…`, Badge „To Do“ in der Liste. To Do → App: neu, Titel/Notiz/Fälligkeit, erledigt/wieder offen.
+  App → To Do: nur „erledigt“ (abhaken). Zuständigkeit/Ort wird in der App geklärt. In der App gelöschte kommen nicht wieder.
+  Verbinden/Abgleichen/Trennen im Reiter Einstellungen (`js/mstodo.js`). Client Secret läuft nach 24 Monaten ab.
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.

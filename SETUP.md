@@ -148,6 +148,33 @@ einschalten oder auf der Fernbedienung OPTION → DISPLAY mehrmals langsam schal
 die genaue Tastenfolge steht nicht in der Anleitung. Neue Geräte erscheinen automatisch im Tuya-Projekt; die Geräte-ID dann in der Tabelle
 `klima` eintragen.
 
+### Aufgaben aus Microsoft To Do übernehmen
+
+Aufgaben in Microsoft To Do (privates Microsoft-Konto), deren Titel mit **„Camping“** beginnt, landen alle
+15 Minuten in der To-Do-Liste (Kennzeichen „To Do“, das Wort „Camping“ fällt weg). Änderungen in To Do
+(Titel, Notiz, Fälligkeit, erledigt) kommen mit; in der App auf „Erledigt“ gesetzt → in To Do abgehakt.
+Sonst wird nichts nach To Do geschrieben.
+
+1. **App-Registrierung bei Microsoft** (kostenlos): https://entra.microsoft.com mit einem Microsoft-Konto
+   anmelden (Microsoft verlangt evtl. ein kostenloses Azure-Konto) → **App registrations** → **New registration**:
+   - Name: `Platzverwaltung`
+   - Supported account types: **Personal Microsoft accounts only**
+   - Redirect URI: **Web** → `https://erobbkjhfauwvzfegeiw.supabase.co/functions/v1/ms-todo`
+   - **Register**. Auf der Übersicht die **Application (client) ID** kopieren.
+   - **Certificates & secrets** → **New client secret** (Laufzeit 24 Monate) → den **Value** kopieren
+     (wird nur einmal angezeigt).
+   - **API permissions** → **Add a permission** → Microsoft Graph → **Delegated** → `Tasks.ReadWrite`
+     und `offline_access` hinzufügen.
+2. **Secrets** in Supabase (Edge Functions → Secrets): `MS_CLIENT_ID` (Application ID) und
+   `MS_CLIENT_SECRET` (Value des Client Secrets).
+3. `supabase/update-15.sql` im **SQL Editor** ausführen.
+4. Funktion **ms-todo** anlegen (Deploy a new function → Via Editor, Inhalt von
+   `supabase/functions/ms-todo/index.ts`), danach **Verify JWT** ausschalten.
+5. `supabase/ms-todo-zeitplan.sql` im **SQL Editor** ausführen.
+6. In der App **Einstellungen → Microsoft To Do → Mit Microsoft verbinden** und mit dem Konto anmelden,
+   dessen To-Do-Liste übernommen werden soll (z. B. der Kollege meldet sich kurz am eigenen Gerät an).
+   Das Client Secret läuft nach 24 Monaten ab – dann neues Secret anlegen und in Supabase ersetzen.
+
 ### Pausieren verhindern (kostenloses Supabase-Paket)
 
 Supabase pausiert kostenlose Projekte nach 7 Tagen ohne Nutzung. Die GitHub-Aufgabe
