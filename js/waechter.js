@@ -202,7 +202,7 @@
         ${r.error ? `<span class="small warn" title="${h(r.error)}">Hue-Zugang abgelaufen</span>` : ''}
         ${r.sms_error ? `<span class="small warn" title="${h(r.sms_error)}">SMS-Versand fehlgeschlagen</span>` : ''}
         ${ago(r.last_check) >= 30 ? `<span class="small warn">Überwachung läuft nicht seit ${hm(r.last_check)}</span>` : ''}
-        <span class="small muted"><span class="nw">Warnung ab ${FROST_TEMP} °C</span>${r.error || editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="connect">neu verbinden</button>' : ''}${editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="disconnect">Trennen</button>' : ''}</span>
+        <span class="small muted"><span class="nw">Warnung bei unter ${FROST_TEMP} °C</span>${r.error || editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="connect">neu verbinden</button>' : ''}${editMode ? ' · <button type="button" class="link-btn muted-link" data-wd="disconnect">Trennen</button>' : ''}</span>
       </div>`;
     },
 

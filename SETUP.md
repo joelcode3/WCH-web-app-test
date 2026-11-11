@@ -127,7 +127,7 @@ Die Klimaanlagen (Kältebringer KB34 = TCL-Gerät) hängen in der App **Smart Li
 mit dem Tuya-Cloud-Projekt **Platzverwaltung** (platform.tuya.com, Rechenzentrum **Central Europe**) verknüpft;
 dort stehen beide Geräte mit Berechtigung **Controllable**. Die Supabase-Funktion `klima` liest stündlich
 an/aus, Soll-Temperatur und Temperatur am Gerät (gemessen oben am Innengerät) und schaltet nach der
-airbnb-Belegung: Abreisetag ab 11 Uhr Heizen auf 16 °C, Anreisetag ab 13 Uhr auf 20 °C (nur Oktober–April,
+airbnb-Belegung: Abreisetag ab 11 Uhr Heizen auf 16 °C, Anreisetag ab 13 Uhr auf 22 °C (nur Oktober–April,
 je Bus abschaltbar, Temperaturen im Bearbeiten-Modus der Map änderbar).
 
 1. `supabase/update-14.sql` im **SQL Editor** ausführen (legt die Tabelle `klima` an und trägt die beiden

@@ -21,7 +21,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Objektart nur „Pachtgrundstück“ / „Mietobjekt“ (ohne Zusätze).
 - airbnb-Kalender: belegt rot (#c45a5a), frei hellgrün (#e3f2da), geblockt grau. Kopfzeile im airbnb-Fenster:
   belegt (rot) / frei (grün) / geblockt (grau); Anreisetag ab 16 Uhr belegt, Abreisetag bis 11 Uhr belegt.
-- Stromwächter kompakt rechts neben dem Foto (Bus: online, Bad: °C + Batterie-Symbol mit Füllstand, Warnung ab 6 °C; Test-SMS im Reiter Einstellungen; „Überwachung läuft nicht“ erst ab 30 Min. ohne Prüfung).
+- Stromwächter kompakt rechts neben dem Foto (Bus: online, Bad: °C + Batterie-Symbol mit Füllstand, Warnung bei unter 6 °C; Test-SMS im Reiter Einstellungen; „Überwachung läuft nicht“ erst ab 30 Min. ohne Prüfung).
   Solange ein Problem besteht: rote/gelbe Leiste unter der Kopfzeile auf allen Seiten, bei neuem Alarm einmal ein Fenster (`renderAlarms` in app.js).
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
@@ -78,7 +78,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Geräte: Bus 1 (Wald) `1632020148e72974109f`, Bus 2 (Teich) `5835847824d7ebc9885b`. Werte: switch, mode (hot), temp_set
   (Zehntelgrad, 0,5er), temp_current (ganze Grad, oben am Gerät gemessen – Anzeige „am Gerät“; Fernbedienung hat kein I FEEL;
   Feuchte nicht vorhanden). Funktion `supabase/functions/klima` (stündlich per `klima-zeitplan.sql`, Tuya-Kontingent sparen):
-  Automatik Okt–Apr nach airbnb-Kalender: Abreisetag ab 11 Uhr 16 °C, Anreisetag ab 13 Uhr 20 °C, nur einmal je Ereignis
+  Automatik Okt–Apr nach airbnb-Kalender: Abreisetag ab 11 Uhr 16 °C, Anreisetag ab 13 Uhr 22 °C, nur einmal je Ereignis
   (Gäste-Einstellungen bleiben). App `js/klima.js`: Kasten „Heizung“ im airbnb-Fenster (an/aus, Soll −/+, Automatik,
   Aktualisieren = Klima + Stromwächter live). Bewusst schlicht: keine Modus-Auswahl (vom Betreiber so gewünscht).
   Stromwächter bleibt bei 5 Minuten (Schutzfunktion, Hue kostenlos).

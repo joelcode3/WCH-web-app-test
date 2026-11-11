@@ -53,9 +53,9 @@
       const now = new Date().toISOString();
       this.rows = {};
       window.Store.airbnbs().filter((o) => o.kind === 'londonbus').forEach((o, i) => {
-        this.rows[o.id] = { place_id: o.id, device_id: 'demo' + i, auto: true, temp_spar: 16, temp_komfort: 20, online: true,
-          an: true, modus: 'hot', soll: i ? 16 : 20, ist: i ? 17 : 22, geprueft: now, auto_letzte: '', fehler: '',
-          auto_info: i ? 'Abreise heute – Sparbetrieb: 16 °C (11:00)' : 'Anreise heute – hochgeheizt: 20 °C (13:00)' };
+        this.rows[o.id] = { place_id: o.id, device_id: 'demo' + i, auto: true, temp_spar: 16, temp_komfort: 22, online: true,
+          an: true, modus: 'hot', soll: i ? 16 : 22, ist: i ? 17 : 22, geprueft: now, auto_letzte: '', fehler: '',
+          auto_info: i ? 'Abreise heute – Sparbetrieb: 16 °C (11:00)' : 'Anreise heute – hochgeheizt: 22 °C (13:00)' };
       });
     },
 
