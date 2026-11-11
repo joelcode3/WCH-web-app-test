@@ -17,8 +17,8 @@
     const d = new Date(iso), t = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${t}`;
   };
-  // „11:00 Uhr, 11.11.2026“
-  const stand = (iso) => { const d = new Date(iso); return `${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr, ${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`; };
+  // „11.11.2026, 16:10 Uhr“
+  const stand = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`; };
   const MODUS = { hot: 'Heizen', cold: 'Kühlen', wet: 'Entfeuchten', wind: 'Lüften', auto: 'Auto' };
   const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.6 1.6-4.3 2.6-5.8.6 1.5 1.4 2.3 2.4 2.3 0-2.4-.8-4.3 0-6.5z"/></svg>';
   const POWER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"/></svg>';
@@ -84,7 +84,7 @@
       const state = off ? 'offline' : r.an == null ? '–' : r.an ? `an${r.modus && r.modus !== 'hot' ? ' · ' + (MODUS[r.modus] || r.modus) : ''}` : 'aus';
       return `<div class="kl-box${off || r.fehler ? ' is-warn' : ''}${busy ? ' is-busy' : ''}" data-kl="${h(o.id)}">
         <div class="kl-top">
-          <span class="kl-t">${FLAME}<strong>Heizung:</strong> <span class="kl-state is-${off ? 'off' : r.an ? 'on' : 'aus'}">${h(state)}</span>${r.geprueft ? ` <span class="small muted nw">(Stand: ${stand(r.geprueft)})</span>` : ''}</span>
+          <span class="kl-t">${FLAME}<strong>Heizung:</strong> <span class="kl-state is-${off ? 'off' : r.an ? 'on' : 'aus'}">${h(state)}</span>${r.geprueft ? ` <span class="kl-stand">(Stand: ${stand(r.geprueft)})</span>` : ''}</span>
           <button type="button" class="kl-icon" data-kl-act="refresh" title="Aktualisieren (Heizung und Stromwächter live abfragen)" aria-label="Aktualisieren"${busy ? ' disabled' : ''}>${REFRESH}</button>
         </div>
         <div class="kl-main">
