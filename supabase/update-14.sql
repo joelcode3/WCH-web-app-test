@@ -14,7 +14,7 @@ create table if not exists public.klima (
   device_id    text not null default '',          -- Tuya-Geräte-ID (platform.tuya.com → Devices)
   auto         boolean not null default true,     -- Automatik nach airbnb-Belegung
   temp_spar    numeric not null default 16,       -- nach der Abreise (ab 11 Uhr)
-  temp_komfort numeric not null default 23,       -- am Anreisetag (ab 13 Uhr)
+  temp_komfort numeric not null default 20,       -- am Anreisetag (ab 13 Uhr)
   online       boolean,
   an           boolean,
   modus        text not null default '',          -- hot = Heizen, cold, wet, wind, auto

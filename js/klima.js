@@ -17,6 +17,8 @@
     const d = new Date(iso), t = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${t}`;
   };
+  // „11:00 Uhr, 11.11.2026“
+  const stand = (iso) => { const d = new Date(iso); return `${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr, ${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`; };
   const MODUS = { hot: 'Heizen', cold: 'Kühlen', wet: 'Entfeuchten', wind: 'Lüften', auto: 'Auto' };
   const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.6 1.6-4.3 2.6-5.8.6 1.5 1.4 2.3 2.4 2.3 0-2.4-.8-4.3 0-6.5z"/></svg>';
   const POWER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"/></svg>';
@@ -51,9 +53,9 @@
       const now = new Date().toISOString();
       this.rows = {};
       window.Store.airbnbs().filter((o) => o.kind === 'londonbus').forEach((o, i) => {
-        this.rows[o.id] = { place_id: o.id, device_id: 'demo' + i, auto: true, temp_spar: 16, temp_komfort: 23, online: true,
-          an: true, modus: 'hot', soll: i ? 16 : 23, ist: i ? 17 : 22, geprueft: now, auto_letzte: '', fehler: '',
-          auto_info: i ? 'Abreise heute – Sparbetrieb: 16 °C (11:00)' : 'Anreise heute – hochgeheizt: 23 °C (13:00)' };
+        this.rows[o.id] = { place_id: o.id, device_id: 'demo' + i, auto: true, temp_spar: 16, temp_komfort: 20, online: true,
+          an: true, modus: 'hot', soll: i ? 16 : 20, ist: i ? 17 : 22, geprueft: now, auto_letzte: '', fehler: '',
+          auto_info: i ? 'Abreise heute – Sparbetrieb: 16 °C (11:00)' : 'Anreise heute – hochgeheizt: 20 °C (13:00)' };
       });
     },
 
@@ -82,7 +84,7 @@
       const state = off ? 'offline' : r.an == null ? '–' : r.an ? `an${r.modus && r.modus !== 'hot' ? ' · ' + (MODUS[r.modus] || r.modus) : ''}` : 'aus';
       return `<div class="kl-box${off || r.fehler ? ' is-warn' : ''}${busy ? ' is-busy' : ''}" data-kl="${h(o.id)}">
         <div class="kl-top">
-          <span class="kl-t">${FLAME}<strong>Heizung</strong> <span class="kl-state is-${off ? 'off' : r.an ? 'on' : 'aus'}">${h(state)}</span></span>
+          <span class="kl-t">${FLAME}<strong>Heizung:</strong> <span class="kl-state is-${off ? 'off' : r.an ? 'on' : 'aus'}">${h(state)}</span>${r.geprueft ? ` <span class="small muted nw">(Stand: ${stand(r.geprueft)})</span>` : ''}</span>
           <button type="button" class="kl-icon" data-kl-act="refresh" title="Aktualisieren (Heizung und Stromwächter live abfragen)" aria-label="Aktualisieren"${busy ? ' disabled' : ''}>${REFRESH}</button>
         </div>
         <div class="kl-main">
@@ -95,9 +97,8 @@
           <button type="button" class="kl-btn kl-power${r.an ? ' is-on' : ''}" data-kl-act="power" title="${r.an ? 'Ausschalten' : 'Einschalten'}" aria-label="${r.an ? 'Ausschalten' : 'Einschalten'}"${busy || off ? ' disabled' : ''}>${POWER}</button>
         </div>
         <label class="kl-auto"><input type="checkbox" data-kl-act="auto"${r.auto ? ' checked' : ''}${busy ? ' disabled' : ''}>
-          <span>Automatik: <span class="nw">Abreise ${deg(r.temp_spar)}</span> · <span class="nw">Anreise ab 13 Uhr ${deg(r.temp_komfort)}</span>${editMode ? ' · <button type="button" class="link-btn muted-link" data-kl-act="temps">ändern</button>' : ''}</span></label>
+          <span${r.auto_info ? ` title="Zuletzt: ${h(r.auto_info)}"` : ''}>Automatik: <span class="nw">frei ${deg(r.temp_spar)},</span> <span class="nw">gebucht ${deg(r.temp_komfort)}</span> <span class="nw">(Okt–Apr)</span>${editMode ? ' · <button type="button" class="link-btn muted-link" data-kl-act="temps">ändern</button>' : ''}</span></label>
         ${r.fehler ? `<span class="small warn" title="${h(r.fehler)}">${/expired|permission|subscription/i.test(r.fehler) ? 'Tuya-Zugang abgelaufen – Probezeit verlängern' : 'Fehler: ' + h(r.fehler)}</span>` : ''}
-        <span class="small muted">Stand ${hm(r.geprueft)}${r.auto_info ? ` · ${h(r.auto_info)}` : ''}</span>
       </div>`;
     },
 

@@ -9,7 +9,7 @@
 //   - Zustand aller Geräte lesen und in "klima" speichern (für die Anzeige in der App)
 //   - Automatik (Oktober–April, je Unterkunft abschaltbar), nach dem airbnb-Kalender:
 //       Abreisetag ab 11 Uhr → Heizen auf Sparbetrieb (Standard 16 °C)
-//       Anreisetag ab 13 Uhr → Heizen auf Wohlfühltemperatur (Standard 23 °C)
+//       Anreisetag ab 13 Uhr → Heizen auf Wohlfühltemperatur (Standard 20 °C)
 //     Geschaltet wird nur einmal je Ereignis – was Gäste danach einstellen, bleibt.
 // Verweigert Tuya den Zugriff (z. B. Probezeitraum abgelaufen), gibt es einmal eine SMS.
 //
@@ -68,7 +68,7 @@ export function autoAction(r: Row, bookings: { start: string; end: string }[], n
   const arrive = bookings.some((x) => x.start === b.day);
   const depart = bookings.some((x) => x.end === b.day);
   if (arrive && b.hour >= KOMFORT_AB && r.auto_letzte !== `${b.day}:komfort`) {
-    return { key: `${b.day}:komfort`, temp: Number(r.temp_komfort) || 23, info: 'Anreise heute – hochgeheizt' };
+    return { key: `${b.day}:komfort`, temp: Number(r.temp_komfort) || 20, info: 'Anreise heute – hochgeheizt' };
   }
   if (depart && !arrive && b.hour >= SPAR_AB && r.auto_letzte !== `${b.day}:spar`) {
     return { key: `${b.day}:spar`, temp: Number(r.temp_spar) || 16, info: 'Abreise heute – Sparbetrieb' };
