@@ -2,7 +2,7 @@
  * Klimaanlagen (Heizung) in den airbnb-Unterkünften – Anzeige und Bedienung.
  *
  * Gesteuert wird über die Supabase-Funktion "klima" (Tuya-Cloud). Die Funktion liest stündlich
- * den Zustand und schaltet nach der Belegung (Abreise ab 11 Uhr Sparbetrieb, Anreise ab 13 Uhr
+ * den Zustand und schaltet nach der Belegung (Abreise ab 11 Uhr Sparbetrieb, Anreise ab 15 Uhr
  * Wohlfühltemperatur). Die App zeigt den Zustand aus der Tabelle "klima" und bietet an/aus,
  * Soll-Temperatur − / +, Automatik an/aus und „Aktualisieren“ (fragt Klima und Stromwächter live ab).
  * Ohne Supabase (Testmodus) gibt es Beispielwerte.
@@ -17,8 +17,8 @@
     const d = new Date(iso), t = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     return d.toDateString() === new Date().toDateString() ? t : `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} ${t}`;
   };
-  // „11:00 Uhr, 11.11.2026“
-  const stand = (iso) => { const d = new Date(iso); return `${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr, ${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`; };
+  // „11.11.2026, 16:10 Uhr“
+  const stand = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`; };
   const MODUS = { hot: 'Heizen', cold: 'Kühlen', wet: 'Entfeuchten', wind: 'Lüften', auto: 'Auto' };
   const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.6 1.6-4.3 2.6-5.8.6 1.5 1.4 2.3 2.4 2.3 0-2.4-.8-4.3 0-6.5z"/></svg>';
   const POWER = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8M6.3 7.3a8 8 0 1 0 11.4 0"/></svg>';
@@ -55,7 +55,7 @@
       window.Store.airbnbs().filter((o) => o.kind === 'londonbus').forEach((o, i) => {
         this.rows[o.id] = { place_id: o.id, device_id: 'demo' + i, auto: true, temp_spar: 16, temp_komfort: 22, online: true,
           an: true, modus: 'hot', soll: i ? 16 : 22, ist: i ? 17 : 22, geprueft: now, auto_letzte: '', fehler: '',
-          auto_info: i ? 'Abreise heute – Sparbetrieb: 16 °C (11:00)' : 'Anreise heute – hochgeheizt: 22 °C (13:00)' };
+          auto_info: i ? 'Abreise heute – Sparbetrieb: 16 °C (11:00)' : 'Anreise heute – hochgeheizt: 22 °C (15:00)' };
       });
     },
 
@@ -84,7 +84,7 @@
       const state = off ? 'offline' : r.an == null ? '–' : r.an ? `an${r.modus && r.modus !== 'hot' ? ' · ' + (MODUS[r.modus] || r.modus) : ''}` : 'aus';
       return `<div class="kl-box${off || r.fehler ? ' is-warn' : ''}${busy ? ' is-busy' : ''}" data-kl="${h(o.id)}">
         <div class="kl-top">
-          <span class="kl-t">${FLAME}<strong>Heizung:</strong> <span class="kl-state is-${off ? 'off' : r.an ? 'on' : 'aus'}">${h(state)}</span>${r.geprueft ? ` <span class="small muted nw">(Stand: ${stand(r.geprueft)})</span>` : ''}</span>
+          <span class="kl-t">${FLAME}<strong>Heizung:</strong> <span class="kl-state is-${off ? 'off' : r.an ? 'on' : 'aus'}">${h(state)}</span>${r.geprueft ? ` <span class="kl-stand">(Stand: ${stand(r.geprueft)})</span>` : ''}</span>
           <button type="button" class="kl-icon" data-kl-act="refresh" title="Aktualisieren (Heizung und Stromwächter live abfragen)" aria-label="Aktualisieren"${busy ? ' disabled' : ''}>${REFRESH}</button>
         </div>
         <div class="kl-main">
@@ -114,6 +114,7 @@
           const r = this.get(o.id);
           if (!r) return;
           if (act === 'temps') { this.editTemps(o, toast); return; }
+          if (['power', 'plus', 'minus'].includes(act) && !this.confirmBusy(o, act, r)) return;
           if (window.Store.mode !== 'cloud') {
             // Testmodus: nur in der Anzeige ändern
             if (act === 'power') r.an = !r.an;
@@ -153,12 +154,25 @@
       });
     },
 
+    // Bus gerade belegt oder geblockt? Dann vor dem Schalten nachfragen (je Bus höchstens alle 5 Minuten)
+    asked: {},
+    confirmBusy(o, act, r) {
+      const st = window.Airbnb && Airbnb.nowStatus(o);
+      if (!st || (st.cls !== 'busy' && st.cls !== 'blk')) return true;
+      if (this.asked[o.id] && Date.now() - this.asked[o.id] < 5 * 60000) return true;
+      const what = act === 'power' ? (r.an ? 'ausschalten' : 'einschalten') : 'die Temperatur ändern';
+      const why = st.cls === 'busy' ? 'ist gerade belegt – Gäste sind im Bus' : 'ist gerade geblockt';
+      if (!confirm(`${o.name} ${why}.\n\nHeizung trotzdem ${what}?`)) return false;
+      this.asked[o.id] = Date.now();
+      return true;
+    },
+
     // Spar- und Wohlfühltemperatur ändern (im Bearbeiten-Modus der Map)
     async editTemps(o, toast) {
       const r = this.get(o.id);
       const spar = prompt(`Sparbetrieb nach der Abreise für „${o.name}“ (°C, 16–30):`, String(r.temp_spar).replace('.', ','));
       if (spar === null) return;
-      const komfort = prompt(`Wohlfühltemperatur am Anreisetag ab 13 Uhr (°C, 16–30):\nGemessen wird oben am Gerät – unten ist es etwas kühler.`, String(r.temp_komfort).replace('.', ','));
+      const komfort = prompt(`Wohlfühltemperatur am Anreisetag ab 15 Uhr (°C, 16–30):\nGemessen wird oben am Gerät – unten ist es etwas kühler.`, String(r.temp_komfort).replace('.', ','));
       if (komfort === null) return;
       const n = (v) => Math.min(30, Math.max(16, Math.round(parseFloat(String(v).replace(',', '.')) * 2) / 2));
       const vals = { temp_spar: n(spar), temp_komfort: n(komfort) };

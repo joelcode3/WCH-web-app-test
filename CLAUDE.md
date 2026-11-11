@@ -78,8 +78,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Geräte: Bus 1 (Wald) `1632020148e72974109f`, Bus 2 (Teich) `5835847824d7ebc9885b`. Werte: switch, mode (hot), temp_set
   (Zehntelgrad, 0,5er), temp_current (ganze Grad, oben am Gerät gemessen – Anzeige „am Gerät“; Fernbedienung hat kein I FEEL;
   Feuchte nicht vorhanden). Funktion `supabase/functions/klima` (stündlich per `klima-zeitplan.sql`, Tuya-Kontingent sparen):
-  Automatik Okt–Apr nach airbnb-Kalender: Abreisetag ab 11 Uhr 16 °C, Anreisetag ab 13 Uhr 22 °C, nur einmal je Ereignis
-  (Gäste-Einstellungen bleiben). App `js/klima.js`: Kasten „Heizung“ im airbnb-Fenster (an/aus, Soll −/+, Automatik,
+  Automatik Okt–Apr nach airbnb-Kalender: Abreisetag ab 11 Uhr 16 °C, Anreisetag ab 15 Uhr 22 °C, nur einmal je Ereignis
+  (Gäste-Einstellungen bleiben; geblockte Tage sind keine Gäste). Schalten in der App fragt nach, wenn der Bus gerade belegt/geblockt ist. App `js/klima.js`: Kasten „Heizung“ im airbnb-Fenster (an/aus, Soll −/+, Automatik,
   Aktualisieren = Klima + Stromwächter live). Bewusst schlicht: keine Modus-Auswahl (vom Betreiber so gewünscht).
   Stromwächter bleibt bei 5 Minuten (Schutzfunktion, Hue kostenlos).
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).

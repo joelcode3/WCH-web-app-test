@@ -1265,3 +1265,11 @@ body.is-locked { padding-bottom: 0; }
 .kl-auto input { margin: 1px 0 0; width: 16px; height: 16px; accent-color: #2b8a3e; flex: none; }
 .kl-box .small { font-size: .78rem; }
 .kl-auto .nw { white-space: nowrap; }
+/* Stromwächter-Feld: bei wenig Platz Batterie in die nächste Zeile statt abschneiden */
+.wd-row { white-space: normal; align-items: flex-start; }
+.wd-row > i, .wd-row > svg { margin-top: 4px; }
+.airbnb-top .airbnb-status { min-width: 0; }
+.panel-body { overflow-x: hidden; }
+/* Heizung: „(Stand: Datum, Uhrzeit)“ immer in einer Zeile – bei wenig Platz komplett unter die Überschrift */
+.kl-t { flex-wrap: wrap; row-gap: 0; min-width: 0; }
+.kl-stand { white-space: nowrap; font-size: .76rem; color: var(--text-leise); }
