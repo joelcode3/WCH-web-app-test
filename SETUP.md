@@ -121,6 +121,33 @@ Temperatur: Hue-Bewegungsmelder (innen) ganz normal in der Hue-App an der Bridge
 anmelden und sinnvoll benennen (z. B. „Bad Bus 1“). Er erscheint dann automatisch beim Bus.
 Im kalten Bus Lithium-AAA-Batterien verwenden.
 
+### Heizung in den Londonbussen (Klimaanlagen Kältebringer über Tuya)
+
+Die Klimaanlagen (Kältebringer KB34 = TCL-Gerät) hängen in der App **Smart Life**. Das Smart-Life-Konto ist
+mit dem Tuya-Cloud-Projekt **Platzverwaltung** (platform.tuya.com, Rechenzentrum **Central Europe**) verknüpft;
+dort stehen beide Geräte mit Berechtigung **Controllable**. Die Supabase-Funktion `klima` liest stündlich
+an/aus, Soll-Temperatur und Temperatur am Gerät (gemessen oben am Innengerät) und schaltet nach der
+airbnb-Belegung: Abreisetag ab 11 Uhr Heizen auf 16 °C, Anreisetag ab 13 Uhr auf 22 °C (nur Oktober–April,
+je Bus abschaltbar, Temperaturen im Bearbeiten-Modus der Map änderbar).
+
+1. `supabase/update-14.sql` im **SQL Editor** ausführen (legt die Tabelle `klima` an und trägt die beiden
+   Geräte-IDs für Londonbus 1 und 2 ein).
+2. **Secrets:** Supabase → **Edge Functions** → **Secrets**: `TUYA_CLIENT_ID` und `TUYA_CLIENT_SECRET`
+   (Tuya → Projekt → **Overview**: Access ID / Access Secret).
+3. **Funktion anlegen:** **Edge Functions** → **Deploy a new function** → **Via Editor**, Name **klima**,
+   Inhalt von `supabase/functions/klima/index.ts` einfügen → **Deploy function**. Danach bei der Funktion
+   unter **Details** den Schalter **Verify JWT** ausschalten und speichern.
+4. **Stundentakt:** `supabase/klima-zeitplan.sql` im **SQL Editor** ausführen.
+5. **Tuya-Probezeitraum:** IoT Core ist ein kostenloser Probezugang, der regelmäßig verlängert werden muss
+   (platform.tuya.com → Cloud → Cloud Services → IoT Core → View Details → **Extend Trial Period**).
+   Läuft er ab, kommt eine SMS und die App zeigt „Tuya-Zugang abgelaufen“.
+
+Koppeln einer Klimaanlage mit Smart Life (z. B. nach neuem WLAN-Passwort): Smart Life „+“ → Gerät hinzufügen →
+Großes Haushaltsgerät → Klimaanlage, nur 2,4-GHz-WLAN. Kopplungsmodus: Klimaanlage 1 Minute stromlos und wieder
+einschalten oder auf der Fernbedienung OPTION → DISPLAY mehrmals langsam schalten (bis es piept / „AP“);
+die genaue Tastenfolge steht nicht in der Anleitung. Neue Geräte erscheinen automatisch im Tuya-Projekt; die Geräte-ID dann in der Tabelle
+`klima` eintragen.
+
 ### Pausieren verhindern (kostenloses Supabase-Paket)
 
 Supabase pausiert kostenlose Projekte nach 7 Tagen ohne Nutzung. Die GitHub-Aufgabe

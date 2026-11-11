@@ -21,7 +21,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Objektart nur „Pachtgrundstück“ / „Mietobjekt“ (ohne Zusätze).
 - airbnb-Kalender: belegt rot (#c45a5a), frei hellgrün (#e3f2da), geblockt grau. Kopfzeile im airbnb-Fenster:
   belegt (rot) / frei (grün) / geblockt (grau); Anreisetag ab 16 Uhr belegt, Abreisetag bis 11 Uhr belegt.
-- Stromwächter kompakt rechts neben dem Foto (Bus: online, Bad: °C + Batterie-Symbol mit Füllstand, Warnung ab 6 °C; Test-SMS im Reiter Einstellungen; „Überwachung läuft nicht“ erst ab 30 Min. ohne Prüfung).
+- Stromwächter kompakt rechts neben dem Foto (Bus: online, Bad: °C + Batterie-Symbol mit Füllstand, Warnung bei unter 6 °C; Test-SMS im Reiter Einstellungen; „Überwachung läuft nicht“ erst ab 30 Min. ohne Prüfung).
   Solange ein Problem besteht: rote/gelbe Leiste unter der Kopfzeile auf allen Seiten, bei neuem Alarm einmal ein Fenster (`renderAlarms` in app.js).
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
@@ -31,17 +31,17 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 ## Technik
 - Statische Web-App (Vanilla JS, Hash-Router), gehostet auf **GitHub Pages**:
   https://joelcode3.github.io/WCH-web-app-test/
-- **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Functions `airbnb-kalender`, `hue-waechter`).
+- **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Functions `airbnb-kalender`, `hue-waechter`, `klima`).
   Zugangsdaten in `js/config.js` (nur der öffentliche Publishable Key – **nie** nach dem Secret-/Service-Key fragen).
   Zugriff nur für E-Mails in der Tabelle `team` (RLS über `is_team_member()`).
 - Dateien: `js/data.js` (Datenmodell, Store), `js/cloud.js` (Supabase-Sync, nur Änderungen),
-  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/waechter.js`, `js/wetter.js` (Open-Meteo, Hesedorf 53.23/9.32), `js/feiertage.js`, `js/photos.js`, `js/auth.js`.
+  `js/map.js` (Leaflet-Karte), `js/app.js` (alle Ansichten), `js/airbnb.js`, `js/waechter.js`, `js/klima.js`, `js/wetter.js` (Open-Meteo, Hesedorf 53.23/9.32), `js/feiertage.js`, `js/photos.js`, `js/auth.js`.
 - **Versionsnummer** `?v=JJJJMMTT-n` an allen CSS/JS-/Plan-Dateien in `index.html` und `js/config.js`
   bei jeder Änderung hochzählen (sonst zeigt der Browser alte Dateien).
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-13 (13: Spalte `parcels.miete` jsonb; 8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
+  Bisher: update-2 … update-14 (14: Tabelle `klima` für die Heizung; 13: Spalte `parcels.miete` jsonb; 8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
   10: `termine` für den Kalender, `airbnb_belegung` = von der App aufgezeichnete Buchungen, weil airbnb vergangene nicht liefert;
   11: Art `reservierung` + Spalte `anzahl` in `termine`, To-Do-Ziel `termin`, Spalte `todos.kalender`; 12: Kategorie `extern`).
 - Mieter-Ansicht (Parzelle): oben Mieter · Grundstück · **Miete**; unten ein Block **Infrastruktur** (Strom + Gas/Gasflaschen + Heizung).
@@ -73,6 +73,15 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   (Art `flugzeug`, `top: true`). Orte aus dem Plan legt `Store.ensurePlanPlaces()` einmal je Gerät an (feste IDs `o-plan-*`).
   Geänderte Nummern/Umrisse übernimmt die App über „Einstellungen → Neue Nummern/Umrisse übernehmen“ (Zuordnung über die Lage,
   Mieter/Zähler bleiben erhalten). Nie die Daten durch einen leeren Plan ersetzen.
+- **Heizung Londonbusse (Klimaanlagen, GEBAUT 11.11.2026)**: Kältebringer KB34 (TCL) in Smart Life, Tuya-Cloud-Projekt
+  „Platzverwaltung“ (Central Europe, Dienste IoT Core + Token + Smart Home Basic; IoT-Core-Probezeit muss verlängert werden).
+  Geräte: Bus 1 (Wald) `1632020148e72974109f`, Bus 2 (Teich) `5835847824d7ebc9885b`. Werte: switch, mode (hot), temp_set
+  (Zehntelgrad, 0,5er), temp_current (ganze Grad, oben am Gerät gemessen – Anzeige „am Gerät“; Fernbedienung hat kein I FEEL;
+  Feuchte nicht vorhanden). Funktion `supabase/functions/klima` (stündlich per `klima-zeitplan.sql`, Tuya-Kontingent sparen):
+  Automatik Okt–Apr nach airbnb-Kalender: Abreisetag ab 11 Uhr 16 °C, Anreisetag ab 13 Uhr 22 °C, nur einmal je Ereignis
+  (Gäste-Einstellungen bleiben). App `js/klima.js`: Kasten „Heizung“ im airbnb-Fenster (an/aus, Soll −/+, Automatik,
+  Aktualisieren = Klima + Stromwächter live). Bewusst schlicht: keine Modus-Auswahl (vom Betreiber so gewünscht).
+  Stromwächter bleibt bei 5 Minuten (Schutzfunktion, Hue kostenlos).
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.
@@ -95,7 +104,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Vor dem Bau klären: nur Team oder auch Gäste (dann Gästeansicht ohne Namen), Ausrichtung, Gerät.
 - **Vorschläge 09.11.2026 (offen):** To-Dos je Mitarbeiter mit eigenem Login und Rolle (RLS, nur eigene To-Dos, abhaken) –
   Fragen offen: darf er To-Dos anlegen, Termine sehen? Klimasplit Kältebringer in airbnb steuern (Ist/Soll, Automatik nach
-  Belegung: Abreise 11 Uhr Sparbetrieb, vor Anreise hochheizen) – erst klären, welche App/Cloud die Geräte nutzen.
+  Belegung) – inzwischen gebaut, siehe Technik.
   Check-in-Infos 24 Std. vorher: nicht über die App (airbnb gibt keine Gastdaten), sondern airbnb „Geplante Nachrichten“.
 - **Versions-Check** („Neue Version verfügbar – neu laden“) angeboten, Betreiber hat noch nicht entschieden.
 - **Eigene Adresse** (z. B. `platz.waldcamping-hesedorf.de` per CNAME auf `joelcode3.github.io`,
