@@ -1273,3 +1273,7 @@ body.is-locked { padding-bottom: 0; }
 /* Heizung: „(Stand: Datum, Uhrzeit)“ immer in einer Zeile – bei wenig Platz komplett unter die Überschrift */
 .kl-t { flex-wrap: wrap; row-gap: 0; min-width: 0; }
 .kl-stand { white-space: nowrap; font-size: .76rem; color: var(--text-leise); }
+
+/* aus Microsoft To Do übernommene Aufgaben */
+.ms-badge { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; background: #e3ecf8; color: #2f5fa0;
+  font-size: .72rem; font-weight: 700; vertical-align: 2px; letter-spacing: .02em; }

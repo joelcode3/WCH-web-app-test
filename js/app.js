@@ -2477,6 +2477,7 @@
               <div class="card-actions" style="margin-top:0"><button class="btn btn-ghost" data-wd="test">Test-SMS senden</button></div>
               <p class="small muted">Geht an alle Nummern, die in Supabase unter Edge Functions → Secrets bei <code>SMS_EMPFAENGER</code> eingetragen sind.</p>
             </section>` : ''}
+            ${window.MsTodo ? MsTodo.cardHtml() : ''}
             <section class="card">
               <h2>Zurücksetzen</h2>
               <div class="card-actions" style="margin-top:0">
@@ -2489,6 +2490,7 @@
         </div>`;
 
       if (window.Waechter) Waechter.bind(root, {}, toast);
+      if (window.MsTodo) MsTodo.bind(root, toast, () => this.render(root));
       $('#d-export', root).onclick = () => download(`platzverwaltung-sicherung-${today()}.json`, JSON.stringify(S.data, null, 2), 'application/json');
       $('#d-import', root).onchange = (e) => {
         const file = e.target.files[0];
@@ -2747,7 +2749,7 @@
         return `<li class="todo-li"><a class="card-row todo-row${t.status === 'erledigt' ? ' is-done' : ''}" href="#/todo/${t.id}?${back}" style="--c:${st.color}">
           ${t.photos.length ? `<img class="todo-thumb" data-thumb="${t.id}" alt="" loading="lazy">` : ''}
           <div class="main">
-            <div class="name">${h(t.title || '(ohne Titel)')}</div>
+            <div class="name">${h(t.title || '(ohne Titel)')}${window.MsTodo ? MsTodo.badgeHtml(t) : ''}</div>
             <div class="meta">
               ${targetLink(t)}
               ${t.status === 'erledigt' ? (t.doneAt ? `<span>erledigt am ${fmtDate(t.doneAt)}</span>` : '') : deadlineHtml(t)}
@@ -3689,6 +3691,11 @@
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
     });
     Waechter.handleReturn(toast);
+    // Microsoft To Do: Rücksprung nach der Anmeldung, Zustand für den Reiter Einstellungen
+    MsTodo.handleReturn(toast);
+    const msLoad = () => MsTodo.load().then(() => { if (location.hash.startsWith('#/daten') && !$('#dialog').open) Daten.render($('#view-page')); });
+    msLoad();
+    S.onSync(() => { if (S.mode === 'cloud' && !MsTodo.syncedOnce) { MsTodo.syncedOnce = true; msLoad(); } });
     Waechter.load();
     setInterval(() => { if (document.visibilityState === 'visible') Waechter.load(); }, 2 * 60000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') Waechter.load(); });

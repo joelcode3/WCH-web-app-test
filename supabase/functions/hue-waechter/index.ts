@@ -19,6 +19,8 @@
 //   HUE_CLIENT_ID, HUE_CLIENT_SECRET   (developers.meethue.com → Remote Hue API)
 //   SEVEN_API_KEY                      (seven.io → API-Schlüssel)
 //   SMS_EMPFAENGER                     Handynummern, mit Komma getrennt, z. B. 0171 1234567, 0160 7654321
+//   SMS_ADMIN (optional)               Nummer(n) nur für Technik-Hinweise (Batterie schwach, Hue-Zugang abgelaufen);
+//                                      fehlt sie, gehen auch diese an SMS_EMPFAENGER
 //   SMS_ABSENDER (optional)            max. 11 Zeichen, Standard „WCHesedorf“
 //
 // Einrichten: siehe SETUP.md, Abschnitt „Stromausfall- und Frostwarnung“.
@@ -102,8 +104,10 @@ export function phoneList(raw: string) {
 
 export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, nowFn = () => new Date()) {
   // ---------- SMS ----------
-  async function sendSms(text: string): Promise<{ ok: boolean; configured: boolean; error: string }> {
-    const key = env('SEVEN_API_KEY'), to = phoneList(env('SMS_EMPFAENGER') || '');
+  // nurAdmin: Technik-Hinweise nur an SMS_ADMIN (Betreiber), sonst an alle Empfänger
+  async function sendSms(text: string, nurAdmin = false): Promise<{ ok: boolean; configured: boolean; error: string }> {
+    const admin = phoneList(env('SMS_ADMIN') || '');
+    const key = env('SEVEN_API_KEY'), to = nurAdmin && admin.length ? admin : phoneList(env('SMS_EMPFAENGER') || '');
     if (!key || !to.length) return { ok: false, configured: false, error: 'SMS nicht eingerichtet (SEVEN_API_KEY / SMS_EMPFAENGER fehlen)' };
     try {
       const res = await fetchFn('https://gateway.seven.io/api/sms', {
@@ -241,7 +245,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
     const now = nowFn(), iso = now.toISOString();
     const [bridges, statuses, names] = await Promise.all([db.bridges(), db.statuses(), db.placeNames()]);
     const byId = new Map(statuses.map((s) => [s.place_id, s]));
-    const alerts: { s: Status; flag?: 'alarm_offline' | 'alarm_frost' | 'alarm_battery'; value?: boolean; offline?: boolean; text: string }[] = [];
+    const alerts: { s: Status; flag?: 'alarm_offline' | 'alarm_frost' | 'alarm_battery'; value?: boolean; offline?: boolean; admin?: boolean; text: string }[] = [];
     const results: Status[] = [];
 
     for (const b of bridges) {
@@ -251,7 +255,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
       const r = await probe(b);
       s.last_check = iso;
       // Zugang abgelaufen: Überwachung ist blind → einmal Bescheid geben
-      if (r.error && r.error !== s.error) alerts.push({ s, text: `${name} - Ups, Hue Zugang abgelaufen. Gibt also aktuell keine Überwachung. Joel, kümmer dich mal ja!` });
+      if (r.error && r.error !== s.error) alerts.push({ s, admin: true, text: `${name} - Ups, Hue Zugang abgelaufen. Gibt also aktuell keine Überwachung. Joel, kümmer dich mal ja!` });
       s.error = r.error;
 
       if (r.state === 'online') {
@@ -277,7 +281,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
         const weak = s.sensors.filter((x) => typeof x.battery === 'number' && x.battery <= BATTERY_LOW);
         if (weak.length && !s.alarm_battery) {
           const pct = Math.min(...weak.map((x) => x.battery as number));
-          alerts.push({ s, flag: 'alarm_battery', value: true, text: `${name} - Langsam geht dem Temperatursensor der Saft aus, hat nur noch ${pct} %. Am besten demnächst mal tauschen das Teil.` });
+          alerts.push({ s, flag: 'alarm_battery', value: true, admin: true, text: `${name} - Langsam geht dem Temperatursensor der Saft aus, hat nur noch ${pct} %. Am besten demnächst mal tauschen das Teil.` });
           // automatisch als To-Do beim Bus
           try {
             await db.addTodo(b.place_id, BATTERY_TODO, `${weak.map((x) => `${x.name}: ${x.battery} %`).join(', ')} – Batterien tauschen (Lithium-AAA). Automatisch angelegt vom Stromwächter.`);
@@ -300,15 +304,19 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
     // Ist eine andere Bridge gleichzeitig erreichbar, liegt es eher am Internet/an der Bridge im Bus als an Hue
     const reachable = results.filter((x) => x.online === true).map((x) => smsName(names[x.place_id] || 'Unterkunft'));
     if (reachable.length) alerts.forEach((a) => { if (a.offline) a.text += ` (${reachable.join(', ')} läuft normal. Tipp: Bridge kurz aus- und wieder einstecken.)`; });
-    // eine gemeinsame SMS für alles, was sich geändert hat
-    if (alerts.length) {
-      const both = alerts.filter((a) => a.flag === 'alarm_offline' && a.value).length > 1;
-      const text = alerts.map((a) => a.text).join('\n') + (both ? '\n(Mehrere Unterkünfte gleichzeitig – evtl. Internet- oder Hue-Störung.)' : '');
-      const sms = await sendSms(text);
+    // eine gemeinsame SMS je Empfängerkreis: Warnungen an alle, Technik-Hinweise (Batterie, Zugang) nur an den Betreiber
+    let smsError: string | null = null;
+    for (const nurAdmin of [false, true]) {
+      const group = alerts.filter((a) => !!a.admin === nurAdmin);
+      if (!group.length) continue;
+      const both = group.filter((a) => a.flag === 'alarm_offline' && a.value).length > 1;
+      const text = group.map((a) => a.text).join('\n') + (both ? '\n(Mehrere Unterkünfte gleichzeitig – evtl. Internet- oder Hue-Störung.)' : '');
+      const sms = await sendSms(text, nurAdmin);
       // bei echtem Fehler Merker nicht setzen → nächster Durchlauf versucht es erneut
-      if (sms.ok || !sms.configured) alerts.forEach((a) => { if (a.flag) a.s[a.flag] = a.value as boolean; });
-      results.forEach((s) => { s.sms_error = sms.ok ? '' : sms.error; });
+      if (sms.ok || !sms.configured) group.forEach((a) => { if (a.flag) a.s[a.flag] = a.value as boolean; });
+      if (!sms.ok) smsError = sms.error; else if (smsError === null) smsError = '';
     }
+    if (smsError !== null) results.forEach((s) => { s.sms_error = smsError as string; });
     for (const s of results) await db.saveStatus(s);
     return { checked: results.length, alerts: alerts.map((a) => a.text) };
   }
