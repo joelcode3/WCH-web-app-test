@@ -2981,18 +2981,30 @@
      ====================================================================== */
 
   // Vorschaubilder der Unterkunfts-Fotos (Cloud: zeitlich begrenzte Links)
+  // Fotos der Unterkünfte: Links aus dem geschützten Speicher gelten nur 1 Stunde → rechtzeitig erneuern
+  const photoUntil = {};
   async function loadPlacePhotos() {
-    const need = S.data.places.filter((o) => o.photo && o.photo.path && !Airbnb.photoUrls[o.id]);
+    const now = Date.now();
+    const need = S.data.places.filter((o) => o.photo && o.photo.path && (!Airbnb.photoUrls[o.id] || (photoUntil[o.id] || 0) < now));
     if (!need.length) return;
     try {
       const urls = await Photos.urls(need.map((o) => o.photo), true);
-      need.forEach((o) => { if (urls[o.photo.id]) Airbnb.photoUrls[o.id] = urls[o.photo.id]; });
+      need.forEach((o) => { if (urls[o.photo.id]) { Airbnb.photoUrls[o.id] = urls[o.photo.id]; photoUntil[o.id] = now + 20 * 60000; } });
       MapView.render();
       const sel = MapView.selected;
       if (sel && sel.type === 'place' && !$('#map-panel').hidden) MapUI.showPanel('place', sel.id);
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
     } catch (e) { console.warn('Fotos der Unterkünfte', e); }
   }
+
+  // Bild trotzdem nicht ladbar (Link abgelaufen)? → neu holen, höchstens alle 30 Sekunden
+  let photoRetry = 0;
+  window.reloadPlacePhotos = () => {
+    if (Date.now() - photoRetry < 30000) return;
+    photoRetry = Date.now();
+    Object.keys(photoUntil).forEach((k) => { photoUntil[k] = 0; });
+    loadPlacePhotos();
+  };
 
   /* ======================================================================
      KALENDER: eigene Einträge (Termin, längere Arbeit, Abwesenheit),
@@ -3713,6 +3725,8 @@
     S.onSync(() => { if (!Airbnb.fetchedAt && S.airbnbs().length) Airbnb.load(); });
     S.onSync(() => { if (S.mode === 'cloud' && !Waechter.syncedOnce) { Waechter.syncedOnce = true; Waechter.load(); } });
     loadPlacePhotos();
+    setInterval(() => { if (document.visibilityState === 'visible') loadPlacePhotos(); }, 5 * 60000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadPlacePhotos(); });
     setInterval(() => Airbnb.load(true), 30 * 60000);
 
     window.addEventListener('hashchange', route);
