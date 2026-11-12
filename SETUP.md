@@ -111,6 +111,8 @@ Einmal einrichten (ca. 45 Minuten):
    - `SMS_EMPFAENGER` = Handynummern, mit Komma getrennt, z. B. `0171 1234567, 0160 7654321`
    - optional `SMS_ABSENDER` = Absendername (max. 11 Zeichen, Standard `WCHesedorf`)
    Diese Werte stehen nur bei Supabase, nicht im öffentlichen GitHub-Projekt.
+   - `SMS_ADMIN` (optional): deine eigene Handynummer – Technik-Hinweise (Batterie schwach, Hue- bzw. Tuya-Zugang
+     abgelaufen) gehen dann nur an diese Nummer statt an alle. Warnungen zu Stromausfall/Frost gehen weiter an alle.
 6. **5-Minuten-Takt:** `supabase/waechter-zeitplan.sql` im **SQL Editor** ausführen.
 7. **Busse verbinden:** In der App Map → Londonbus 1 antippen → **Mit Hue verbinden** → mit dem
    Hue-Konto anmelden, bei mehreren Bridges **die Bridge von Bus 1** wählen, erlauben → die App

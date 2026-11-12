@@ -21,7 +21,7 @@
 // Geheime Einstellungen (Edge Functions → Secrets):
 //   TUYA_CLIENT_ID, TUYA_CLIENT_SECRET   (platform.tuya.com → Projekt → Overview: Access ID / Access Secret)
 //   TUYA_HOST (optional)                 Standard https://openapi.tuyaeu.com (Rechenzentrum Mitteleuropa)
-//   SEVEN_API_KEY, SMS_EMPFAENGER        (wie beim Stromwächter, für die Hinweis-SMS)
+//   SEVEN_API_KEY, SMS_ADMIN             (wie beim Stromwächter; Hinweis-SMS nur an den Betreiber, ersatzweise SMS_EMPFAENGER)
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -145,7 +145,7 @@ export function createKlima(db: Db, env: (k: string) => string | undefined, fetc
   async function sendSms(text: string) {
     // wie beim Stromwächter: Ziffern, deutsche Vorwahl ergänzen
     const key = env('SEVEN_API_KEY') || '';
-    const nums = (env('SMS_EMPFAENGER') || '').split(/[,;\n]/).map((n) => n.replace(/[^\d+]/g, '')).filter(Boolean)
+    const nums = (env('SMS_ADMIN') || env('SMS_EMPFAENGER') || '').split(/[,;\n]/).map((n) => n.replace(/[^\d+]/g, '')).filter(Boolean)
       .map((n) => (n.startsWith('+') ? n.slice(1) : n.startsWith('00') ? n.slice(2) : n.startsWith('0') ? '49' + n.slice(1) : n));
     if (!key || !nums.length) return;
     try {
