@@ -2625,7 +2625,7 @@
       <div class="section-title">To-Dos${list.length ? ` · ${list.length} offen` : ''}</div>
       ${list.length ? `<ul class="todo-mini">${list.map((t) => `
         <li data-goto="#/todo/${t.id}?${back}" tabindex="0">
-          <span class="dot" style="background:${todoStatus(t).color}" title="${h(todoStatus(t).label)}"></span>
+          <button type="button" class="todo-check" data-todo-done="${t.id}" style="--c:${todoStatus(t).color}" title="Als erledigt abhaken (Status: ${h(todoStatus(t).label)})" aria-label="${h(t.title)} als erledigt abhaken">${ICON.check}</button>
           <span class="t">${h(t.title)}</span>
           <span class="d">${t.deadline ? (S.isOverdue(t, today()) ? `<span class="warn">${fmtDate(t.deadline)}</span>` : fmtDate(t.deadline)) : ''}</span>
         </li>`).join('')}</ul>` : `<p class="muted small" style="margin:0 0 6px">Keine offenen To-Dos${done ? ` (${done} erledigt)` : ''}.</p>`}
@@ -2634,6 +2634,22 @@
         ${list.length || done ? `<button type="button" class="btn btn-ghost btn-sm" data-goto="#/todos?ziel=${type}:${id}">Alle anzeigen</button>` : ''}
       </div>`;
   }
+
+  // Abhaken direkt in den kurzen To-Do-Listen (Map-Fenster, Parzelle, Kasten …), ohne das To-Do zu öffnen
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-todo-done]');
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();   // nicht zusätzlich das To-Do öffnen
+    const t = S.data.todos.find((x) => x.id === b.dataset.todoDone);
+    if (!t || t.status === 'erledigt') return;
+    t.status = 'erledigt';
+    t.doneAt = today();
+    const li = b.closest('li');
+    if (li) li.classList.add('is-done');
+    S.save();
+    toast(`Erledigt: ${t.title || 'To-Do'}`);
+  }, true);
 
   // Auswahlliste "Ort" für das To-Do-Formular
   function targetOptions(cur, noTermine) {
