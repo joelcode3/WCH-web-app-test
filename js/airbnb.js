@@ -294,7 +294,7 @@
     // Kachel: eigenes Foto oder Draufsicht (Infofenster, Übersicht)
     tileHtml(o, opts = {}) {
       const url = o.photo ? (o.photo.tdata || o.photo.data || this.photoUrls[o.id]) : '';
-      if (url) return `<div class="unit-tile${opts.big ? ' is-big' : ''}"><img src="${h(url)}" alt="" draggable="false"></div>`;
+      if (url) return `<div class="unit-tile${opts.big ? ' is-big' : ''}"><img src="${h(url)}" alt="" draggable="false" onerror="window.reloadPlacePhotos && window.reloadPlacePhotos()"></div>`;
       const t = top(o.kind);
       return `<div class="unit-tile is-drawing${opts.big ? ' is-big' : ''}"><div class="unit-tile-art" style="aspect-ratio:${t.w} / ${t.h}">${t.svg}</div></div>`;
     },

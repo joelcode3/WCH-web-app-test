@@ -1277,3 +1277,12 @@ body.is-locked { padding-bottom: 0; }
 /* aus Microsoft To Do übernommene Aufgaben */
 .ms-badge { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; background: #e3ecf8; color: #2f5fa0;
   font-size: .72rem; font-weight: 700; vertical-align: 2px; letter-spacing: .02em; }
+
+/* Abhaken in den kurzen To-Do-Listen */
+.todo-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--c, #8a918b); background: #fff; padding: 0;
+  display: inline-grid; place-items: center; cursor: pointer; flex: none; color: transparent; }
+.todo-check svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.todo-check:hover, .todo-check:focus-visible { color: #2b8a3e; border-color: #2b8a3e; background: #eef7ea; }
+.todo-mini li.is-done .todo-check { background: #2b8a3e; border-color: #2b8a3e; color: #fff; }
+.todo-mini li.is-done .t { text-decoration: line-through; color: var(--text-leise); }
+@media (max-width: 860px) { .todo-check { width: 26px; height: 26px; } }

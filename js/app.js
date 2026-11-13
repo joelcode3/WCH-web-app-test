@@ -2625,7 +2625,7 @@
       <div class="section-title">To-Dos${list.length ? ` · ${list.length} offen` : ''}</div>
       ${list.length ? `<ul class="todo-mini">${list.map((t) => `
         <li data-goto="#/todo/${t.id}?${back}" tabindex="0">
-          <span class="dot" style="background:${todoStatus(t).color}" title="${h(todoStatus(t).label)}"></span>
+          <button type="button" class="todo-check" data-todo-done="${t.id}" style="--c:${todoStatus(t).color}" title="Als erledigt abhaken (Status: ${h(todoStatus(t).label)})" aria-label="${h(t.title)} als erledigt abhaken">${ICON.check}</button>
           <span class="t">${h(t.title)}</span>
           <span class="d">${t.deadline ? (S.isOverdue(t, today()) ? `<span class="warn">${fmtDate(t.deadline)}</span>` : fmtDate(t.deadline)) : ''}</span>
         </li>`).join('')}</ul>` : `<p class="muted small" style="margin:0 0 6px">Keine offenen To-Dos${done ? ` (${done} erledigt)` : ''}.</p>`}
@@ -2634,6 +2634,22 @@
         ${list.length || done ? `<button type="button" class="btn btn-ghost btn-sm" data-goto="#/todos?ziel=${type}:${id}">Alle anzeigen</button>` : ''}
       </div>`;
   }
+
+  // Abhaken direkt in den kurzen To-Do-Listen (Map-Fenster, Parzelle, Kasten …), ohne das To-Do zu öffnen
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-todo-done]');
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();   // nicht zusätzlich das To-Do öffnen
+    const t = S.data.todos.find((x) => x.id === b.dataset.todoDone);
+    if (!t || t.status === 'erledigt') return;
+    t.status = 'erledigt';
+    t.doneAt = today();
+    const li = b.closest('li');
+    if (li) li.classList.add('is-done');
+    S.save();
+    toast(`Erledigt: ${t.title || 'To-Do'}`);
+  }, true);
 
   // Auswahlliste "Ort" für das To-Do-Formular
   function targetOptions(cur, noTermine) {
@@ -2981,18 +2997,30 @@
      ====================================================================== */
 
   // Vorschaubilder der Unterkunfts-Fotos (Cloud: zeitlich begrenzte Links)
+  // Fotos der Unterkünfte: Links aus dem geschützten Speicher gelten nur 1 Stunde → rechtzeitig erneuern
+  const photoUntil = {};
   async function loadPlacePhotos() {
-    const need = S.data.places.filter((o) => o.photo && o.photo.path && !Airbnb.photoUrls[o.id]);
+    const now = Date.now();
+    const need = S.data.places.filter((o) => o.photo && o.photo.path && (!Airbnb.photoUrls[o.id] || (photoUntil[o.id] || 0) < now));
     if (!need.length) return;
     try {
       const urls = await Photos.urls(need.map((o) => o.photo), true);
-      need.forEach((o) => { if (urls[o.photo.id]) Airbnb.photoUrls[o.id] = urls[o.photo.id]; });
+      need.forEach((o) => { if (urls[o.photo.id]) { Airbnb.photoUrls[o.id] = urls[o.photo.id]; photoUntil[o.id] = now + 20 * 60000; } });
       MapView.render();
       const sel = MapView.selected;
       if (sel && sel.type === 'place' && !$('#map-panel').hidden) MapUI.showPanel('place', sel.id);
       if (location.hash.startsWith('#/airbnb')) AirbnbView.render($('#view-page'));
     } catch (e) { console.warn('Fotos der Unterkünfte', e); }
   }
+
+  // Bild trotzdem nicht ladbar (Link abgelaufen)? → neu holen, höchstens alle 30 Sekunden
+  let photoRetry = 0;
+  window.reloadPlacePhotos = () => {
+    if (Date.now() - photoRetry < 30000) return;
+    photoRetry = Date.now();
+    Object.keys(photoUntil).forEach((k) => { photoUntil[k] = 0; });
+    loadPlacePhotos();
+  };
 
   /* ======================================================================
      KALENDER: eigene Einträge (Termin, längere Arbeit, Abwesenheit),
@@ -3713,6 +3741,8 @@
     S.onSync(() => { if (!Airbnb.fetchedAt && S.airbnbs().length) Airbnb.load(); });
     S.onSync(() => { if (S.mode === 'cloud' && !Waechter.syncedOnce) { Waechter.syncedOnce = true; Waechter.load(); } });
     loadPlacePhotos();
+    setInterval(() => { if (document.visibilityState === 'visible') loadPlacePhotos(); }, 5 * 60000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadPlacePhotos(); });
     setInterval(() => Airbnb.load(true), 30 * 60000);
 
     window.addEventListener('hashchange', route);
