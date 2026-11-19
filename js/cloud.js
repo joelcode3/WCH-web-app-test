@@ -76,9 +76,9 @@
       key: 'places',
       optional: true,
       toRow: (o) => ({ id: o.id, name: o.name || '', kind: o.kind || 'sonstiges', pos: o.pos || null, notes: o.notes || '',
-        ical_url: o.icalUrl || '', photo: o.photo || null }),
+        ical_url: o.icalUrl || '', photo: o.photo || null, wasser: o.wasser || null }),
       fromRow: (r) => ({ id: r.id, name: r.name || '', kind: r.kind || 'sonstiges', pos: r.pos, notes: r.notes || '',
-        icalUrl: r.ical_url || '', photo: r.photo || null }),
+        icalUrl: r.ical_url || '', photo: r.photo || null, wasser: r.wasser || null }),
     },
     {
       key: 'todos',
@@ -116,7 +116,7 @@
   ];
 
   // Spalten aus späteren Updates: fehlen sie noch, werden sie beim Speichern weggelassen
-  const OPTIONAL_COLS = { parcels: ['miete'], meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo'], termine: ['anzahl'], todos: ['kalender'] };
+  const OPTIONAL_COLS = { parcels: ['miete'], meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo', 'wasser'], termine: ['anzahl'], todos: ['kalender'] };
 
   const PAGE = 1000;
   const BUCKET = 'todo-fotos';

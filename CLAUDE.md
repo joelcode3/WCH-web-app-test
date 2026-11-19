@@ -41,7 +41,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - **Datenbank-Änderungen nur additiv**: neues `supabase/update-N.sql` (idempotent, `if not exists`) und
   denselben Inhalt ans Ende von `schema.sql`. Neue Spalten/Tabellen in `cloud.js` als optional behandeln
   (`OPTIONAL_COLS` bzw. `optional: true`), damit die App auch ohne ausgeführtes Update weiterläuft.
-  Bisher: update-2 … update-15 (15: Microsoft To Do – ms_todo_konto/oauth/aufgaben geheim, ms_todo_status lesbar; 14: Tabelle `klima` für die Heizung; 13: Spalte `parcels.miete` jsonb; 8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
+  Bisher: update-2 … update-16 (16: Spalte `places.wasser` jsonb für Wasserschächte; 15: Microsoft To Do – ms_todo_konto/oauth/aufgaben geheim, ms_todo_status lesbar; 14: Tabelle `klima` für die Heizung; 13: Spalte `parcels.miete` jsonb; 8: Tabelle `asmus_eintraege` für das Spiel; 9: Stromwächter/Hue;
   10: `termine` für den Kalender, `airbnb_belegung` = von der App aufgezeichnete Buchungen, weil airbnb vergangene nicht liefert;
   11: Art `reservierung` + Spalte `anzahl` in `termine`, To-Do-Ziel `termin`, Spalte `todos.kalender`; 12: Kategorie `extern`).
 - Mieter-Ansicht (Parzelle): oben Mieter · Grundstück · **Miete**; unten ein Block **Infrastruktur** (Strom + Gas/Gasflaschen + Heizung).
@@ -87,6 +87,12 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   (Wort fällt weg), To-Do-ID `ms-…`, Badge „To Do“ in der Liste. To Do → App: neu, Titel/Notiz/Fälligkeit, erledigt/wieder offen.
   App → To Do: nur „erledigt“ (abhaken). Zuständigkeit/Ort wird in der App geklärt. In der App gelöschte kommen nicht wieder.
   Verbinden/Abgleichen/Trennen im Reiter Einstellungen (`js/mstodo.js`). Client Secret läuft nach 24 Monaten ab.
+- **Wasser (GEBAUT 19.11.2026)**: Ort-Art `schacht` (Wasserschacht, eigene Ebene „Wasser“ in der Legende, `Wasser` in app.js),
+  Daten in `place.wasser` = { haehne:[{id,name,info,area (Map-Pixel, Freihand), foto [x%,y%]}], zaehler {nr, ablesungen[{datum,stand}]}|null,
+  sommerwasser, abstellInfo, abgestellt (Datum) }. Klick auf den Schacht zeigt die Bereiche der Hähne türkis, Klick auf einen Hahn hebt ihn hervor.
+  Foto des Schachts mit nummerierten Markierungen der Hähne. Freihand-Zeichnen: `MapView.startFreehand`. Reiter Infrastruktur → Wasser
+  (`#/technik/wasser`) mit Sommerwasser-Checkliste je Winter (Saison ab 1. Juli). Erinnerung: sobald die 7-Tage-Vorhersage Frost (Tiefstwert ≤ 0 °C)
+  zeigt, einmal je Winter To-Do `sw-JAHR` „Sommerwasser abstellen“ (fällig am Frosttag); erledigt, wenn alle abgehakt.
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.
