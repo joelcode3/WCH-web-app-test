@@ -1286,3 +1286,52 @@ body.is-locked { padding-bottom: 0; }
 .todo-mini li.is-done .todo-check { background: #2b8a3e; border-color: #2b8a3e; color: #fff; }
 .todo-mini li.is-done .t { text-decoration: line-through; color: var(--text-leise); }
 @media (max-width: 860px) { .todo-check { width: 26px; height: 26px; } }
+
+/* Wasserschächte */
+.pin-place.pin-wasser { background: #e6f6f8; color: #0b6f78; border-color: #0b8c96; }
+.pin-wasser i svg, .pin-wasser svg { color: #0b8c96; }
+.legend-wasser svg { color: #0b8c96; }
+.area-tip { background: rgba(255,255,255,.85); border: 1px solid #0b8c96; color: #0b5d64; font-weight: 700; font-size: 12px; padding: 1px 6px; box-shadow: none; }
+.area-tip::before { display: none; }
+.leaflet-container.is-freehand { cursor: crosshair; touch-action: none; }
+.ws-photo-wrap { position: relative; margin: 0 0 4px; }
+.ws-photo-wrap .tile-change { width: 30px; height: 30px; right: 6px; bottom: 6px; }
+.ws-photo-wrap .tile-change svg { width: 16px; height: 16px; }
+.ws-photo-btn { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.ws-photo { position: relative; border-radius: var(--radius-s); overflow: hidden; background: #eef3f2; line-height: 0; }
+.ws-photo img { width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; }
+.ws-photo.is-big img { max-height: 70vh; }
+.ws-photo.is-empty { height: 90px; display: grid; place-items: center; line-height: 1.3; border: 1px dashed var(--linie); }
+.ws-mark { position: absolute; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #0b8c96; color: #fff;
+  font: 700 13px/24px system-ui, sans-serif; text-align: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); pointer-events: none; }
+.ws-mark.is-sel { background: #e0a526; color: #1b2a1e; width: 30px; height: 30px; line-height: 30px; }
+.ws-lb-img.is-mark img { cursor: crosshair; }
+.ws-lb-hint { margin: 0 0 8px; font-weight: 600; }
+.ws-lb-list { margin: 8px 0 0; padding-left: 22px; font-size: .92rem; }
+.dialog-ws .ws-lightbox { padding: 12px; }
+.ws-haehne { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ws-haehne li { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border: 1px solid var(--linie); border-radius: var(--radius-s); cursor: pointer; background: var(--papier); }
+.ws-haehne li.is-sel { border-color: #0b8c96; background: #e6f6f8; }
+.ws-nr { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #0b8c96; color: #fff; font-weight: 700; font-size: 12px; display: grid; place-items: center; margin-top: 1px; }
+.ws-h-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ws-h-act { flex: none; width: 44px; padding: 2px 4px; font-size: .9rem; }
+.ws-meter { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ws-meter span { display: inline-flex; align-items: center; gap: 6px; }
+.ws-meter svg, .ws-frost svg, .if-body p svg { width: 18px; height: 18px; fill: none; stroke: #0b8c96; stroke-width: 2; vertical-align: -4px; flex: none; }
+.ws-read { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: .9rem; }
+.ws-read td { padding: 3px 4px; border-bottom: 1px solid var(--linie); }
+.ws-read td.num { text-align: right; white-space: nowrap; }
+.ws-read .link-btn svg { width: 14px; height: 14px; }
+.ws-sw { margin-top: 6px; padding: 8px 10px; border-radius: var(--radius-s); background: #f1f8f9; display: grid; gap: 6px; }
+.ws-sw-state { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .9rem; }
+.ws-sw-state .ok, .ws-check .ok { color: #2b8a3e; font-weight: 600; }
+.ws-sw-state svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 3; vertical-align: -2px; }
+.ws-frost { display: flex; gap: 10px; align-items: flex-start; background: #e6f6f8; border-color: #9fd8dd; }
+.ws-tech-h { margin: 4px 0 0; padding-left: 20px; }
+.ws-check { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.ws-check li { background: var(--papier); border: 1px solid var(--linie); border-radius: var(--radius); padding: 10px 14px; }
+.ws-check li.is-done { background: #f2f8ef; border-color: #bfdcb4; }
+.ws-check li p { margin: 6px 0 0; }
+.ws-check-box { display: flex; gap: 10px; align-items: center; cursor: pointer; }
+.ws-check-box input { width: 22px; height: 22px; flex: none; accent-color: #2b8a3e; }
+@media (max-width: 860px) { .ws-check { grid-template-columns: 1fr; } }

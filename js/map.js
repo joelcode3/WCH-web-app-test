@@ -57,11 +57,12 @@
     map: null,
     colorMode: 'status',   // 'status' | 'supply'
     // Ebenen & Symbole zum An-/Abwählen
-    show: { boxes: true, tanks: true, places: true, airbnb: true, todos: true, aerial: false, ww: false, dogs: false, persons: false, miet: false, pacht: false },
+    show: { boxes: true, tanks: true, places: true, airbnb: true, wasser: true, todos: true, aerial: false, ww: false, dogs: false, persons: false, miet: false, pacht: false },
     // Beim Zeichnen auf rechte Winkel einrasten? Standard: Freiform; Wahl wird gemerkt
     snap: (() => { try { return localStorage.getItem('wch-snap') === '1'; } catch (_) { return false; } })(),
     editMode: false,
     selected: null,        // { type: 'parcel'|'box'|'tank'|'place', id }
+    selHahn: null,         // Wasserschacht: hervorgehobener Absperrhahn (dessen Bereich kräftiger)
     mode: null,            // null | { kind: 'draw', points, onDone, onCancel } | { kind: 'place', onDone, onCancel }
     handlers: {},          // onSelect(type, id), onClear(), onModeChange()
 
@@ -108,6 +109,7 @@
       this.layers = {
         links: L.layerGroup().addTo(this.map),
         parcels: L.layerGroup().addTo(this.map),
+        areas: L.layerGroup().addTo(this.map),     // Bereiche der Absperrhähne (nur beim gewählten Wasserschacht)
         tanks: L.layerGroup().addTo(this.map),
         boxes: L.layerGroup().addTo(this.map),
         places: L.layerGroup().addTo(this.map),
@@ -204,6 +206,7 @@
       L_.tanks.clearLayers();
       L_.links.clearLayers();
       L_.places.clearLayers();
+      L_.areas.clearLayers();
       const todoCounts = this.show.todos ? Store.openTodoCounts() : new Map();
       this._todoCounts = todoCounts;
       const todoDot = (type, id) => { const n = todoCounts.get(`${type}:${id}`); return n ? `<b class="pin-todo" title="${n} offene To-Do${n > 1 ? 's' : ''}">${n}</b>` : ''; };
@@ -297,10 +300,24 @@
         });
       }
 
-      if (this.show.places || this.show.airbnb) {
+      // Wasserschacht gewählt: Bereiche seiner Absperrhähne hellblau/türkis zeigen
+      const selPlace = sel && sel.type === 'place' ? Store.place(sel.id) : null;
+      if (selPlace && Store.isSchacht(selPlace) && selPlace.wasser) {
+        selPlace.wasser.haehne.forEach((hh, i) => {
+          if (!hh.area || hh.area.length < 3) return;
+          const on = this.selHahn === hh.id;
+          const dim = this.selHahn && !on;
+          L.polygon(hh.area.map(toLL), {
+            renderer: this.renderer, color: '#0b8c96', weight: on ? 3 : 2, dashArray: on ? null : '6 4',
+            fillColor: '#3cc8d0', fillOpacity: on ? 0.42 : dim ? 0.12 : 0.28, interactive: false,
+          }).bindTooltip(`${i + 1}. ${hh.name || 'Absperrhahn'}`, { permanent: true, direction: 'center', className: 'area-tip' }).addTo(L_.areas);
+        });
+      }
+
+      if (this.show.places || this.show.airbnb || this.show.wasser) {
         Store.data.places.forEach((o) => {
           if (!o.pos) return;
-          if (!(Store.isAirbnb(o) ? this.show.airbnb : this.show.places)) return;
+          if (!(Store.isSchacht(o) ? this.show.wasser : Store.isAirbnb(o) ? this.show.airbnb : this.show.places)) return;
           const isSel = sel && sel.type === 'place' && sel.id === o.id;
           const kind = Store.PLACE_KINDS[o.kind] || Store.PLACE_KINDS.sonstiges;
           const name = o.name || kind.label;
@@ -310,7 +327,7 @@
               className: '',
               html: airbnb
                 ? window.Airbnb.markerHtml(o, { selected: isSel, extra: todoDot('place', o.id) + (window.Waechter ? window.Waechter.badgeHtml(o.id) : '') })
-                : `<div class="pin pin-place${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
+                : `<div class="pin pin-place${Store.isSchacht(o) ? ' pin-wasser' : ''}${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
               iconSize: [0, airbnb ? 0 : 28],
               iconAnchor: [0, airbnb ? 0 : 14],
             }),
@@ -381,6 +398,7 @@
     },
 
     select(type, id, opts = {}) {
+      if (!type || !this.selected || this.selected.id !== id) this.selHahn = null;
       this.selected = type ? { type, id } : null;
       this.render();
       if (!type || !opts.focus) return;
@@ -413,6 +431,7 @@
     },
 
     _onMapClick(e) {
+      if (this.mode && this.mode.kind === 'free') return;
       const pt = fromLL(e.latlng);
       if (this.mode && this.mode.kind === 'draw') {
         // Tippen nahe am Startpunkt schließt die Fläche
@@ -567,6 +586,66 @@
       }, { passive: false });
     },
 
+    /* --- Bereich frei Hand zeichnen (Finger / Maus gedrückt halten und ziehen) --- */
+    startFreehand(onDone, onCancel) {
+      const map = this.map, el = map.getContainer();
+      this.mode = { kind: 'free', points: [], drawing: false, onDone, onCancel };
+      el.classList.add('is-drawing', 'is-freehand');
+      map.dragging.disable(); map.touchZoom.disable(); if (map.tap) map.tap.disable();
+      const pt = (ev) => fromLL(map.mouseEventToLatLng(ev));
+      const down = (ev) => {
+        if (!this.mode || this.mode.kind !== 'free' || ev.button > 0) return;
+        if (ev.target.closest && ev.target.closest('.leaflet-control')) return;
+        ev.preventDefault();
+        try { el.setPointerCapture(ev.pointerId); } catch (_) { /* egal */ }
+        this.mode.drawing = true;
+        this.mode.points = [pt(ev)];
+        this._renderDraw();
+      };
+      const move = (ev) => {
+        const m = this.mode;
+        if (!m || m.kind !== 'free' || !m.drawing) return;
+        ev.preventDefault();
+        const p = pt(ev), last = m.points[m.points.length - 1];
+        const minD = 3 / map.getZoomScale(map.getZoom(), 0);   // etwa 3 Bildschirmpunkte
+        if (Math.hypot(p[0] - last[0], p[1] - last[1]) >= minD) { m.points.push(p); this._renderDraw(); }
+      };
+      const up = () => {
+        const m = this.mode;
+        if (!m || m.kind !== 'free' || !m.drawing) return;
+        m.drawing = false;
+        const eps = 1.5 / map.getZoomScale(map.getZoom(), 0);
+        m.points = simplify(m.points, eps).map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]);
+        this._renderDraw();
+        this.handlers.onModeChange();
+      };
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+      this._freeOff = () => {
+        el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+        el.classList.remove('is-freehand');
+        map.dragging.enable(); map.touchZoom.enable(); if (map.tap) map.tap.enable();
+        this._freeOff = null;
+      };
+      this._renderDraw();
+      this.handlers.onModeChange();
+    },
+    clearFreehand() {
+      if (!this.mode || this.mode.kind !== 'free') return;
+      this.mode.points = [];
+      this._renderDraw();
+      this.handlers.onModeChange();
+    },
+    finishFreehand() {
+      if (!this.mode || this.mode.kind !== 'free' || this.mode.points.length < 3) return;
+      const { points, onDone } = this.mode;
+      this._endMode();
+      onDone(points);
+    },
+
     startPlace(onDone, onCancel) {
       this.mode = { kind: 'place', onDone, onCancel };
       this.map.getContainer().classList.add('is-drawing');
@@ -579,6 +658,7 @@
       if (cb) cb();
     },
     _endMode() {
+      if (this._freeOff) this._freeOff();
       this.mode = null;
       this._preview = null;
       this.layers.draw.clearLayers();
@@ -598,6 +678,11 @@
         if (pts.length === 1) L.circleMarker(pts[0], { radius: 6, color: '#b3402e', weight: 2, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(g);
         return;
       }
+      if (this.mode.kind === 'free') {
+        if (pts.length >= 3 && !this.mode.drawing) L.polygon(pts, { color: '#0b8c96', weight: 2.5, fillColor: '#3cc8d0', fillOpacity: 0.35, interactive: false }).addTo(g);
+        else if (pts.length >= 2) L.polyline(pts, { color: '#0b8c96', weight: 3, interactive: false }).addTo(g);
+        return;
+      }
       if (pts.length >= 3) L.polygon(pts, { color: '#1b2a1e', weight: 2, fillColor: '#e0a526', fillOpacity: 0.35, interactive: false }).addTo(g);
       else if (pts.length === 2) L.polyline(pts, { color: '#1b2a1e', weight: 2, interactive: false }).addTo(g);
       pts.forEach((ll, i) => L.circleMarker(ll, {
@@ -607,6 +692,21 @@
 
     mapCenter() { return fromLL(this.map.getCenter()); },
   };
+
+  // Linie vereinfachen (Douglas-Peucker): weniger Punkte, gleiche Form
+  function simplify(pts, eps) {
+    if (pts.length < 3) return pts.slice();
+    const d = (p, a, b) => {
+      const dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy;
+      if (!l) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+      const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l));
+      return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+    };
+    let max = 0, idx = 0;
+    for (let i = 1; i < pts.length - 1; i++) { const v = d(pts[i], pts[0], pts[pts.length - 1]); if (v > max) { max = v; idx = i; } }
+    if (max <= eps) return [pts[0], pts[pts.length - 1]];
+    return simplify(pts.slice(0, idx + 1), eps).slice(0, -1).concat(simplify(pts.slice(idx), eps));
+  }
 
   // kleine Vektor-Helfer
   const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
