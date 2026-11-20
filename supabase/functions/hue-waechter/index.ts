@@ -34,6 +34,10 @@ export const FROST_TEMP = 6;       // °C – darunter Frostwarnung
 export const FROST_CLEAR = 8;      // °C – ab hier Entwarnung (kein Hin und Her um 6 °C)
 export const FROST_MIN = 0;        // Minuten unter FROST_TEMP → Warnung (0 = sofort beim ersten Messwert)
 export const BATTERY_LOW = 15;     // % – Batterie schwach
+export const BLIND_MIN = 120;      // Minuten ohne brauchbare Antwort von Hue → nicht mehr still abwarten
+// Hue-Cloud meldet „Bridge nicht verbunden“ als HTTP 521/522/523 (Cloudflare: Gegenstelle nicht erreichbar)
+export const BRIDGE_GONE = [521, 522, 523];
+const BLIND_ERR = 'Hue antwortet nicht – Überwachung blind';
 const HUE = 'https://api.meethue.com';
 
 const CORS = {
@@ -209,7 +213,7 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
         console.log(`[${b.place_id}] v2 nicht erreichbar: HTTP ${r.status}${r.error ? ' ' + r.error : ''} ${JSON.stringify(r.body).slice(0, 200)} · ${v1.info}`);
         if (v1.ok) return { state: 'online', error: '', sensors: v1.sensors };
         // Hue selbst überlastet/gestört (kein klares „Bridge weg“) → Zustand unverändert lassen
-        if (r.status === 429 || r.status >= 500 && !/offline|not connected|disconnected/i.test(JSON.stringify(r.body))) return { state: 'unknown', error: '' };
+        if (r.status === 429 || r.status >= 500 && !BRIDGE_GONE.includes(r.status) && !/offline|not connected|disconnected/i.test(JSON.stringify(r.body))) return { state: 'unknown', error: '' };
         return { state: 'offline', error: '' };
       }
       // Temperatur, Namen und Batterie der Melder – nacheinander (Hue mag keine parallelen Abfragen)
@@ -248,14 +252,33 @@ export function createWaechter(db: Db, env: Env, fetchFn: typeof fetch = fetch, 
     const alerts: { s: Status; flag?: 'alarm_offline' | 'alarm_frost' | 'alarm_battery'; value?: boolean; offline?: boolean; admin?: boolean; text: string }[] = [];
     const results: Status[] = [];
 
+    // erst alle abfragen (nacheinander), dann auswerten – so ist bekannt, ob andere Bridges erreichbar sind
+    const probes: [Bridge, Awaited<ReturnType<typeof probe>>][] = [];
     for (const b of bridges) {
       if (onlyPlace && b.place_id !== onlyPlace) continue;
+      probes.push([b, await probe(b)]);
+    }
+    const anyOnline = probes.some(([, r]) => r.state === 'online');
+
+    for (const [b, r] of probes) {
       const s: Status = { ...emptyStatus(b.place_id), ...(byId.get(b.place_id) || {}), connected: true };
       const name = smsName(names[b.place_id] || 'Unterkunft');
-      const r = await probe(b);
       s.last_check = iso;
-      // Zugang abgelaufen: Überwachung ist blind → einmal Bescheid geben
-      if (r.error && r.error !== s.error) alerts.push({ s, admin: true, text: `${name} - Ups, Hue Zugang abgelaufen. Gibt also aktuell keine Überwachung. Joel, kümmer dich mal ja!` });
+      // Länger keine brauchbare Antwort: nicht mehr still abwarten.
+      // Andere Bridges laufen → es liegt an dieser Bridge (gilt als nicht erreichbar); sonst ist die Überwachung blind.
+      if (r.state === 'unknown' && !r.error) {
+        const gone = s.last_ok || s.since;
+        if (gone && minutes(gone, now) >= BLIND_MIN) {
+          if (anyOnline) r.state = 'offline';
+          else r.error = BLIND_ERR;
+        }
+      }
+      // Zugang abgelaufen / Hue antwortet nicht: Überwachung ist blind → einmal Bescheid geben
+      if (r.error && r.error !== s.error) {
+        alerts.push({ s, admin: true, text: r.error === BLIND_ERR
+          ? `${name} - Hue antwortet seit ${clock(s.last_ok || s.since)} nicht mehr, Überwachung läuft gerade blind. Joel, schau mal rein!`
+          : `${name} - Ups, Hue Zugang abgelaufen. Gibt also aktuell keine Überwachung. Joel, kümmer dich mal ja!` });
+      }
       s.error = r.error;
 
       if (r.state === 'online') {

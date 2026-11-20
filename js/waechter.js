@@ -67,11 +67,13 @@
     summary(id) {
       const r = this.get(id);
       if (!r || !r.connected) return null;
-      if (r.error) return { level: 'warn', text: 'Hue-Zugang erneuern' };
+      if (r.error) return { level: 'warn', text: /^Hue-Zugang/.test(r.error) ? 'Hue-Zugang erneuern' : `keine Daten seit ${time(r.last_ok || r.since)}` };
       if (r.online === false) {
         return { level: isLong(r) ? 'alarm' : 'warn', text: `kein Kontakt seit ${time(r.last_ok || r.since)}` };
       }
       if (r.online == null) return { level: 'wait', text: 'wird geprüft' };
+      // Bridge gilt als erreichbar, aber seit über 1 Std. keine Antwort mehr (Hue unklar) → nicht „Strom ok“ zeigen
+      if (r.last_ok && ago(r.last_ok) >= 60) return { level: 'warn', text: `keine Daten seit ${time(r.last_ok)}` };
       const cold = (r.sensors || []).filter((x) => typeof x.temp === 'number' && x.temp < FROST_TEMP);
       if (cold.length) return { level: 'alarm', text: `Frostgefahr ${deg(Math.min(...cold.map((x) => x.temp)))}` };
       if (typeof r.min_temp === 'number') return { level: 'ok', text: `Strom ok · ${deg(r.min_temp)}` };
@@ -91,7 +93,8 @@
         if (r.online !== false && cold.length) add('frost', 'alarm', `Frostgefahr: Bad bei ${deg(Math.min(...cold.map((x) => x.temp)))}`);
         const weak = (r.sensors || []).filter((x) => typeof x.battery === 'number' && x.battery <= 15);
         if (weak.length) add('battery', 'warn', `Batterie Temperatursensor schwach (${Math.min(...weak.map((x) => x.battery))} %)`);
-        if (r.error) add('error', 'warn', 'Hue-Zugang abgelaufen – keine Überwachung, bitte neu mit Hue verbinden');
+        if (r.error) add('error', 'warn', /^Hue-Zugang/.test(r.error) ? 'Hue-Zugang abgelaufen – keine Überwachung, bitte neu mit Hue verbinden' : `Keine Daten von Hue seit ${time(r.last_ok || r.since)} – Überwachung blind`);
+        else if (r.online === true && r.last_ok && ago(r.last_ok) >= 60) add('nodata', 'warn', `Keine Daten von der Hue Bridge seit ${time(r.last_ok)} – Überwachung unsicher`);
         if (r.last_check && ago(r.last_check) >= 30) add('stale', 'warn', `Überwachung läuft nicht seit ${hm(r.last_check)} – es kommen keine SMS`);
       });
       return out.sort((a, b) => (a.level === 'alarm' ? 0 : 1) - (b.level === 'alarm' ? 0 : 1));
