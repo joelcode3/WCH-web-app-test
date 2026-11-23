@@ -1374,7 +1374,6 @@ svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
 .schacht-tip .ws-sun svg { width: 16px; height: 16px; }
 .ws-legend { margin: 10px 0 0; font-size: .8rem; color: var(--text-leise); display: flex; align-items: center; gap: 4px; }
 .ws-legend .ws-sun { margin-left: 0; }
-.schacht-tip .ws-legend { margin-top: 6px; font-size: 11px; font-weight: 600; color: #5d7f84; }
 .ws-ed-hint { color: #0b8c96; font-weight: 700; }
 /* Kopf des Schacht-Fensters: runder Kreis, Tropfen mittig */
 .pin.ws-head-ico { transform: none; width: 42px; height: 42px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; flex: none; }

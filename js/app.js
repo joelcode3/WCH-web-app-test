@@ -3072,8 +3072,7 @@
       const w = o.wasser;
       return `<div class="st-title">${h(this.title(o))}</div>
         ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</li>`).join('')}</ul>` : '<div class="st-none">keine Absperrhähne</div>'}
-        ${w.zaehler ? `<div class="schacht-tip-z">${WICO.meter} Zähler ${h(w.zaehler.nr || '')}</div>` : ''}
-        ${this.sunLegend(S.hatSommerwasser(o))}`;
+        ${w.zaehler ? `<div class="schacht-tip-z">${WICO.meter} Zähler ${h(w.zaehler.nr || '')}</div>` : ''}`;
     },
     readingsHtml(z, opts = {}) {
       const rs = z.ablesungen.slice(-(opts.n || 3)).reverse();
