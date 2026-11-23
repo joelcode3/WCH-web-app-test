@@ -102,7 +102,11 @@
         }).join('');
       }).addTo(this.map);
       // eigener SVG-Renderer, damit Farbverläufe (zweifarbige Parzellen) definiert werden können
-      this.renderer = L.svg({ padding: 0.5 });
+      // Parzellen (und Bereiche) in einer eigenen, untersten Ebene direkt über dem Plan – alles andere liegt darüber.
+      // Feste Ebene statt der gemeinsamen overlayPane: Safari zeichnete sonst teils Parzellen über Tanks/Kästen.
+      const pp = this.map.createPane('parcelPane');
+      pp.style.zIndex = 300;
+      this.renderer = L.svg({ padding: 0.5, pane: 'parcelPane' });
       this.bounds = bounds;
       this.fit();
 

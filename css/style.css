@@ -1360,3 +1360,5 @@ svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
 .schacht-tip ul { margin: 4px 0 0; padding-left: 16px; }
 .schacht-tip-z { margin-top: 4px; display: flex; align-items: center; gap: 4px; color: #0b5d64; }
 .schacht-tip-z svg { width: 14px; height: 14px; fill: none; stroke: #0b8c96; stroke-width: 2; }
+/* Safari: Symbole (Tanks, Kästen, Orte) sicher über den Parzellen zeichnen */
+.leaflet-marker-pane { transform: translateZ(0); }
