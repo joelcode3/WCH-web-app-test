@@ -1343,3 +1343,6 @@ body.is-locked { padding-bottom: 0; }
 .cal-day.d-swap { background: linear-gradient(135deg, var(--o) 43%, var(--gap) 43% 57%, var(--n) 57%); color: #2b3a33; }
 .tl-cell.d-swap { background: linear-gradient(90deg, var(--o) 42%, var(--gap) 42% 58%, var(--n) 58%); }
 .cal-legend i.d-swap { background: linear-gradient(135deg, #c45a5a 40%, #e3f2da 40% 60%, #c45a5a 60%); border-color: #c45a5a; }
+/* belegt ↔ geblockt: Farben unterscheiden sich schon, nur die Diagonale ohne Lücke */
+.cal-day.d-swap.so-res.n-blk, .cal-day.d-swap.so-blk.n-res { background: linear-gradient(135deg, var(--o) 50%, var(--n) 50%); }
+.tl-cell.d-swap.so-res.n-blk, .tl-cell.d-swap.so-blk.n-res { background: linear-gradient(90deg, var(--o) 50%, var(--n) 50%); }
