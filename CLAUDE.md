@@ -92,7 +92,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   Daten in `place.wasser` = { haehne:[{id,name,info,area (Eckpunkte in Map-Pixeln), foto [x%,y%], sommerwasser}], zaehler {nr, ablesungen[{datum,stand}]}|null,
   abstellInfo, abgestellt (Datum) }. Klick auf den Schacht zeigt die Bereiche der Hähne türkis, beschriftet nur mit dem Hahn-Namen (keine eigenen Nummern),
   Klick auf einen Hahn hebt ihn hervor. Bereiche: Ecken antippen, rechtwinklige Kanten (`startDraw` mit `ortho`), Ecken beim Anzeigen leicht abgerundet (`roundCorners`).
-  Überfahren des Schachts (Maus) zeigt Hähne + Zähler. Foto des Schachts mit Namens-Markierungen der Hähne.
+  Überfahren des Schachts (Maus) zeigt „Wasserschacht <Name>“, Hähne + Zählernummer (hellblaues Feld, fett). Foto mit kleinen Nummern-Kreisen (gewählt: hellblauer Ring). Schacht-Fenster zeigt nur Infos; Bearbeiten (Hahn-Menü, Foto, Zähler ändern, + Absperrhahn) erst nach Knopf „Bearbeiten“ (`Wasser.editing`). Legende „Sonne = Sommerwasser“ unten statt Hover.
   Sommerwasser je Absperrhahn (Symbol Sonne mit Tropfen, Hinweis „Sommerwasser“); Schacht zählt, wenn ein Hahn Sommerwasser ist (`Store.hatSommerwasser`).
   Reiter Infrastruktur → Wasser (`#/technik/wasser`) mit Sommerwasser-Checkliste je Winter (Saison ab 1. Juli). Erinnerung: sobald die 7-Tage-Vorhersage Frost (Tiefstwert ≤ 0 °C)
   zeigt, einmal je Winter To-Do `sw-JAHR` „Sommerwasser abstellen“ (fällig am Frosttag); erledigt, wenn alle abgehakt.

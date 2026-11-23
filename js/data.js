@@ -117,7 +117,7 @@
     muell: { label: 'Müllplatz', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6"/></svg>' },
     wasser: { label: 'Wasser / Brunnen', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 3c3 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 9 7 12 3z"/></svg>' },
     // Wasserschacht mit Absperrhähnen (Bereiche auf der Map), optional Wasserzähler, Sommerwasser – Reiter Infrastruktur → Wasser
-    schacht: { label: 'Wasserschacht', icon: '<svg viewBox="0 0 24 24" class="pk-ico pk-solid" aria-hidden="true"><path d="M12 3c3 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 9 7 12 3z"/></svg>', wasser: true },
+    schacht: { label: 'Wasserschacht', icon: '<svg viewBox="0 0 24 24" class="pk-ico pk-solid" aria-hidden="true"><path d="M12 3.3c3.2 4.2 6.2 7.3 6.2 11a6.2 6.2 0 0 1-12.4 0c0-3.7 3-6.8 6.2-11z"/></svg>', wasser: true },
     shelter: { label: 'Shelter', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 9l18-4v15 M3 9v11 M3 20h18 M8 20v-6h8v6"/></svg>' },
     hundewiese: { label: 'Hundewiese', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 12.5c-3 0-5.5 3.3-5.5 5.3 0 1.5 1.2 2.4 2.8 2.4 1.1 0 1.8-.6 2.7-.6s1.6.6 2.7.6c1.6 0 2.8-.9 2.8-2.4 0-2-2.5-5.3-5.5-5.3z M5 10.5a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M8.6 6.3a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M12 6.3a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M15.6 10.5a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0"/></svg>' },
     // Draufsicht auf der Karte (drehbar) wie die airbnbs, aber ohne Kalender

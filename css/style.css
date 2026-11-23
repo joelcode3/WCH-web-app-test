@@ -1346,15 +1346,9 @@ body.is-locked { padding-bottom: 0; }
 
 /* Wasser: Tropfen ausgefüllt, Sommerwasser-Symbol, Kurzinfo beim Überfahren */
 svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
-.ws-sun { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-left: 4px; padding: 0; border: 0; background: none;
-  vertical-align: -5px; cursor: help; color: #d99a12; }
+.ws-sun { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-left: 4px; vertical-align: -5px; color: #d99a12; }
 .ws-sun svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .ws-sun svg .sw-drop { fill: #1f8fd0; stroke: none; }
-.ws-sun.is-static { cursor: default; width: 16px; height: 16px; vertical-align: -3px; }
-.ws-sun.is-static svg { width: 15px; height: 15px; }
-.leaflet-tooltip.schacht-tip { padding: 8px 10px; border-radius: 8px; border: 1px solid #9fd8dd; font-size: 13px; line-height: 1.35; min-width: 150px; }
-.schacht-tip ul { margin: 4px 0 0; padding-left: 16px; }
-.schacht-tip-z { margin-top: 4px; display: flex; align-items: center; gap: 4px; color: #0b5d64; }
 .schacht-tip-z svg { width: 14px; height: 14px; fill: none; stroke: #0b8c96; stroke-width: 2; }
 /* Safari: Symbole (Tanks, Kästen, Orte) sicher über den Parzellen zeichnen */
 .leaflet-marker-pane { transform: translateZ(0); }
@@ -1366,3 +1360,23 @@ svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
 .ws-mark.is-sel { width: 18px; height: 18px; line-height: 1; background: #0b8c96; color: #fff; box-shadow: 0 0 0 3px #3cc8d0, 0 1px 4px rgba(0,0,0,.5); }
 .ws-no { flex: none; margin: 2px 6px 0 0; border: 0; vertical-align: 1px; }
 .ws-photo.is-big .ws-mark { width: 22px; height: 22px; font-size: 12px; }
+
+/* Kurzinfo Wasserschacht (Maus über dem Schacht) */
+.leaflet-tooltip.schacht-tip { padding: 10px 12px; border-radius: 10px; border: 1px solid #a9dde2; background: #eef8f9; color: #12434a;
+  font-size: 13px; font-weight: 600; line-height: 1.4; min-width: 170px; box-shadow: 0 4px 14px rgba(11,93,100,.18); }
+.leaflet-tooltip.schacht-tip::before { border-top-color: #a9dde2; }
+.schacht-tip .st-title { font-weight: 800; font-size: 14px; color: #0b5d64; margin-bottom: 4px; }
+.schacht-tip ul { margin: 0; padding-left: 16px; }
+.schacht-tip li { margin: 1px 0; }
+.schacht-tip .st-none { color: #5d7f84; }
+.schacht-tip-z { margin-top: 6px; padding-top: 6px; border-top: 1px solid #cfe9ec; display: flex; align-items: center; gap: 5px; color: #0b5d64; }
+.schacht-tip .ws-sun { width: 18px; height: 18px; vertical-align: -4px; margin-left: 3px; }
+.schacht-tip .ws-sun svg { width: 16px; height: 16px; }
+.ws-legend { margin: 10px 0 0; font-size: .8rem; color: var(--text-leise); display: flex; align-items: center; gap: 4px; }
+.ws-legend .ws-sun { margin-left: 0; }
+.schacht-tip .ws-legend { margin-top: 6px; font-size: 11px; font-weight: 600; color: #5d7f84; }
+.ws-ed-hint { color: #0b8c96; font-weight: 700; }
+/* Kopf des Schacht-Fensters: runder Kreis, Tropfen mittig */
+.pin.ws-head-ico { transform: none; width: 42px; height: 42px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; flex: none; }
+.pin.ws-head-ico i { display: grid; place-items: center; line-height: 0; }
+.pin.ws-head-ico svg.pk-ico { width: 22px; height: 22px; }

@@ -3062,14 +3062,18 @@
     // erster angekündigter Frosttag (Tiefstwert ≤ 0 °C) in der 7-Tage-Vorhersage
     frostDay() { return window.Wetter && Wetter.data ? Wetter.data.days.find((d) => typeof d.min === 'number' && d.min <= 0) || null : null; },
     pending() { return S.schaechte().filter((o) => S.hatSommerwasser(o) && !S.isAbgestellt(o)); },
-    sunHtml(x) { return x.sommerwasser ? `<button type="button" class="ws-sun" data-sw-tip title="Sommerwasser" aria-label="Sommerwasser">${WICO.sun}</button>` : ''; },
+    sunHtml(x) { return x.sommerwasser ? `<span class="ws-sun" aria-label="Sommerwasser">${WICO.sun}</span>` : ''; },
+    sunLegend(show) { return show ? `<p class="ws-legend"><span class="ws-sun">${WICO.sun}</span> = Sommerwasser</p>` : ''; },
+    // „Wasserschacht 1.01“ – außer der Name sagt es schon
+    title(o) { const n = o.name || ''; return /schacht/i.test(n) ? n : `Wasserschacht ${n}`.trim(); },
+    editing: null,   // Schacht, dessen Fenster gerade im Bearbeiten-Modus ist
     // Kurzinfo beim Überfahren des Schachts auf der Map
     tipHtml(o) {
       const w = o.wasser;
-      const last = w.zaehler && w.zaehler.ablesungen[w.zaehler.ablesungen.length - 1];
-      return `<strong>${h(o.name)}</strong>
-        ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(x.name || 'Absperrhahn')}${x.sommerwasser ? `<span class="ws-sun is-static" title="Sommerwasser">${WICO.sun}</span>` : ''}</li>`).join('')}</ul>` : '<div class="muted">keine Absperrhähne</div>'}
-        ${w.zaehler ? `<div class="schacht-tip-z">${WICO.meter} Zähler ${h(w.zaehler.nr || '')}${last ? ` · ${fmtNum(last.stand)} m³ (${fmtDate(last.datum)})` : ''}</div>` : ''}`;
+      return `<div class="st-title">${h(this.title(o))}</div>
+        ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</li>`).join('')}</ul>` : '<div class="st-none">keine Absperrhähne</div>'}
+        ${w.zaehler ? `<div class="schacht-tip-z">${WICO.meter} Zähler ${h(w.zaehler.nr || '')}</div>` : ''}
+        ${this.sunLegend(S.hatSommerwasser(o))}`;
     },
     readingsHtml(z, opts = {}) {
       const rs = z.ablesungen.slice(-(opts.n || 3)).reverse();
@@ -3090,24 +3094,26 @@
 
     panelHtml(o) {
       const w = o.wasser;
+      if (this.editing && this.editing !== o.id) this.editing = null;
+      const ed = this.editing === o.id;
       const url = this.photoUrl(o);
       const kind = S.PLACE_KINDS.schacht;
       const saison = S.wasserSaison();
       const frost = this.frostDay();
       return `
         <div class="panel-head">
-          <span class="pin pin-place pin-wasser" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i></span>
-          <div class="title"><h2>${h(o.name || kind.label)}</h2><span class="muted small">Wasserschacht</span></div>
+          <span class="pin pin-place pin-wasser ws-head-ico"><i>${kind.icon}</i></span>
+          <div class="title"><h2>${h(this.title(o))}</h2>${ed ? '<span class="small ws-ed-hint">Bearbeiten</span>' : ''}</div>
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">
           ${this.missing() ? '<p class="notice small">Noch nicht gespeichert: zuerst <code>supabase/update-16.sql</code> ausführen.</p>' : ''}
           ${o.notes ? `<p class="small" style="margin:0 0 10px;white-space:pre-line">${h(o.notes)}</p>` : ''}
-          <div class="ws-photo-wrap">
+          ${url || ed ? `<div class="ws-photo-wrap">
             ${url ? `<button type="button" class="ws-photo-btn" data-ws="photo-view" title="Foto groß anzeigen">${this.photoHtml(o, url)}</button>`
               : '<div class="ws-photo is-empty"><span class="muted small">Noch kein Foto vom Schacht</span></div>'}
-            <label class="tile-change" title="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}<input type="file" accept="image/*" hidden data-place-photo></label>
-          </div>
+            ${ed ? `<label class="tile-change" title="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}<input type="file" accept="image/*" hidden data-place-photo></label>` : ''}
+          </div>` : ''}
 
           <div class="section-title">Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
           ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
@@ -3115,7 +3121,7 @@
               ${x.foto && o.photo ? `<span class="ws-no" title="Nummer auf dem Foto">${i + 1}</span>` : ''}
               <span class="ws-h-main"><strong>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</strong>
                 ${x.info ? `<span class="small">${h(x.info)}</span>` : ''}</span>
-              <select class="ws-h-act" data-hahn-act="${x.id}" aria-label="Aktionen für ${h(x.name || 'Absperrhahn')}" title="Bearbeiten, Bereich zeichnen …">
+              ${ed ? `<select class="ws-h-act" data-hahn-act="${x.id}" aria-label="Aktionen für ${h(x.name || 'Absperrhahn')}" title="Bearbeiten, Bereich zeichnen …">
                 <option value="">…</option>
                 <option value="edit">Name / Info / Sommerwasser</option>
                 <option value="area">${x.area ? 'Bereich neu zeichnen' : 'Bereich auf Map zeichnen'}</option>
@@ -3123,16 +3129,16 @@
                 ${o.photo ? `<option value="foto">${x.foto ? 'Auf Foto neu markieren' : 'Auf Foto markieren'}</option>` : ''}
                 <option disabled>──────────</option>
                 <option value="del">Absperrhahn löschen</option>
-              </select>
+              </select>` : ''}
             </li>`).join('')}</ul>` : '<p class="muted small" style="margin:0 0 6px">Noch keine Absperrhähne eingetragen.</p>'}
-          <div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws="add-hahn">${ICON.plus} Absperrhahn</button></div>
+          ${ed ? `<div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws="add-hahn">${ICON.plus} Absperrhahn</button></div>` : ''}
 
-          <div class="section-title">Wasserzähler</div>
+          ${w.zaehler || ed ? '<div class="section-title">Wasserzähler</div>' : ''}
           ${w.zaehler ? `<div class="ws-meter"><span>${WICO.meter}<strong class="mono">${h(w.zaehler.nr || 'ohne Nummer')}</strong></span>
-              <button type="button" class="link-btn muted-link small" data-ws="meter-edit">ändern</button></div>
-            ${this.readingsHtml(w.zaehler, { del: true })}
+              ${ed ? '<button type="button" class="link-btn muted-link small" data-ws="meter-edit">ändern</button>' : ''}</div>
+            ${this.readingsHtml(w.zaehler, { del: ed })}
             <div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws="read-add">${ICON.plus} Zählerstand</button></div>`
-          : '<div class="card-actions" style="margin-top:0"><button type="button" class="btn btn-ghost btn-sm" data-ws="meter-edit">' + ICON.plus + ' Wasserzähler hinterlegen</button></div>'}
+          : ed ? '<div class="card-actions" style="margin-top:0"><button type="button" class="btn btn-ghost btn-sm" data-ws="meter-edit">' + ICON.plus + ' Wasserzähler hinterlegen</button></div>' : ''}
 
           ${S.hatSommerwasser(o) ? `
             <div class="section-title">Sommerwasser</div>
@@ -3145,19 +3151,21 @@
             </div>` : ''}
 
           ${todoSection('place', o.id, true)}
+          ${this.sunLegend(S.hatSommerwasser(o))}
         </div>
         <div class="panel-actions">
-          <button class="btn" data-goto="#/todo/neu?ziel=place:${o.id}&${backParam()}">${ICON.plus} To-Do</button>
-          <button class="btn btn-ghost" data-ws="edit">${ICON.edit} Bearbeiten</button>
+          ${ed ? `<button class="btn btn-ghost" data-ws="edit">${ICON.edit} Name / Infotext</button>
+            <button class="btn btn-dark" data-ws="edit-done">Fertig</button>`
+          : `<button class="btn" data-goto="#/todo/neu?ziel=place:${o.id}&${backParam()}">${ICON.plus} To-Do</button>
+            <button class="btn btn-ghost" data-ws="edit-on">${ICON.edit} Bearbeiten</button>`}
         </div>`;
     },
 
     bindPanel(panel, o) {
       MapUI.bindPlacePhoto(panel, o);
       const reshow = () => MapUI.showPanel('place', o.id);
-      $$('[data-sw-tip]', panel).forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); toast('Sommerwasser'); }));
       $$('[data-hahn]', panel).forEach((li) => li.addEventListener('click', (e) => {
-        if (e.target.closest('select, [data-sw-tip]')) return;
+        if (e.target.closest('select')) return;
         MapView.selHahn = MapView.selHahn === li.dataset.hahn ? null : li.dataset.hahn;
         MapView.render();
         reshow();
@@ -3189,6 +3197,7 @@
         const act = el.dataset.ws;
         el.addEventListener('click', () => {
           if (act === 'edit') this.edit(o.id);
+          if (act === 'edit-on' || act === 'edit-done') { this.editing = act === 'edit-on' ? o.id : null; reshow(); }
           if (act === 'add-hahn') this.editHahn(o, null);
           if (act === 'photo-view') this.viewPhoto(o);
           if (act === 'meter-edit') this.editMeter(o);
@@ -3430,6 +3439,7 @@
             <button class="btn btn-sm" data-ws-new>${ICON.plus} Wasserschacht</button>
           </div>
           <div class="infra-list">${list.map(fold).join('') || '<p class="muted">Noch keine Wasserschächte. Mit „+ Wasserschacht“ anlegen und auf der Map platzieren.</p>'}</div>
+          ${this.sunLegend(list.some((o) => S.hatSommerwasser(o)))}
 
           <div class="page-head section-head">
             <h2>Sommerwasser-Checkliste</h2>
@@ -3449,7 +3459,6 @@
       $$('[data-ws-edit]', root).forEach((b) => b.onclick = () => this.edit(b.dataset.wsEdit));
       $$('[data-ws-read]', root).forEach((b) => b.onclick = () => this.addReading(S.place(b.dataset.wsRead)));
       $$('[data-ws-place]', root).forEach((b) => b.onclick = () => { const o = S.place(b.dataset.wsPlace); if (o) Actions._place(o, o.name, 'place'); });
-      $$('[data-sw-tip]', root).forEach((b) => b.onclick = (e) => { e.preventDefault(); toast('Sommerwasser'); });
       $$('[data-ws-sw]', root).forEach((c) => c.onchange = () => { const o = S.place(c.dataset.wsSw); if (o) this.setAbgestellt(o, c.checked); });
       const folds = $$('.infra-fold', root), allBtn = $('[data-fold-all]', root);
       const syncAll = () => { if (allBtn) allBtn.textContent = folds.length && folds.every((d) => d.open) ? 'Alle zuklappen' : 'Alle aufklappen'; };
