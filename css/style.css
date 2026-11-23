@@ -1293,7 +1293,6 @@ body.is-locked { padding-bottom: 0; }
 .legend-wasser svg { color: #0b8c96; }
 .area-tip { background: rgba(255,255,255,.85); border: 1px solid #0b8c96; color: #0b5d64; font-weight: 700; font-size: 12px; padding: 1px 6px; box-shadow: none; }
 .area-tip::before { display: none; }
-.leaflet-container.is-freehand { cursor: crosshair; touch-action: none; }
 .ws-photo-wrap { position: relative; margin: 0 0 4px; }
 .ws-photo-wrap .tile-change { width: 30px; height: 30px; right: 6px; bottom: 6px; }
 .ws-photo-wrap .tile-change svg { width: 16px; height: 16px; }
@@ -1312,7 +1311,6 @@ body.is-locked { padding-bottom: 0; }
 .ws-haehne { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .ws-haehne li { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border: 1px solid var(--linie); border-radius: var(--radius-s); cursor: pointer; background: var(--papier); }
 .ws-haehne li.is-sel { border-color: #0b8c96; background: #e6f6f8; }
-.ws-nr { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #0b8c96; color: #fff; font-weight: 700; font-size: 12px; display: grid; place-items: center; margin-top: 1px; }
 .ws-h-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ws-h-act { flex: none; width: 44px; padding: 2px 4px; font-size: .9rem; }
 .ws-meter { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1346,3 +1344,19 @@ body.is-locked { padding-bottom: 0; }
 /* belegt ↔ geblockt: Farben unterscheiden sich schon, nur die Diagonale ohne Lücke */
 .cal-day.d-swap.so-res.n-blk, .cal-day.d-swap.so-blk.n-res { background: linear-gradient(135deg, var(--o) 50%, var(--n) 50%); }
 .tl-cell.d-swap.so-res.n-blk, .tl-cell.d-swap.so-blk.n-res { background: linear-gradient(90deg, var(--o) 50%, var(--n) 50%); }
+
+/* Wasser: Tropfen ausgefüllt, Sommerwasser-Symbol, Kurzinfo beim Überfahren */
+svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
+.ws-sun { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-left: 4px; padding: 0; border: 0; background: none;
+  vertical-align: -5px; cursor: help; color: #d99a12; }
+.ws-sun svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ws-sun svg .sw-drop { fill: #1f8fd0; stroke: none; }
+.ws-sun.is-static { cursor: default; width: 16px; height: 16px; vertical-align: -3px; }
+.ws-sun.is-static svg { width: 15px; height: 15px; }
+.ws-mark { width: auto; min-width: 24px; height: auto; padding: 2px 8px; border-radius: 999px; font: 700 12px/1.3 system-ui, sans-serif;
+  white-space: nowrap; max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
+.ws-mark.is-sel { width: auto; height: auto; line-height: 1.3; padding: 3px 10px; }
+.leaflet-tooltip.schacht-tip { padding: 8px 10px; border-radius: 8px; border: 1px solid #9fd8dd; font-size: 13px; line-height: 1.35; min-width: 150px; }
+.schacht-tip ul { margin: 4px 0 0; padding-left: 16px; }
+.schacht-tip-z { margin-top: 4px; display: flex; align-items: center; gap: 4px; color: #0b5d64; }
+.schacht-tip-z svg { width: 14px; height: 14px; fill: none; stroke: #0b8c96; stroke-width: 2; }
