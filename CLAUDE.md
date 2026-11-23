@@ -16,8 +16,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Reiter: **Map · Kalender · To-Dos · airbnb · Mieter · Infrastruktur · Einstellungen** (Mieter = Route `#/kartei`, früher „Parzellen“; Einstellungen = Route `#/daten`, früher „Daten“) (Infrastruktur hat Unterreiter
   Strom, Gas, Ablesen, Verbrauch, Auslastung; Kästen/Tanks als kompakte Zeilen zum Aufklappen). Kein Zähler am Reiter To-Dos.
 - „airbnb“ immer klein geschrieben.
-- Status: Festwohnsitz (#1f4e8c), Freizeitgrundstück (#6fa8dc), Reserviert (#2b6a33),
-  Frei – bezugsfertig (#6cbf5a), Frei – zu räumen (#ec8a2c); „wird frei“ = bewohnt mit Auszugstermin (diagonal).
+- Status (blasse Pastellfarben, Variante B vom 25.11.2026, weiße Nummern mit Schatten): Festwohnsitz (#7995ba), Freizeitgrundstück (#a9cbea), Reserviert (#80a685),
+  Frei – bezugsfertig (#a7d99c), Frei – zu räumen (#f4b980) (früher kräftiger: #1f4e8c, #6fa8dc, #2b6a33, #6cbf5a, #ec8a2c); „wird frei“ = bewohnt mit Auszugstermin (diagonal).
 - Objektart nur „Pachtgrundstück“ / „Mietobjekt“ (ohne Zusätze).
 - airbnb-Kalender: belegt rot (#c45a5a), frei hellgrün (#e3f2da), geblockt grau. Kopfzeile im airbnb-Fenster:
   belegt (rot) / frei (grün) / geblockt (grau); Anreisetag ab 16 Uhr belegt, Abreisetag bis 11 Uhr belegt (beide halb, diagonal); Wechseltag (Abreise + Anreise am selben Tag) mit heller Lücke in der Mitte (`d-swap`), nur wenn beide Seiten gleiche Farbe haben (belegt↔geblockt nur Diagonale).
@@ -26,6 +26,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
 - Gastank-Beschriftung ohne vorangestelltes „T“.
+- Suche (Map): Parzellen, Stromkästen (gelb), Gastanks (grün, mit Parzellen), Wasserschächte (türkis, auch nach Hahn-/Zählernummer), Orte; ohne Groß-/Kleinschreibung.
+- Satellitenbild an: Parzellen ohne Füllung, nur weiße Umrandung (gewählte gelb), keine Statusfarben.
 - Parzellen immer unterste Ebene (eigene `parcelPane`, z-index 300) – darf nichts verdecken (Safari zeichnete sonst Parzellen über Tanks).
 - Parzellennummern: Platz 1 = 1.01–1.30 (unten), Platz 2 = 2.01–2.71 (oben, inkl. Reihe über dem Hauptweg).
 
@@ -89,11 +91,12 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   App → To Do: nur „erledigt“ (abhaken). Zuständigkeit/Ort wird in der App geklärt. In der App gelöschte kommen nicht wieder.
   Verbinden/Abgleichen/Trennen im Reiter Einstellungen (`js/mstodo.js`). Client Secret läuft nach 24 Monaten ab.
 - **Wasser (GEBAUT 19.11.2026, umgebaut 24.11.)**: Ort-Art `schacht` (Wasserschacht, Symbol ausgefüllter Tropfen, eigene Ebene „Wasser“ in der Legende, `Wasser` in app.js),
-  Daten in `place.wasser` = { haehne:[{id,name,info,area (Eckpunkte in Map-Pixeln), foto [x%,y%], sommerwasser}], zaehler {nr, ablesungen[{datum,stand}]}|null,
-  abstellInfo, abgestellt (Datum) }. Klick auf den Schacht zeigt die Bereiche der Hähne türkis, beschriftet nur mit dem Hahn-Namen (keine eigenen Nummern),
+  Daten in `place.wasser` = { haehne:[{id,name,info,area (Eckpunkte in Map-Pixeln), foto [x%,y%], sommerwasser, zu (Datum abgedreht oder '')}],
+  zaehler:[{id,nr,foto,ablesungen[{datum,stand}]}] (mehrere je Schacht, auf dem Foto als Kästchen „Z1“), abstellInfo }.
+  Im Schacht-Fenster je Hahn Häkchen „zu“; bei Frost in der Vorhersage und offenem Sommerwasser-Hahn rotes „!“ (Hahn, Schacht-Symbol auf der Map) und gelbe Warnleiste oben (`renderAlarms`, zusammen mit den Stromwächter-Alarmen). Kein Sommerwasser-Textblock im Schacht-Fenster. Klick auf den Schacht zeigt die Bereiche der Hähne türkis, beschriftet nur mit dem Hahn-Namen (keine eigenen Nummern),
   Klick auf einen Hahn hebt ihn hervor. Bereiche: Ecken antippen, rechtwinklige Kanten (`startDraw` mit `ortho`), Ecken beim Anzeigen leicht abgerundet (`roundCorners`).
-  Überfahren des Schachts (Maus) zeigt „Wasserschacht <Name>“, Hähne + Zählernummer (hellblaues Feld, fett). Foto mit kleinen Nummern-Kreisen (gewählt: hellblauer Ring). Schacht-Fenster zeigt nur Infos; Bearbeiten (Hahn-Menü, Foto, Zähler ändern, + Absperrhahn) erst nach Knopf „Bearbeiten“ (`Wasser.editing`). Legende „Sonne = Sommerwasser“ unten statt Hover.
-  Sommerwasser je Absperrhahn (Symbol Sonne mit Tropfen, Hinweis „Sommerwasser“); Schacht zählt, wenn ein Hahn Sommerwasser ist (`Store.hatSommerwasser`).
+  Überfahren des Schachts (Maus) zeigt „Wasserschacht <Name>“, Hähne + Zählernummer (hellblaues Feld, fett). Foto mit kleinen Nummern-Kreisen (gewählt: hellblauer Ring). Schacht-Fenster zeigt nur Infos; Bearbeiten (Hahn-Menü, Foto, Zähler ändern, + Absperrhahn) erst nach Knopf „Bearbeiten“ (`Wasser.editing`). Legende „Sonne = Sommerwasser“ nur unten im Schacht-Fenster (nicht im Hover-Feld).
+  Schachtnamen eindeutig (Warnung beim Tippen, Speichern gesperrt, `Wasser.nameTaken`). Sommerwasser je Absperrhahn (Symbol Sonne mit Tropfen, Hinweis „Sommerwasser“); Schacht zählt, wenn ein Hahn Sommerwasser ist (`Store.hatSommerwasser`).
   Reiter Infrastruktur → Wasser (`#/technik/wasser`) mit Sommerwasser-Checkliste je Winter (Saison ab 1. Juli). Erinnerung: sobald die 7-Tage-Vorhersage Frost (Tiefstwert ≤ 0 °C)
   zeigt, einmal je Winter To-Do `sw-JAHR` „Sommerwasser abstellen“ (fällig am Frosttag); erledigt, wenn alle abgehakt.
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).

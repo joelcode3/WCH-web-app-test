@@ -225,12 +225,22 @@
         const isLinked = linked.has(p.id);
         const color = this.parcelColor(p);
         const split = this.colorMode === 'status' && Store.movingOut(p);
-        const poly = L.polygon(p.geometry.map(toLL), {
+        // Satellitenbild: keine Füllung, nur eine einheitliche Umrandung (gewählte/zugehörige Parzellen gelb hervorgehoben)
+        const aerial = this.show.aerial;
+        const poly = L.polygon(p.geometry.map(toLL), aerial ? {
+          renderer: this.renderer,
+          color: isSel || isLinked ? '#ffd54a' : '#ffffff',
+          weight: isSel ? 4 : isLinked ? 3 : 2,
+          opacity: isSel || isLinked ? 1 : 0.9,
+          fillColor: '#ffffff',
+          fillOpacity: 0,
+          parcelId: p.id,
+        } : {
           renderer: this.renderer,
           color: isSel || isLinked ? '#1b2a1e' : '#ffffff',
           weight: isSel ? 4 : isLinked ? 3 : 1.5,
           fillColor: split ? `url(#split-${p.status})` : color,
-          fillOpacity: dimOthers && !isLinked ? 0.25 : (this.show.aerial ? 0.6 : 0.8),
+          fillOpacity: dimOthers && !isLinked ? 0.25 : 0.8,
           dashArray: Store.isFree(p) ? '5 4' : null,
           parcelId: p.id,
         });
@@ -331,7 +341,7 @@
               className: '',
               html: airbnb
                 ? window.Airbnb.markerHtml(o, { selected: isSel, extra: todoDot('place', o.id) + (window.Waechter ? window.Waechter.badgeHtml(o.id) : '') })
-                : `<div class="pin pin-place${Store.isSchacht(o) ? ' pin-wasser' : ''}${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
+                : `<div class="pin pin-place${Store.isSchacht(o) ? ' pin-wasser' : ''}${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}${Store.isSchacht(o) && this.handlers.schachtWarn && this.handlers.schachtWarn(o) ? '<b class="pin-warn" title="Frost angekündigt – Sommerwasser-Hahn offen">!</b>' : ''}</div>`,
               iconSize: [0, airbnb ? 0 : 28],
               iconAnchor: [0, airbnb ? 0 : 14],
             }),
