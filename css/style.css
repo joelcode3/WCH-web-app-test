@@ -1293,7 +1293,6 @@ body.is-locked { padding-bottom: 0; }
 .legend-wasser svg { color: #0b8c96; }
 .area-tip { background: rgba(255,255,255,.85); border: 1px solid #0b8c96; color: #0b5d64; font-weight: 700; font-size: 12px; padding: 1px 6px; box-shadow: none; }
 .area-tip::before { display: none; }
-.leaflet-container.is-freehand { cursor: crosshair; touch-action: none; }
 .ws-photo-wrap { position: relative; margin: 0 0 4px; }
 .ws-photo-wrap .tile-change { width: 30px; height: 30px; right: 6px; bottom: 6px; }
 .ws-photo-wrap .tile-change svg { width: 16px; height: 16px; }
@@ -1307,12 +1306,10 @@ body.is-locked { padding-bottom: 0; }
 .ws-mark.is-sel { background: #e0a526; color: #1b2a1e; width: 30px; height: 30px; line-height: 30px; }
 .ws-lb-img.is-mark img { cursor: crosshair; }
 .ws-lb-hint { margin: 0 0 8px; font-weight: 600; }
-.ws-lb-list { margin: 8px 0 0; padding-left: 22px; font-size: .92rem; }
 .dialog-ws .ws-lightbox { padding: 12px; }
 .ws-haehne { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .ws-haehne li { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border: 1px solid var(--linie); border-radius: var(--radius-s); cursor: pointer; background: var(--papier); }
 .ws-haehne li.is-sel { border-color: #0b8c96; background: #e6f6f8; }
-.ws-nr { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #0b8c96; color: #fff; font-weight: 700; font-size: 12px; display: grid; place-items: center; margin-top: 1px; }
 .ws-h-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .ws-h-act { flex: none; width: 44px; padding: 2px 4px; font-size: .9rem; }
 .ws-meter { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1346,3 +1343,26 @@ body.is-locked { padding-bottom: 0; }
 /* belegt ↔ geblockt: Farben unterscheiden sich schon, nur die Diagonale ohne Lücke */
 .cal-day.d-swap.so-res.n-blk, .cal-day.d-swap.so-blk.n-res { background: linear-gradient(135deg, var(--o) 50%, var(--n) 50%); }
 .tl-cell.d-swap.so-res.n-blk, .tl-cell.d-swap.so-blk.n-res { background: linear-gradient(90deg, var(--o) 50%, var(--n) 50%); }
+
+/* Wasser: Tropfen ausgefüllt, Sommerwasser-Symbol, Kurzinfo beim Überfahren */
+svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
+.ws-sun { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-left: 4px; padding: 0; border: 0; background: none;
+  vertical-align: -5px; cursor: help; color: #d99a12; }
+.ws-sun svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.ws-sun svg .sw-drop { fill: #1f8fd0; stroke: none; }
+.ws-sun.is-static { cursor: default; width: 16px; height: 16px; vertical-align: -3px; }
+.ws-sun.is-static svg { width: 15px; height: 15px; }
+.leaflet-tooltip.schacht-tip { padding: 8px 10px; border-radius: 8px; border: 1px solid #9fd8dd; font-size: 13px; line-height: 1.35; min-width: 150px; }
+.schacht-tip ul { margin: 4px 0 0; padding-left: 16px; }
+.schacht-tip-z { margin-top: 4px; display: flex; align-items: center; gap: 4px; color: #0b5d64; }
+.schacht-tip-z svg { width: 14px; height: 14px; fill: none; stroke: #0b8c96; stroke-width: 2; }
+/* Safari: Symbole (Tanks, Kästen, Orte) sicher über den Parzellen zeichnen */
+.leaflet-marker-pane { transform: translateZ(0); }
+
+/* Foto-Markierungen: kleine Kreise mit Nummer, gewählter Hahn mit hellblauem Ring */
+.ws-mark, .ws-no { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border-radius: 50%;
+  background: #0b8c96; color: #fff; font: 700 11px/1 system-ui, sans-serif; border: 1.5px solid #fff; }
+.ws-mark { transform: translate(-50%, -50%); box-shadow: 0 1px 3px rgba(0,0,0,.45); }
+.ws-mark.is-sel { width: 18px; height: 18px; line-height: 1; background: #0b8c96; color: #fff; box-shadow: 0 0 0 3px #3cc8d0, 0 1px 4px rgba(0,0,0,.5); }
+.ws-no { flex: none; margin: 2px 6px 0 0; border: 0; vertical-align: 1px; }
+.ws-photo.is-big .ws-mark { width: 22px; height: 22px; font-size: 12px; }

@@ -117,7 +117,7 @@
     muell: { label: 'Müllplatz', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M4 7h16 M9 7V4h6v3 M6 7l1 13h10l1-13 M10 11v6 M14 11v6"/></svg>' },
     wasser: { label: 'Wasser / Brunnen', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 3c3 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 9 7 12 3z"/></svg>' },
     // Wasserschacht mit Absperrhähnen (Bereiche auf der Map), optional Wasserzähler, Sommerwasser – Reiter Infrastruktur → Wasser
-    schacht: { label: 'Wasserschacht', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 3c3 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 9 7 12 3z"/></svg>', wasser: true },
+    schacht: { label: 'Wasserschacht', icon: '<svg viewBox="0 0 24 24" class="pk-ico pk-solid" aria-hidden="true"><path d="M12 3c3 4 6 7 6 10.5a6 6 0 0 1-12 0C6 10 9 7 12 3z"/></svg>', wasser: true },
     shelter: { label: 'Shelter', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M3 9l18-4v15 M3 9v11 M3 20h18 M8 20v-6h8v6"/></svg>' },
     hundewiese: { label: 'Hundewiese', icon: '<svg viewBox="0 0 24 24" class="pk-ico" aria-hidden="true"><path d="M12 12.5c-3 0-5.5 3.3-5.5 5.3 0 1.5 1.2 2.4 2.8 2.4 1.1 0 1.8-.6 2.7-.6s1.6.6 2.7.6c1.6 0 2.8-.9 2.8-2.4 0-2-2.5-5.3-5.5-5.3z M5 10.5a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M8.6 6.3a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M12 6.3a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0 M15.6 10.5a1.7 2.1 0 1 0 3.4 0a1.7 2.1 0 1 0-3.4 0"/></svg>' },
     // Draufsicht auf der Karte (drehbar) wie die airbnbs, aber ohne Kalender
@@ -324,13 +324,13 @@
       ...AIRBNB_DEFAULTS.map((a) => ({ id: uid('o'), notes: '', icalUrl: 'demo', photo: null, ...a })),
       { id: uid('o'), name: 'Schacht Hauptweg', kind: 'schacht', pos: [905, 640], notes: 'Deckel klemmt – Schachthaken liegt im Werkstattregal.', icalUrl: '', photo: null,
         wasser: { haehne: [
-          { id: uid('h'), name: 'Hahn 1 – Platz 2 links', info: 'blauer Griff', area: [[640, 300], [900, 300], [900, 520], [640, 520]], foto: [30, 55] },
-          { id: uid('h'), name: 'Hahn 2 – Sanitärgebäude', info: '', area: [[940, 560], [1080, 560], [1080, 700], [940, 700]], foto: [68, 48] }],
+          { id: uid('h'), name: 'Hahn 1 – Platz 2 links', info: 'blauer Griff', area: [[640, 300], [900, 300], [900, 520], [640, 520]], foto: [30, 55], sommerwasser: true },
+          { id: uid('h'), name: 'Hahn 2 – Sanitärgebäude', info: '', area: [[940, 560], [1080, 560], [1080, 700], [940, 700]], foto: [68, 48], sommerwasser: false }],
           zaehler: { nr: 'W-4711', ablesungen: [{ datum: '2025-10-01', stand: 1288 }, { datum: '2026-10-01', stand: 1452 }] },
-          sommerwasser: true, abstellInfo: 'Beide Hähne zudrehen, danach Entleerung am Sanitärgebäude öffnen.', abgestellt: '' } },
+          abstellInfo: 'Hahn 1 zudrehen, danach Entleerung am Sanitärgebäude öffnen.', abgestellt: '' } },
       { id: uid('o'), name: 'Schacht Wiese', kind: 'schacht', pos: [1290, 820], notes: '', icalUrl: '', photo: null,
-        wasser: { haehne: [{ id: uid('h'), name: 'Hahn Wiese / airbnb', info: '', area: null, foto: null }], zaehler: null,
-          sommerwasser: true, abstellInfo: 'Hahn zu, Zapfstelle an der Wiese öffnen und leerlaufen lassen.', abgestellt: '' } },
+        wasser: { haehne: [{ id: uid('h'), name: 'Hahn Wiese / airbnb', info: '', area: null, foto: null, sommerwasser: true }], zaehler: null,
+          abstellInfo: 'Hahn zu, Zapfstelle an der Wiese öffnen und leerlaufen lassen.', abgestellt: '' } },
     ];
     const iso = (d) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
     const todo = (o) => ({ id: uid('d'), title: '', description: '', targetType: '', targetId: '', location: '', status: 'offen',
@@ -361,6 +361,9 @@
     STATUS, MOVE_OUT_COLOR, GAS, HEATING, RENT_DEFAULTS, RENT_RHYTHM, rentDefaults, rentCalc, SUPPLY, OBJECT_TYPES, PURPOSES, TODO_STATUS, PLACE_KINDS, TERMIN_KINDS, AIRBNB_DEFAULTS, supplyOf, uid, compareNr,
     isAirbnb: (o) => !!(o && (PLACE_KINDS[o.kind] || {}).airbnb),
     isSchacht: (o) => !!(o && o.kind === 'schacht'),
+    // Sommerwasser wird je Absperrhahn festgelegt; ein Schacht zählt, sobald einer seiner Hähne Sommerwasser ist
+    swHaehne: (o) => (o && o.wasser ? o.wasser.haehne.filter((x) => x.sommerwasser) : []),
+    hatSommerwasser(o) { return this.swHaehne(o).length > 0; },
     schaechte() { return this.data.places.filter((o) => o.kind === 'schacht').sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })); },
     // Sommerwasser-Saison: ab 1. Juli bis 30. Juni des Folgejahres
     wasserSaison(d = new Date()) { const y = d.getFullYear(); return d.getMonth() >= 6 ? y : y - 1; },
@@ -483,12 +486,16 @@
       d.places.forEach((o) => {
         if (o.kind !== 'schacht') { if (o.wasser === undefined) o.wasser = null; return; }
         const w = o.wasser && typeof o.wasser === 'object' ? o.wasser : {};
+        const hs = Array.isArray(w.haehne) ? w.haehne : [];
+        // früher: Sommerwasser am Schacht → auf alle seine Hähne übertragen
+        const alt = !!w.sommerwasser && !hs.some((x) => x.sommerwasser !== undefined);
         o.wasser = {
-          haehne: (Array.isArray(w.haehne) ? w.haehne : []).map((x) => ({ id: x.id || uid('h'), name: x.name || '', info: x.info || '',
-            area: Array.isArray(x.area) && x.area.length >= 3 ? x.area : null, foto: Array.isArray(x.foto) ? x.foto : null })),
+          haehne: hs.map((x) => ({ id: x.id || uid('h'), name: x.name || '', info: x.info || '',
+            area: Array.isArray(x.area) && x.area.length >= 3 ? x.area : null, foto: Array.isArray(x.foto) ? x.foto : null,
+            sommerwasser: alt || !!x.sommerwasser })),
           zaehler: w.zaehler && typeof w.zaehler === 'object' ? { nr: w.zaehler.nr || '', ablesungen: (Array.isArray(w.zaehler.ablesungen) ? w.zaehler.ablesungen : [])
             .filter((a) => a && a.datum).map((a) => ({ datum: a.datum, stand: Number(a.stand) })).sort((a, b) => a.datum.localeCompare(b.datum)) } : null,
-          sommerwasser: !!w.sommerwasser, abstellInfo: w.abstellInfo || '', abgestellt: w.abgestellt || '',
+          abstellInfo: w.abstellInfo || '', abgestellt: w.abgestellt || '',
         };
       });
       d.boxes.forEach((b) => { if (b.limitKwh === undefined || b.limitKwh === null) b.limitKwh = ''; });

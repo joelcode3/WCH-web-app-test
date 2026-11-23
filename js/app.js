@@ -391,6 +391,7 @@
         onSelect: (type, id) => { location.hash = `#/karte/${type}/${id}`; },
         onClear: () => { location.hash = '#/karte'; },
         onModeChange: () => this.renderModebar(),
+        schachtTip: (o) => Wasser.tipHtml(o),
       });
 
       $$('.segmented [data-color]').forEach((btn) => btn.addEventListener('click', () => {
@@ -474,18 +475,11 @@
       } else if (mode && mode.kind === 'draw') {
         const n = mode.points.length;
         bar.innerHTML = `
-          <span class="grow">${h(mode.label || 'Umriss zeichnen')}: Ecken nacheinander antippen (${n} Punkt${n === 1 ? '' : 'e'})</span>
-          ${snapToggle}
+          <span class="grow">${h(mode.label || 'Umriss zeichnen')}: Ecken nacheinander antippen${mode.ortho ? ', Kanten werden rechtwinklig' : ''} (${n} Punkt${n === 1 ? '' : 'e'})</span>
+          ${mode.ortho ? '' : snapToggle}
           <button type="button" class="btn btn-ghost btn-sm" data-act="undo" ${n ? '' : 'disabled'}>Rückgängig</button>
           <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Abbrechen</button>
-          <button type="button" class="btn btn-sm" data-act="finish" ${n >= 3 ? '' : 'disabled'}>Umriss speichern</button>`;
-      } else if (mode && mode.kind === 'free') {
-        const has = mode.points.length >= 3 && !mode.drawing;
-        bar.innerHTML = `
-          <span class="grow">${h(mode.label || 'Bereich')}: ${has ? 'so speichern oder neu zeichnen' : 'Finger bzw. Maustaste gedrückt halten und den Bereich umfahren'}</span>
-          <button type="button" class="btn btn-ghost btn-sm" data-act="free-clear" ${has ? '' : 'disabled'}>Neu zeichnen</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-act="cancel">Abbrechen</button>
-          <button type="button" class="btn btn-sm" data-act="free-finish" ${has ? '' : 'disabled'}>Bereich speichern</button>`;
+          <button type="button" class="btn btn-sm" data-act="finish" ${n >= 3 ? '' : 'disabled'}>${mode.ortho ? 'Bereich speichern' : 'Umriss speichern'}</button>`;
       } else if (mode && mode.kind === 'place') {
         bar.innerHTML = `
           <span class="grow">${h(mode.label || 'Position wählen')}: auf die gewünschte Stelle in der Map tippen</span>
@@ -521,8 +515,6 @@
         case 'add-tank': Actions.newTank(true); break;
         case 'add-place': Actions.editPlace(null); break;
         case 'add-schacht': Wasser.edit(null); break;
-        case 'free-clear': MapView.clearFreehand(); break;
-        case 'free-finish': MapView.finishFreehand(); break;
       }
     },
 
@@ -3053,6 +3045,8 @@
   const WICO = {
     valve: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4 M8 5h8 M12 7v3 M5 10h14v4H5z M8 14v2.5 M16 14v2.5"/></svg>',
     meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-3.5 M8 16h8"/></svg>',
+    // Sommerwasser: Sonne mit kleinem Tropfen
+    sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 2.6v2.2 M10 15.2v2.2 M2.6 10h2.2 M15.2 10h2.2 M4.8 4.8l1.5 1.5 M13.7 6.3l1.5-1.5 M4.8 15.2l1.5-1.5"/><path class="sw-drop" d="M18.6 13.6c1.5 2 2.3 3.2 2.3 4.2a2.3 2.3 0 0 1-4.6 0c0-1 .8-2.2 2.3-4.2z"/></svg>',
     snow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18 M4.2 7.5l15.6 9 M4.2 16.5l15.6-9 M9.5 4.5 12 7l2.5-2.5 M9.5 19.5 12 17l2.5 2.5"/></svg>',
   };
 
@@ -3067,7 +3061,16 @@
     hahn(o, hid) { return o.wasser.haehne.find((x) => x.id === hid); },
     // erster angekündigter Frosttag (Tiefstwert ≤ 0 °C) in der 7-Tage-Vorhersage
     frostDay() { return window.Wetter && Wetter.data ? Wetter.data.days.find((d) => typeof d.min === 'number' && d.min <= 0) || null : null; },
-    pending() { return S.schaechte().filter((o) => o.wasser && o.wasser.sommerwasser && !S.isAbgestellt(o)); },
+    pending() { return S.schaechte().filter((o) => S.hatSommerwasser(o) && !S.isAbgestellt(o)); },
+    sunHtml(x) { return x.sommerwasser ? `<button type="button" class="ws-sun" data-sw-tip title="Sommerwasser" aria-label="Sommerwasser">${WICO.sun}</button>` : ''; },
+    // Kurzinfo beim Überfahren des Schachts auf der Map
+    tipHtml(o) {
+      const w = o.wasser;
+      const last = w.zaehler && w.zaehler.ablesungen[w.zaehler.ablesungen.length - 1];
+      return `<strong>${h(o.name)}</strong>
+        ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(x.name || 'Absperrhahn')}${x.sommerwasser ? `<span class="ws-sun is-static" title="Sommerwasser">${WICO.sun}</span>` : ''}</li>`).join('')}</ul>` : '<div class="muted">keine Absperrhähne</div>'}
+        ${w.zaehler ? `<div class="schacht-tip-z">${WICO.meter} Zähler ${h(w.zaehler.nr || '')}${last ? ` · ${fmtNum(last.stand)} m³ (${fmtDate(last.datum)})` : ''}</div>` : ''}`;
+    },
     readingsHtml(z, opts = {}) {
       const rs = z.ablesungen.slice(-(opts.n || 3)).reverse();
       if (!rs.length) return '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
@@ -3079,9 +3082,9 @@
       }).join('')}</tbody></table>`;
     },
 
-    // Foto mit nummerierten Markierungen der Hähne
+    // Foto mit Markierungen der Hähne (Nummer = Reihenfolge in der Liste)
     photoHtml(o, url, cls = '') {
-      const marks = o.wasser.haehne.map((x, i) => (x.foto ? `<span class="ws-mark${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%">${i + 1}</span>` : '')).join('');
+      const marks = o.wasser.haehne.map((x, i) => (x.foto ? `<span class="ws-mark${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%" title="${h(x.name || 'Absperrhahn')}">${i + 1}</span>` : '')).join('');
       return `<div class="ws-photo ${cls}"><img src="${h(url)}" alt="" draggable="false" onerror="window.reloadPlacePhotos && window.reloadPlacePhotos()">${marks}</div>`;
     },
 
@@ -3109,13 +3112,12 @@
           <div class="section-title">Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
           ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
-              <span class="ws-nr">${i + 1}</span>
-              <span class="ws-h-main"><strong>${h(x.name || 'Absperrhahn')}</strong>
-                ${x.info ? `<span class="small">${h(x.info)}</span>` : ''}
-                <span class="small muted">${x.area ? 'Bereich eingezeichnet' : '<span class="warn">kein Bereich</span>'}${o.photo ? (x.foto ? ' · auf Foto markiert' : ' · nicht auf Foto') : ''}</span></span>
+              ${x.foto && o.photo ? `<span class="ws-no" title="Nummer auf dem Foto">${i + 1}</span>` : ''}
+              <span class="ws-h-main"><strong>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</strong>
+                ${x.info ? `<span class="small">${h(x.info)}</span>` : ''}</span>
               <select class="ws-h-act" data-hahn-act="${x.id}" aria-label="Aktionen für ${h(x.name || 'Absperrhahn')}" title="Bearbeiten, Bereich zeichnen …">
                 <option value="">…</option>
-                <option value="edit">Name / Info ändern</option>
+                <option value="edit">Name / Info / Sommerwasser</option>
                 <option value="area">${x.area ? 'Bereich neu zeichnen' : 'Bereich auf Map zeichnen'}</option>
                 ${x.area ? '<option value="noarea">Bereich entfernen</option>' : ''}
                 ${o.photo ? `<option value="foto">${x.foto ? 'Auf Foto neu markieren' : 'Auf Foto markieren'}</option>` : ''}
@@ -3132,10 +3134,10 @@
             <div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws="read-add">${ICON.plus} Zählerstand</button></div>`
           : '<div class="card-actions" style="margin-top:0"><button type="button" class="btn btn-ghost btn-sm" data-ws="meter-edit">' + ICON.plus + ' Wasserzähler hinterlegen</button></div>'}
 
-          <div class="section-title">Sommerwasser</div>
-          <label class="check ws-sommer"><input type="checkbox" data-ws="sommer"${w.sommerwasser ? ' checked' : ''}> Sommerwasser – vor dem ersten Frost abstellen</label>
-          ${w.sommerwasser ? `
+          ${S.hatSommerwasser(o) ? `
+            <div class="section-title">Sommerwasser</div>
             <div class="ws-sw">
+              <p class="small" style="margin:0"><strong>${S.swHaehne(o).map((x) => h(x.name || 'Absperrhahn')).join(', ')}</strong> – vor dem ersten Frost abstellen</p>
               ${w.abstellInfo ? `<p class="small" style="margin:0;white-space:pre-line">${h(w.abstellInfo)}</p>` : '<p class="small muted" style="margin:0">Noch keine Infos zum Abstellen (über „Bearbeiten“).</p>'}
               <div class="ws-sw-state">${S.isAbgestellt(o)
                 ? `<span class="ok">${ICON.check} abgestellt am ${fmtDate(w.abgestellt)}</span><button type="button" class="link-btn muted-link small" data-ws="angestellt">wieder angestellt</button>`
@@ -3153,8 +3155,9 @@
     bindPanel(panel, o) {
       MapUI.bindPlacePhoto(panel, o);
       const reshow = () => MapUI.showPanel('place', o.id);
+      $$('[data-sw-tip]', panel).forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); toast('Sommerwasser'); }));
       $$('[data-hahn]', panel).forEach((li) => li.addEventListener('click', (e) => {
-        if (e.target.closest('select')) return;
+        if (e.target.closest('select, [data-sw-tip]')) return;
         MapView.selHahn = MapView.selHahn === li.dataset.hahn ? null : li.dataset.hahn;
         MapView.render();
         reshow();
@@ -3184,9 +3187,7 @@
       });
       $$('[data-ws]', panel).forEach((el) => {
         const act = el.dataset.ws;
-        const ev = act === 'sommer' ? 'change' : 'click';
-        el.addEventListener(ev, () => {
-          if (act === 'sommer') { if (this.guard()) { el.checked = !el.checked; return; } o.wasser.sommerwasser = el.checked; S.save(); sommerwasserCheck(); return; }
+        el.addEventListener('click', () => {
           if (act === 'edit') this.edit(o.id);
           if (act === 'add-hahn') this.editHahn(o, null);
           if (act === 'photo-view') this.viewPhoto(o);
@@ -3206,7 +3207,7 @@
       sommerwasserCheck();
     },
 
-    // Schacht anlegen / bearbeiten (Name, Infotext, Sommerwasser + Infos zum Abstellen)
+    // Schacht anlegen / bearbeiten (Name, Infotext, Infos zum Abstellen des Sommerwassers)
     edit(id) {
       if (this.guard()) return;
       const o = id ? S.place(id) : null;
@@ -3216,15 +3217,14 @@
         fields: [
           { name: 'name', label: 'Name', value: o ? o.name : `Wasserschacht ${S.schaechte().length + 1}`, required: true, placeholder: 'z. B. Schacht Hauptweg' },
           { name: 'notes', label: 'Infotext', type: 'textarea', value: o ? o.notes : '', placeholder: 'z. B. Lage, Deckel, Werkzeug …' },
-          { name: 'sommer', label: 'Sommerwasser (vor dem ersten Frost abstellen)', type: 'select', value: w && w.sommerwasser ? '1' : '0', options: [['0', 'nein'], ['1', 'ja']] },
-          { name: 'abstell', label: 'Infos zum Abstellen', type: 'textarea', value: w ? w.abstellInfo : '', placeholder: 'z. B. welche Hähne zu, wo entleeren …' },
+          { name: 'abstell', label: 'Infos zum Abstellen (Sommerwasser)', type: 'textarea', value: w ? w.abstellInfo : '', placeholder: 'z. B. welche Hähne zu, wo entleeren …' },
         ],
         submitLabel: o ? 'Speichern' : 'Weiter: auf Map setzen',
         extra: o ? `<div class="card-actions" style="margin:0">
             <button type="button" class="btn btn-ghost btn-sm" data-move>Neu platzieren</button>
             <button type="button" class="btn btn-danger btn-sm" data-del>${ICON.trash} Schacht löschen</button></div>` : '',
         onSubmit: (v) => {
-          const wasser = { ...(w || { haehne: [], zaehler: null, abgestellt: '' }), sommerwasser: v.sommer === '1', abstellInfo: v.abstell.trim() };
+          const wasser = { ...(w || { haehne: [], zaehler: null, abgestellt: '' }), abstellInfo: v.abstell.trim() };
           if (o) { Object.assign(o, { name: v.name.trim(), notes: v.notes.trim(), wasser }); S.save(); toast('Gespeichert'); sommerwasserCheck(); return; }
           const neu = { id: S.uid('o'), kind: 'schacht', name: v.name.trim(), notes: v.notes.trim(), icalUrl: '', photo: null, pos: null, wasser };
           if (!location.hash.startsWith('#/karte')) location.hash = '#/karte';
@@ -3240,10 +3240,6 @@
         },
       });
       const dlg = $('#dialog');
-      const sw = $('[name=sommer]', dlg), info = $('[name=abstell]', dlg).closest('.field');
-      const sync = () => { info.hidden = sw.value !== '1'; };
-      sw.addEventListener('change', sync);
-      sync();
       const del = $('[data-del]', dlg);
       if (del) del.onclick = () => {
         const n = S.todosOf('place', o.id, true).length;
@@ -3264,11 +3260,12 @@
         fields: [
           { name: 'name', label: 'Name / Bereich', value: x ? x.name : `Hahn ${o.wasser.haehne.length + 1}`, required: true, placeholder: 'z. B. Hahn 2 – Sanitärgebäude' },
           { name: 'info', label: 'Info (optional)', value: x ? x.info : '', placeholder: 'z. B. blauer Griff, Linksgewinde …' },
+          { name: 'sommer', label: 'Sommerwasser (vor dem ersten Frost abstellen)', type: 'select', value: x && x.sommerwasser ? '1' : '0', options: [['0', 'nein'], ['1', 'ja']] },
         ],
         submitLabel: x ? 'Speichern' : 'Anlegen',
         onSubmit: (v) => {
-          if (x) { x.name = v.name.trim(); x.info = v.info.trim(); S.save(); toast('Gespeichert'); return; }
-          const neu = { id: S.uid('h'), name: v.name.trim(), info: v.info.trim(), area: null, foto: null };
+          if (x) { x.name = v.name.trim(); x.info = v.info.trim(); x.sommerwasser = v.sommer === '1'; S.save(); toast('Gespeichert'); sommerwasserCheck(); return; }
+          const neu = { id: S.uid('h'), name: v.name.trim(), info: v.info.trim(), area: null, foto: null, sommerwasser: v.sommer === '1' };
           o.wasser.haehne.push(neu);
           MapView.selHahn = neu.id;
           S.save();
@@ -3277,7 +3274,7 @@
       });
     },
 
-    // Bereich eines Hahns frei Hand auf der Map zeichnen
+    // Bereich eines Hahns auf der Map: Ecken antippen, Kanten rechtwinklig (Ecken später leicht abgerundet)
     drawArea(o, hid) {
       const x = this.hahn(o, hid);
       if (!x || this.guard()) return;
@@ -3285,14 +3282,14 @@
       setTimeout(() => {
         MapUI.hidePanel();
         MapView.selHahn = hid;
-        MapView.startFreehand((points) => {
+        MapView.startDraw((points) => {
           x.area = points;
           MapView.selHahn = hid;
           S.save();
           go(`#/karte/place/${o.id}`);
           MapUI.showPanel('place', o.id);
           toast(`Bereich für „${x.name}“ gespeichert`);
-        }, () => { go(`#/karte/place/${o.id}`); MapUI.showPanel('place', o.id); });
+        }, () => { go(`#/karte/place/${o.id}`); MapUI.showPanel('place', o.id); }, { ortho: true, color: '#3cc8d0' });
         MapView.mode.label = `Bereich für „${x.name || 'Absperrhahn'}“`;
         MapUI.renderModebar();
       }, 50);
@@ -3304,11 +3301,10 @@
       try { const u = await Photos.urls([o.photo], false); return u[o.photo.id] || this.photoUrl(o); } catch (_) { return this.photoUrl(o); }
     },
 
-    // Foto groß, mit Markierungen und Legende
+    // Foto groß, nur mit den Markierungen
     async viewPhoto(o) {
       const dlg = $('#dialog');
       dlg.innerHTML = `<div class="ws-lightbox"><div class="ws-lb-img"></div>
-        <ol class="ws-lb-list">${o.wasser.haehne.map((x) => `<li>${h(x.name || 'Absperrhahn')}${x.foto ? '' : ' <span class="muted small">(nicht markiert)</span>'}</li>`).join('')}</ol>
         <div class="lightbox-bar"><span class="grow"></span><button type="button" class="btn btn-sm" data-close>Schließen</button></div></div>`;
       dlg.classList.add('dialog-photo', 'dialog-ws');
       dlg.addEventListener('close', () => dlg.classList.remove('dialog-photo', 'dialog-ws'), { once: true });
@@ -3401,19 +3397,19 @@
       const list = S.schaechte();
       const frost = this.frostDay();
       const pend = this.pending();
-      const sw = list.filter((o) => o.wasser && o.wasser.sommerwasser);
+      const sw = list.filter((o) => S.hatSommerwasser(o));
       const saison = S.wasserSaison();
       const fold = (o) => {
         const w = o.wasser;
         const counts = [`<span class="if-c">${w.haehne.length} ${w.haehne.length === 1 ? 'Hahn' : 'Hähne'}</span>`,
-          w.zaehler ? '<span class="if-c">Zähler</span>' : '', w.sommerwasser ? `<span class="if-c${S.isAbgestellt(o) ? ' is-free' : ''}">Sommerwasser${S.isAbgestellt(o) ? ' aus' : ''}</span>` : ''].join('');
+          w.zaehler ? '<span class="if-c">Zähler</span>' : '', S.hatSommerwasser(o) ? `<span class="if-c${S.isAbgestellt(o) ? ' is-free' : ''}">Sommerwasser${S.isAbgestellt(o) ? ' aus' : ''}</span>` : ''].join('');
         const last = w.zaehler && w.zaehler.ablesungen[w.zaehler.ablesungen.length - 1];
         return `<details class="infra-fold" data-fold="${o.id}"${this.openIds.has(o.id) ? ' open' : ''}>
           <summary><span class="pin pin-place pin-wasser pin-house" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i></span>
             <span class="if-main"><span class="if-t">${h(o.name)}</span>${o.notes ? `<span class="if-loc">${h(o.notes)}</span>` : (o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>')}</span>
             <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="if-body">
-            ${w.haehne.length ? `<ol class="ws-tech-h">${w.haehne.map((x) => `<li><strong>${h(x.name || 'Absperrhahn')}</strong>${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ol>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
+            ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li><strong>${h(x.name || 'Absperrhahn')}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
             ${w.zaehler ? `<p class="small" style="margin:6px 0 0">${WICO.meter} Zähler <span class="mono">${h(w.zaehler.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}</p>` : ''}
             <div class="card-actions">
               ${o.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/place/${o.id}">${ICON.map} Map</a>` : `<button type="button" class="btn btn-sm" data-ws-place="${o.id}">${ICON.map} Auf Map platzieren</button>`}
@@ -3444,15 +3440,16 @@
               <label class="ws-check-box"><input type="checkbox" data-ws-sw="${o.id}"${S.isAbgestellt(o) ? ' checked' : ''}>
                 <span><strong>${h(o.name)}</strong>${S.isAbgestellt(o) ? ` <span class="ok small">abgestellt am ${fmtDate(o.wasser.abgestellt)}</span>` : ''}</span></label>
               ${o.wasser.abstellInfo ? `<p class="small" style="white-space:pre-line">${h(o.wasser.abstellInfo)}</p>` : '<p class="small muted">Keine Infos zum Abstellen hinterlegt.</p>'}
-              ${o.wasser.haehne.length ? `<p class="small muted">Hähne: ${o.wasser.haehne.map((x) => h(x.name || 'Absperrhahn')).join(' · ')}</p>` : ''}
+              <p class="small muted">Hähne: ${S.swHaehne(o).map((x) => h(x.name || 'Absperrhahn')).join(' · ')}</p>
             </li>`).join('')}</ul>
             <p class="small muted">Sobald in der 7-Tage-Wettervorhersage Frost angekündigt ist, erscheint automatisch das To-Do „Sommerwasser abstellen“ (fällig am Frosttag). Sind alle abgehakt, ist es erledigt.</p>`
-          : '<p class="muted small">Noch kein Schacht als „Sommerwasser“ markiert (im Schacht unter „Sommerwasser“ anhaken).</p>'}
+          : '<p class="muted small">Noch kein Absperrhahn als „Sommerwasser“ markiert (beim Hahn über „…“ → „Name / Info / Sommerwasser“).</p>'}
         </div>`;
       const nb = $('[data-ws-new]', root); if (nb) nb.onclick = () => this.edit(null);
       $$('[data-ws-edit]', root).forEach((b) => b.onclick = () => this.edit(b.dataset.wsEdit));
       $$('[data-ws-read]', root).forEach((b) => b.onclick = () => this.addReading(S.place(b.dataset.wsRead)));
       $$('[data-ws-place]', root).forEach((b) => b.onclick = () => { const o = S.place(b.dataset.wsPlace); if (o) Actions._place(o, o.name, 'place'); });
+      $$('[data-sw-tip]', root).forEach((b) => b.onclick = (e) => { e.preventDefault(); toast('Sommerwasser'); });
       $$('[data-ws-sw]', root).forEach((c) => c.onchange = () => { const o = S.place(c.dataset.wsSw); if (o) this.setAbgestellt(o, c.checked); });
       const folds = $$('.infra-fold', root), allBtn = $('[data-fold-all]', root);
       const syncAll = () => { if (allBtn) allBtn.textContent = folds.length && folds.every((d) => d.open) ? 'Alle zuklappen' : 'Alle aufklappen'; };
@@ -3466,8 +3463,7 @@
   // sind alle Schächte abgestellt, wird es erledigt
   function sommerwasserCheck() {
     if (!S.data || (S.mode === 'cloud' && window.Cloud && Cloud.missing.has('todos'))) return;
-    const sw = S.schaechte().filter((o) => o.wasser && o.wasser.sommerwasser);
-    if (!sw.length) return;
+    if (!S.schaechte().some((o) => S.hatSommerwasser(o))) return;
     const id = `sw-${S.wasserSaison()}`;
     const todo = S.data.todos.find((t) => t.id === id);
     const pend = Wasser.pending();
@@ -3480,7 +3476,7 @@
     S.data.todos.push({
       id, title: 'Sommerwasser abstellen', status: 'offen', targetType: '', targetId: '', location: 'Wasserschächte',
       deadline: frost.date, appointment: '', assignee: '', photos: [], calendar: '', doneAt: '', createdAt: new Date().toISOString(),
-      description: `Frost angekündigt für ${fmtDate(frost.date)} (${Math.round(frost.min)} °C).\n\n${pend.map((o) => `• ${o.name}${o.wasser.abstellInfo ? `: ${o.wasser.abstellInfo}` : ''}`).join('\n')}\n\nAbhaken unter Infrastruktur → Wasser → Sommerwasser-Checkliste.`,
+      description: `Frost angekündigt für ${fmtDate(frost.date)} (${Math.round(frost.min)} °C).\n\n${pend.map((o) => `• ${o.name} (${S.swHaehne(o).map((x) => x.name || 'Absperrhahn').join(', ')})${o.wasser.abstellInfo ? `: ${o.wasser.abstellInfo}` : ''}`).join('\n')}\n\nAbhaken unter Infrastruktur → Wasser → Sommerwasser-Checkliste.`,
     });
     S.save();
     toast('Frost angekündigt – To-Do „Sommerwasser abstellen“ angelegt');

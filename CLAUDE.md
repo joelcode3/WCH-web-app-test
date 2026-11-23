@@ -26,6 +26,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
 - Gastank-Beschriftung ohne vorangestelltes „T“.
+- Parzellen immer unterste Ebene (eigene `parcelPane`, z-index 300) – darf nichts verdecken (Safari zeichnete sonst Parzellen über Tanks).
 - Parzellennummern: Platz 1 = 1.01–1.30 (unten), Platz 2 = 2.01–2.71 (oben, inkl. Reihe über dem Hauptweg).
 
 ## Technik
@@ -87,11 +88,13 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   (Wort fällt weg), To-Do-ID `ms-…`, Badge „To Do“ in der Liste. To Do → App: neu, Titel/Notiz/Fälligkeit, erledigt/wieder offen.
   App → To Do: nur „erledigt“ (abhaken). Zuständigkeit/Ort wird in der App geklärt. In der App gelöschte kommen nicht wieder.
   Verbinden/Abgleichen/Trennen im Reiter Einstellungen (`js/mstodo.js`). Client Secret läuft nach 24 Monaten ab.
-- **Wasser (GEBAUT 19.11.2026)**: Ort-Art `schacht` (Wasserschacht, eigene Ebene „Wasser“ in der Legende, `Wasser` in app.js),
-  Daten in `place.wasser` = { haehne:[{id,name,info,area (Map-Pixel, Freihand), foto [x%,y%]}], zaehler {nr, ablesungen[{datum,stand}]}|null,
-  sommerwasser, abstellInfo, abgestellt (Datum) }. Klick auf den Schacht zeigt die Bereiche der Hähne türkis, Klick auf einen Hahn hebt ihn hervor.
-  Foto des Schachts mit nummerierten Markierungen der Hähne. Freihand-Zeichnen: `MapView.startFreehand`. Reiter Infrastruktur → Wasser
-  (`#/technik/wasser`) mit Sommerwasser-Checkliste je Winter (Saison ab 1. Juli). Erinnerung: sobald die 7-Tage-Vorhersage Frost (Tiefstwert ≤ 0 °C)
+- **Wasser (GEBAUT 19.11.2026, umgebaut 24.11.)**: Ort-Art `schacht` (Wasserschacht, Symbol ausgefüllter Tropfen, eigene Ebene „Wasser“ in der Legende, `Wasser` in app.js),
+  Daten in `place.wasser` = { haehne:[{id,name,info,area (Eckpunkte in Map-Pixeln), foto [x%,y%], sommerwasser}], zaehler {nr, ablesungen[{datum,stand}]}|null,
+  abstellInfo, abgestellt (Datum) }. Klick auf den Schacht zeigt die Bereiche der Hähne türkis, beschriftet nur mit dem Hahn-Namen (keine eigenen Nummern),
+  Klick auf einen Hahn hebt ihn hervor. Bereiche: Ecken antippen, rechtwinklige Kanten (`startDraw` mit `ortho`), Ecken beim Anzeigen leicht abgerundet (`roundCorners`).
+  Überfahren des Schachts (Maus) zeigt Hähne + Zähler. Foto des Schachts mit Namens-Markierungen der Hähne.
+  Sommerwasser je Absperrhahn (Symbol Sonne mit Tropfen, Hinweis „Sommerwasser“); Schacht zählt, wenn ein Hahn Sommerwasser ist (`Store.hatSommerwasser`).
+  Reiter Infrastruktur → Wasser (`#/technik/wasser`) mit Sommerwasser-Checkliste je Winter (Saison ab 1. Juli). Erinnerung: sobald die 7-Tage-Vorhersage Frost (Tiefstwert ≤ 0 °C)
   zeigt, einmal je Winter To-Do `sw-JAHR` „Sommerwasser abstellen“ (fällig am Frosttag); erledigt, wenn alle abgehakt.
 - `.github/workflows/supabase-wachhalten.yml` ruft alle 3 Tage `ping()` auf (gegen Pausieren im Gratis-Paket).
 - Testen: lokal `python3 -m http.server`, Playwright (Chromium vorinstalliert). Ohne Supabase-Daten in
