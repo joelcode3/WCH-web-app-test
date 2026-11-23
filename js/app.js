@@ -534,17 +534,27 @@
           }
         });
         S.boxesSorted().forEach((b) => {
-          if (`kasten ${b.nr}`.includes(q) || `k${b.nr}` === q || b.location.toLowerCase().includes(q)) {
+          if (`kasten ${b.nr}`.toLowerCase().includes(q) || `k${b.nr}`.toLowerCase() === q || b.location.toLowerCase().includes(q)) {
             res.push({ type: 'box', id: b.id, html: `<span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(b.nr)}</span></span><span><strong>Stromkasten ${h(b.nr)}</strong><br><span class="muted small">${h(b.location || '')}</span></span>` });
           }
         });
         S.tanksSorted().forEach((t) => {
-          if (`tank ${t.nr}`.includes(q) || `gastank ${t.nr}`.includes(q) || `t${t.nr}` === q) {
-            res.push({ type: 'tank', id: t.id, html: `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span><strong>Gastank ${h(t.nr)}</strong>` });
+          const nrs = S.parcelsOnTank(t.id).map((p) => p.nr);
+          if (`tank ${t.nr}`.toLowerCase().includes(q) || `gastank ${t.nr}`.toLowerCase().includes(q) || `t${t.nr}`.toLowerCase() === q || String(t.nr).toLowerCase() === q) {
+            res.push({ type: 'tank', id: t.id, html: `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span><span><strong>Gastank ${h(t.nr)}</strong><br><span class="muted small">${nrs.length ? `Parzelle ${nrs.map(h).join(', ')}` : 'keine Parzelle'}</span></span>` });
           }
+        });
+        // Wasserschächte: Name, Hähne, Zählernummern
+        S.schaechte().forEach((o) => {
+          const w = o.wasser || { haehne: [], zaehler: [] };
+          const hay = [Wasser.title(o), ...w.haehne.map((x) => x.name), ...w.zaehler.map((z) => z.nr)].join(' ').toLowerCase();
+          if (!hay.includes(q)) return;
+          const sub = [w.haehne.length ? `${w.haehne.length} ${w.haehne.length === 1 ? 'Hahn' : 'Hähne'}` : '', w.zaehler.length ? `Zähler ${w.zaehler.map((z) => z.nr).filter(Boolean).join(', ')}` : ''].filter(Boolean).join(' · ');
+          res.push({ type: 'place', id: o.id, html: `<span class="pin pin-place pin-wasser" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i><span>${h(o.name)}</span></span><span><strong>${h(Wasser.title(o))}</strong><br><span class="muted small">${h(sub || 'Wasserschacht')}</span></span>` });
         });
         S.placesSorted().forEach((o) => {
           const kind = S.PLACE_KINDS[o.kind];
+          if (S.isSchacht(o)) return;
           if (`${o.name} ${kind.label}`.toLowerCase().includes(q)) {
             res.push({ type: 'place', id: o.id, html: `<span class="pin pin-place" style="transform:none"><i>${kind.icon}</i></span><span><strong>${h(o.name || kind.label)}</strong><br><span class="muted small">${h(kind.label)}</span></span>` });
           }

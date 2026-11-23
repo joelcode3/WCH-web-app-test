@@ -26,6 +26,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
 - Gastank-Beschriftung ohne vorangestelltes „T“.
+- Suche (Map): Parzellen, Stromkästen (gelb), Gastanks (grün, mit Parzellen), Wasserschächte (türkis, auch nach Hahn-/Zählernummer), Orte; ohne Groß-/Kleinschreibung.
 - Satellitenbild an: Parzellen ohne Füllung, nur weiße Umrandung (gewählte gelb), keine Statusfarben.
 - Parzellen immer unterste Ebene (eigene `parcelPane`, z-index 300) – darf nichts verdecken (Safari zeichnete sonst Parzellen über Tanks).
 - Parzellennummern: Platz 1 = 1.01–1.30 (unten), Platz 2 = 2.01–2.71 (oben, inkl. Reihe über dem Hauptweg).
