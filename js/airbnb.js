@@ -224,6 +224,8 @@
       if (night) cls.push(night.type === 'blocked' ? 'n-blk' : 'n-res');
       if (night && night.start === d && !out) cls.push('d-in');
       if (out && !night) cls.push(out.type === 'blocked' ? 'o-blk' : 'o-res');
+      // Wechseltag: Abreise und neue Anreise am selben Tag → kurze Unterbrechung in der Mitte
+      if (out && night && night.start === d) cls.push('d-swap', out.type === 'blocked' ? 'so-blk' : 'so-res');
       return cls.join(' ');
     },
 
@@ -237,7 +239,9 @@
       for (let i = 0; i < lead; i++) cells += '<span class="cal-day is-empty"></span>';
       for (let d = 1; d <= days; d++) {
         const s = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        cells += `<span class="cal-day ${this._dayCls(o, s)}${s === t ? ' is-today' : ''}${s < t ? ' is-past' : ''}">${d}</span>`;
+        const cls = this._dayCls(o, s);
+        const tip = /d-swap/.test(cls) ? ' title="Wechseltag: Abreise bis 11 Uhr, Anreise ab 16 Uhr"' : /d-in/.test(cls) ? ' title="Anreise ab 16 Uhr"' : /\bo-/.test(cls) ? ' title="Abreise bis 11 Uhr"' : '';
+        cells += `<span class="cal-day ${cls}${s === t ? ' is-today' : ''}${s < t ? ' is-past' : ''}"${tip}>${d}</span>`;
       }
       const occ = this.occupancyPct(o, y, m);
       return `<div class="cal">
@@ -245,7 +249,7 @@
           <strong>${MONTHS[m]} ${y}</strong>${occ !== null ? `<span class="muted small">${occ} % belegt</span>` : this.hasData(o) ? '<span class="muted small" title="Vergangene Belegung zeichnet die App erst seit Update 10 auf">keine Daten</span>' : ''}
           <button type="button" class="cal-nav" data-cal="1" aria-label="Nächster Monat">›</button></div>
         <div class="cal-grid">${WD.map((w) => `<span class="cal-wd">${w}</span>`).join('')}${cells}</div>
-        <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>geblockt</span><span><i class="free"></i>frei</span></div>
+        <div class="cal-legend"><span><i class="n-res"></i>belegt</span><span><i class="n-blk"></i>geblockt</span><span><i class="free"></i>frei</span><span><i class="d-swap so-res n-res"></i>Wechsel</span></div>
       </div>`;
     },
 
@@ -268,8 +272,9 @@
         const cells = days.map((d) => {
           const wd = (new Date(d + 'T12:00:00').getDay() + 6) % 7;
           const ev = this.eventOn(o, d);
-          const title = ev ? `${ev.type === 'blocked' ? 'geblockt' : 'belegt'} ${fmtShort(ev.start)}–${fmtShort(ev.end)}` : 'frei';
-          return `<span class="tl-cell ${this._dayCls(o, d)}${wd >= 5 ? ' is-we' : ''}${d === t ? ' is-today' : ''}" title="${h(o.name)}: ${fmtShort(d)} ${title}"></span>`;
+          const cls = this._dayCls(o, d);
+          const title = /d-swap/.test(cls) ? 'Wechseltag (Abreise bis 11, Anreise ab 16 Uhr)' : ev ? `${ev.type === 'blocked' ? 'geblockt' : 'belegt'} ${fmtShort(ev.start)}–${fmtShort(ev.end)}` : 'frei';
+          return `<span class="tl-cell ${cls}${wd >= 5 ? ' is-we' : ''}${d === t ? ' is-today' : ''}" title="${h(o.name)}: ${fmtShort(d)} ${title}"></span>`;
         }).join('');
         return `<a class="tl-name" href="#/karte/place/${o.id}">${h(o.name)}</a>${cells}`;
       }).join('');

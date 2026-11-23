@@ -1335,3 +1335,11 @@ body.is-locked { padding-bottom: 0; }
 .ws-check-box { display: flex; gap: 10px; align-items: center; cursor: pointer; }
 .ws-check-box input { width: 22px; height: 22px; flex: none; accent-color: #2b8a3e; }
 @media (max-width: 860px) { .ws-check { grid-template-columns: 1fr; } }
+
+/* airbnb: Wechseltag (Abreise + Anreise am selben Tag) – kurze Unterbrechung in der Mitte */
+.cal-day.d-swap, .tl-cell.d-swap, .cal-legend i.d-swap { --o: var(--res, #c45a5a); --n: var(--res, #c45a5a); --gap: var(--free, #e3f2da); }
+.d-swap.so-blk { --o: var(--blk, #9a9ea6); }
+.d-swap.n-blk { --n: var(--blk, #9a9ea6); }
+.cal-day.d-swap { background: linear-gradient(135deg, var(--o) 43%, var(--gap) 43% 57%, var(--n) 57%); color: #2b3a33; }
+.tl-cell.d-swap { background: linear-gradient(90deg, var(--o) 42%, var(--gap) 42% 58%, var(--n) 58%); }
+.cal-legend i.d-swap { background: linear-gradient(135deg, #c45a5a 40%, #e3f2da 40% 60%, #c45a5a 60%); border-color: #c45a5a; }
