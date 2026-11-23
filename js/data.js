@@ -13,11 +13,11 @@
 
   // Reihenfolge = Reihenfolge in Auswahllisten und Legende
   const STATUS = {
-    fest:       { label: 'Festwohnsitz',           short: 'Festwohnsitz',        color: '#1f4e8c' },
-    wochenende: { label: 'Freizeitgrundstück',     short: 'Freizeitgrundstück',  color: '#6fa8dc' },
-    reserviert: { label: 'Reserviert',             short: 'Reserviert',      color: '#2b6a33' },
-    leer:       { label: 'Frei – bezugsfertig',    short: 'Frei',            color: '#6cbf5a', free: true },
-    altbestand: { label: 'Frei – zu räumen',       short: 'Zu räumen',           color: '#ec8a2c', free: true },
+    fest:       { label: 'Festwohnsitz',           short: 'Festwohnsitz',        color: '#7995ba' },
+    wochenende: { label: 'Freizeitgrundstück',     short: 'Freizeitgrundstück',  color: '#a9cbea' },
+    reserviert: { label: 'Reserviert',             short: 'Reserviert',      color: '#80a685' },
+    leer:       { label: 'Frei – bezugsfertig',    short: 'Frei',            color: '#a7d99c', free: true },
+    altbestand: { label: 'Frei – zu räumen',       short: 'Zu räumen',           color: '#f4b980', free: true },
   };
   // Bewohnt, aber Auszugstermin steht fest → diagonal zweifarbig (Status / frei)
   const MOVE_OUT_COLOR = STATUS.leer.color;

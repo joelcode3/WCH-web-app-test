@@ -3061,6 +3061,11 @@
     photoUrl(o) { return o.photo ? (o.photo.tdata || o.photo.data || Airbnb.photoUrls[o.id] || '') : ''; },
     hahn(o, hid) { return o.wasser.haehne.find((x) => x.id === hid); },
     meter(o, zid) { return o.wasser.zaehler.find((z) => z.id === zid); },
+    // Schachtnamen dürfen nur einmal vorkommen (ohne Groß-/Kleinschreibung und Leerzeichen am Rand)
+    nameTaken(name, self) {
+      const n = String(name || '').trim().toLowerCase();
+      return !!n && S.schaechte().some((x) => x !== self && (x.name || '').trim().toLowerCase() === n);
+    },
     // erster angekündigter Frosttag (Tiefstwert ≤ 0 °C) in der 7-Tage-Vorhersage
     frostDay() { return window.Wetter && Wetter.data ? Wetter.data.days.find((d) => typeof d.min === 'number' && d.min <= 0) || null : null; },
     pending() { return S.schaechte().filter((o) => S.hatSommerwasser(o) && !S.isAbgestellt(o)); },
@@ -3249,7 +3254,7 @@
       formDialog({
         title: o ? `${o.name} bearbeiten` : 'Neuer Wasserschacht',
         fields: [
-          { name: 'name', label: 'Name', value: o ? o.name : `Wasserschacht ${S.schaechte().length + 1}`, required: true, placeholder: 'z. B. Schacht Hauptweg' },
+          { name: 'name', label: 'Name', value: o ? o.name : (() => { let n = S.schaechte().length + 1; while (this.nameTaken(`Wasserschacht ${n}`)) n++; return `Wasserschacht ${n}`; })(), required: true, placeholder: 'z. B. Schacht Hauptweg' },
           { name: 'notes', label: 'Infotext', type: 'textarea', value: o ? o.notes : '', placeholder: 'z. B. Lage, Deckel, Werkzeug …' },
           { name: 'abstell', label: 'Infos zum Abstellen (Sommerwasser)', type: 'textarea', value: w ? w.abstellInfo : '', placeholder: 'z. B. welche Hähne zu, wo entleeren …' },
         ],
@@ -3258,6 +3263,7 @@
             <button type="button" class="btn btn-ghost btn-sm" data-move>Neu platzieren</button>
             <button type="button" class="btn btn-danger btn-sm" data-del>${ICON.trash} Schacht löschen</button></div>` : '',
         onSubmit: (v) => {
+          if (this.nameTaken(v.name, o)) { toast(`Den Namen „${v.name.trim()}“ hat schon ein anderer Schacht`); return false; }
           const wasser = { ...(w || { haehne: [], zaehler: [], abgestellt: '' }), abstellInfo: v.abstell.trim() };
           if (o) { Object.assign(o, { name: v.name.trim(), notes: v.notes.trim(), wasser }); S.save(); toast('Gespeichert'); sommerwasserCheck(); return; }
           const neu = { id: S.uid('o'), kind: 'schacht', name: v.name.trim(), notes: v.notes.trim(), icalUrl: '', photo: null, pos: null, wasser };
@@ -3274,6 +3280,21 @@
         },
       });
       const dlg = $('#dialog');
+      // doppelte Namen schon beim Tippen anzeigen
+      const nameIn = $('[name=name]', dlg);
+      const hint = document.createElement('p');
+      hint.className = 'field-warn';
+      hint.hidden = true;
+      nameIn.closest('.field').appendChild(hint);
+      const check = () => {
+        const taken = this.nameTaken(nameIn.value, o);
+        hint.hidden = !taken;
+        hint.textContent = taken ? `„${nameIn.value.trim()}“ gibt es schon – bitte einen anderen Namen wählen.` : '';
+        nameIn.classList.toggle('is-invalid', taken);
+        $('button[type=submit]', dlg).disabled = taken;
+      };
+      nameIn.addEventListener('input', check);
+      check();
       const del = $('[data-del]', dlg);
       if (del) del.onclick = () => {
         const n = S.todosOf('place', o.id, true).length;

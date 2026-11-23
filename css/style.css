@@ -157,7 +157,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--w
 .nr {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 42px; height: 42px; padding: 0 8px; border-radius: 10px;
-  color: #fff; font-family: var(--font-head); font-weight: 700; font-size: 1.1rem; flex: none;
+  color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.55), 0 0 1px rgba(0,0,0,.7); font-family: var(--font-head); font-weight: 700; font-size: 1.1rem; flex: none;
 }
 .nr-sm { min-width: 32px; height: 32px; font-size: .95rem; border-radius: 8px; }
 .nr-lg { min-width: 60px; height: 60px; font-size: 1.6rem; border-radius: 14px; }
@@ -201,8 +201,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--w
 
 .parcel-label {
   background: none; border: 0; box-shadow: none; padding: 0;
-  color: #e9ecea; font-family: var(--font-head); font-weight: 700; font-size: 10px;
-  text-shadow: 0 0 3px rgba(0,0,0,.75), 0 0 1px rgba(0,0,0,.9);
+  color: #fff; font-family: var(--font-head); font-weight: 700; font-size: 10px;
+  text-shadow: 0 0 3px rgba(0,0,0,.85), 0 0 1px rgba(0,0,0,1);
 }
 .parcel-label::before { display: none; }
 /* Hintergrund + Beschriftung je als eine Ebene, die beim Zoomen nur per Transform skaliert wird */
@@ -1401,3 +1401,6 @@ svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
 .ws-check .ws-check-box { padding: 3px 0; }
 .pin-warn { position: absolute; top: -7px; left: -7px; width: 16px; height: 16px; border-radius: 50%; background: var(--gefahr, #c0392b); color: #fff;
   font: 800 11px/16px system-ui, sans-serif; text-align: center; border: 1.5px solid #fff; }
+/* Warnhinweis unter einem Eingabefeld (z. B. doppelter Schachtname) */
+.field-warn { margin: 4px 0 0; color: var(--gefahr); font-size: .85rem; font-weight: 600; }
+input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px rgba(179,64,46,.15); }
