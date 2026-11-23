@@ -3082,9 +3082,9 @@
       }).join('')}</tbody></table>`;
     },
 
-    // Foto mit Markierungen der Hähne (mit ihrem Namen)
+    // Foto mit Markierungen der Hähne (Nummer = Reihenfolge in der Liste)
     photoHtml(o, url, cls = '') {
-      const marks = o.wasser.haehne.map((x) => (x.foto ? `<span class="ws-mark${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%">${h(x.name || 'Hahn')}</span>` : '')).join('');
+      const marks = o.wasser.haehne.map((x, i) => (x.foto ? `<span class="ws-mark${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%" title="${h(x.name || 'Absperrhahn')}">${i + 1}</span>` : '')).join('');
       return `<div class="ws-photo ${cls}"><img src="${h(url)}" alt="" draggable="false" onerror="window.reloadPlacePhotos && window.reloadPlacePhotos()">${marks}</div>`;
     },
 
@@ -3110,8 +3110,9 @@
           </div>
 
           <div class="section-title">Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
-          ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x) => `
+          ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
+              ${x.foto && o.photo ? `<span class="ws-no" title="Nummer auf dem Foto">${i + 1}</span>` : ''}
               <span class="ws-h-main"><strong>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</strong>
                 ${x.info ? `<span class="small">${h(x.info)}</span>` : ''}
                 <span class="small muted">${x.area ? 'Bereich eingezeichnet' : '<span class="warn">kein Bereich</span>'}${o.photo ? (x.foto ? ' · auf Foto markiert' : ' · nicht auf Foto') : ''}</span></span>
@@ -3301,11 +3302,10 @@
       try { const u = await Photos.urls([o.photo], false); return u[o.photo.id] || this.photoUrl(o); } catch (_) { return this.photoUrl(o); }
     },
 
-    // Foto groß, mit Markierungen und Legende
+    // Foto groß, nur mit den Markierungen
     async viewPhoto(o) {
       const dlg = $('#dialog');
       dlg.innerHTML = `<div class="ws-lightbox"><div class="ws-lb-img"></div>
-        <ul class="ws-lb-list">${o.wasser.haehne.map((x) => `<li>${h(x.name || 'Absperrhahn')}${x.foto ? '' : ' <span class="muted small">(nicht markiert)</span>'}</li>`).join('')}</ul>
         <div class="lightbox-bar"><span class="grow"></span><button type="button" class="btn btn-sm" data-close>Schließen</button></div></div>`;
       dlg.classList.add('dialog-photo', 'dialog-ws');
       dlg.addEventListener('close', () => dlg.classList.remove('dialog-photo', 'dialog-ws'), { once: true });
