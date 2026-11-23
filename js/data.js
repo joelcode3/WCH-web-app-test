@@ -326,10 +326,11 @@
         wasser: { haehne: [
           { id: uid('h'), name: 'Hahn 1 – Platz 2 links', info: 'blauer Griff', area: [[640, 300], [900, 300], [900, 520], [640, 520]], foto: [30, 55], sommerwasser: true },
           { id: uid('h'), name: 'Hahn 2 – Sanitärgebäude', info: '', area: [[940, 560], [1080, 560], [1080, 700], [940, 700]], foto: [68, 48], sommerwasser: false }],
-          zaehler: { nr: 'W-4711', ablesungen: [{ datum: '2025-10-01', stand: 1288 }, { datum: '2026-10-01', stand: 1452 }] },
+          zaehler: [{ id: uid('z'), nr: 'W-4711', foto: [50, 80], ablesungen: [{ datum: '2025-10-01', stand: 1288 }, { datum: '2026-10-01', stand: 1452 }] },
+            { id: uid('z'), nr: 'W-0815', foto: null, ablesungen: [{ datum: '2026-10-01', stand: 312.5 }] }],
           abstellInfo: 'Hahn 1 zudrehen, danach Entleerung am Sanitärgebäude öffnen.', abgestellt: '' } },
       { id: uid('o'), name: 'Schacht Wiese', kind: 'schacht', pos: [1290, 820], notes: '', icalUrl: '', photo: null,
-        wasser: { haehne: [{ id: uid('h'), name: 'Hahn Wiese / airbnb', info: '', area: null, foto: null, sommerwasser: true }], zaehler: null,
+        wasser: { haehne: [{ id: uid('h'), name: 'Hahn Wiese / airbnb', info: '', area: null, foto: null, sommerwasser: true }], zaehler: [],
           abstellInfo: 'Hahn zu, Zapfstelle an der Wiese öffnen und leerlaufen lassen.', abgestellt: '' } },
     ];
     const iso = (d) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
@@ -367,7 +368,8 @@
     schaechte() { return this.data.places.filter((o) => o.kind === 'schacht').sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })); },
     // Sommerwasser-Saison: ab 1. Juli bis 30. Juni des Folgejahres
     wasserSaison(d = new Date()) { const y = d.getFullYear(); return d.getMonth() >= 6 ? y : y - 1; },
-    isAbgestellt(o, d = new Date()) { return !!(o.wasser && o.wasser.abgestellt && o.wasser.abgestellt >= `${this.wasserSaison(d)}-07-01`); },
+    // Sommerwasser eines Schachts ist aus, wenn alle seine Sommerwasser-Hähne abgedreht sind
+    isAbgestellt(o) { const sw = this.swHaehne(o); return sw.length > 0 && sw.every((x) => !!x.zu); },
     // Fehlende Orte aus dem Lageplan einmal je Gerät anlegen (feste IDs → kein Doppel bei mehreren Geräten).
     // Danach gelöschte Orte kommen auf diesem Gerät nicht wieder.
     ensurePlanPlaces() {
@@ -489,12 +491,19 @@
         const hs = Array.isArray(w.haehne) ? w.haehne : [];
         // früher: Sommerwasser am Schacht → auf alle seine Hähne übertragen
         const alt = !!w.sommerwasser && !hs.some((x) => x.sommerwasser !== undefined);
+        // früher: „abgestellt“ am Schacht (diesen Winter) → als „abgedreht“ auf die Sommerwasser-Hähne übertragen
+        const now = new Date(), saison = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+        const altZu = w.abgestellt && w.abgestellt >= `${saison}-07-01` ? w.abgestellt : '';
         o.wasser = {
           haehne: hs.map((x) => ({ id: x.id || uid('h'), name: x.name || '', info: x.info || '',
             area: Array.isArray(x.area) && x.area.length >= 3 ? x.area : null, foto: Array.isArray(x.foto) ? x.foto : null,
-            sommerwasser: alt || !!x.sommerwasser })),
-          zaehler: w.zaehler && typeof w.zaehler === 'object' ? { nr: w.zaehler.nr || '', ablesungen: (Array.isArray(w.zaehler.ablesungen) ? w.zaehler.ablesungen : [])
-            .filter((a) => a && a.datum).map((a) => ({ datum: a.datum, stand: Number(a.stand) })).sort((a, b) => a.datum.localeCompare(b.datum)) } : null,
+            sommerwasser: alt || !!x.sommerwasser,
+            zu: typeof x.zu === 'string' ? x.zu : (altZu && (alt || x.sommerwasser) ? altZu : '') })),   // abgedreht seit (Datum) oder ''
+          // mehrere Wasserzähler je Schacht (früher ein einzelner → in die Liste übernehmen)
+          zaehler: (Array.isArray(w.zaehler) ? w.zaehler : w.zaehler && typeof w.zaehler === 'object' ? [w.zaehler] : []).map((z) => ({
+            id: z.id || uid('z'), nr: z.nr || '', foto: Array.isArray(z.foto) ? z.foto : null,
+            ablesungen: (Array.isArray(z.ablesungen) ? z.ablesungen : []).filter((a) => a && a.datum)
+              .map((a) => ({ datum: a.datum, stand: Number(a.stand) })).sort((a, b) => a.datum.localeCompare(b.datum)) })),
           abstellInfo: w.abstellInfo || '', abgestellt: w.abgestellt || '',
         };
       });

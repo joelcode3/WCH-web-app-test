@@ -1379,3 +1379,25 @@ svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
 .pin.ws-head-ico { transform: none; width: 42px; height: 42px; padding: 0; gap: 0; justify-content: center; border-radius: 50%; flex: none; }
 .pin.ws-head-ico i { display: grid; place-items: center; line-height: 0; }
 .pin.ws-head-ico svg.pk-ico { width: 22px; height: 22px; }
+
+/* mehrere Wasserzähler; auf dem Foto als Kästchen „Z1“ */
+.ws-mark.is-meter, .ws-no.is-meter { border-radius: 5px; width: auto; min-width: 22px; padding: 0 4px; font-size: 10px; }
+.ws-no.is-meter { margin: 0 6px 0 0; height: 18px; }
+.ws-zbox { padding: 6px 8px 8px; border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier); }
+.ws-zbox + .ws-zbox { margin-top: 6px; }
+.ws-zbox.is-sel { border-color: #0b8c96; background: #e6f6f8; }
+.ws-zbox .ws-meter { cursor: pointer; }
+.ws-tech-z { margin: 6px 0 0; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ws-tech-z .link-btn { margin-left: auto; }
+.schacht-tip-z span { min-width: 0; }
+
+/* Absperrhahn: Häkchen „zu“, Warnung bei Frost */
+.ws-zu { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: .82rem; font-weight: 600; color: var(--text-leise); cursor: pointer; padding: 2px 4px; margin-top: 1px; }
+.ws-zu input { width: 18px; height: 18px; margin: 0; accent-color: #2b8a3e; }
+.ws-zu.is-zu { color: #2b8a3e; }
+.ws-warn { display: inline-grid; place-items: center; width: 17px; height: 17px; margin-left: 5px; border-radius: 50%; background: var(--gefahr, #c0392b);
+  color: #fff; font: 800 12px/1 system-ui, sans-serif; vertical-align: 1px; }
+.ws-check li > strong { display: block; margin-bottom: 4px; }
+.ws-check .ws-check-box { padding: 3px 0; }
+.pin-warn { position: absolute; top: -7px; left: -7px; width: 16px; height: 16px; border-radius: 50%; background: var(--gefahr, #c0392b); color: #fff;
+  font: 800 11px/16px system-ui, sans-serif; text-align: center; border: 1.5px solid #fff; }

@@ -392,6 +392,7 @@
         onClear: () => { location.hash = '#/karte'; },
         onModeChange: () => this.renderModebar(),
         schachtTip: (o) => Wasser.tipHtml(o),
+        schachtWarn: (o) => Wasser.frostOpen(o).length > 0,
       });
 
       $$('.segmented [data-color]').forEach((btn) => btn.addEventListener('click', () => {
@@ -3059,9 +3060,22 @@
     },
     photoUrl(o) { return o.photo ? (o.photo.tdata || o.photo.data || Airbnb.photoUrls[o.id] || '') : ''; },
     hahn(o, hid) { return o.wasser.haehne.find((x) => x.id === hid); },
+    meter(o, zid) { return o.wasser.zaehler.find((z) => z.id === zid); },
     // erster angekündigter Frosttag (Tiefstwert ≤ 0 °C) in der 7-Tage-Vorhersage
     frostDay() { return window.Wetter && Wetter.data ? Wetter.data.days.find((d) => typeof d.min === 'number' && d.min <= 0) || null : null; },
     pending() { return S.schaechte().filter((o) => S.hatSommerwasser(o) && !S.isAbgestellt(o)); },
+    // offene Sommerwasser-Hähne, solange Frost angekündigt ist
+    frostOpen(o) { return this.frostDay() ? S.swHaehne(o).filter((x) => !x.zu) : []; },
+    warnIco: '<span class="ws-warn" title="Frost angekündigt – Hahn ist noch offen" aria-label="Frost angekündigt, Hahn offen">!</span>',
+    setZu(o, hid, on) {
+      const x = this.hahn(o, hid);
+      if (!x || this.guard()) return;
+      x.zu = on ? today() : '';
+      S.save();
+      toast(`${x.name || 'Absperrhahn'}: ${on ? 'abgedreht' : 'wieder offen'}`);
+      sommerwasserCheck();
+      renderAlarms();
+    },
     sunHtml(x) { return x.sommerwasser ? `<span class="ws-sun" aria-label="Sommerwasser">${WICO.sun}</span>` : ''; },
     sunLegend(show) { return show ? `<p class="ws-legend"><span class="ws-sun">${WICO.sun}</span> = Sommerwasser</p>` : ''; },
     // „Wasserschacht 1.01“ – außer der Name sagt es schon
@@ -3072,7 +3086,7 @@
       const w = o.wasser;
       return `<div class="st-title">${h(this.title(o))}</div>
         ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</li>`).join('')}</ul>` : '<div class="st-none">keine Absperrhähne</div>'}
-        ${w.zaehler ? `<div class="schacht-tip-z">${WICO.meter} Zähler ${h(w.zaehler.nr || '')}</div>` : ''}`;
+        ${w.zaehler.length ? `<div class="schacht-tip-z">${WICO.meter}<span>Zähler ${w.zaehler.map((z) => h(z.nr || 'ohne Nummer')).join(', ')}</span></div>` : ''}`;
     },
     readingsHtml(z, opts = {}) {
       const rs = z.ablesungen.slice(-(opts.n || 3)).reverse();
@@ -3081,13 +3095,15 @@
       return `<table class="ws-read"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
         return `<tr><td>${fmtDate(r.datum)}</td><td class="num">${fmtNum(r.stand)} m³</td><td class="num muted">${prev ? `+${fmtNum(Math.round((r.stand - prev.stand) * 100) / 100)} m³` : ''}</td>
-          ${opts.del ? `<td class="num"><button type="button" class="link-btn muted-link" data-ws-delread="${i}" aria-label="Zählerstand löschen" title="Zählerstand löschen">${ICON.close}</button></td>` : ''}</tr>`;
+          ${opts.del ? `<td class="num"><button type="button" class="link-btn muted-link" data-ws-delread="${z.id}:${i}" aria-label="Zählerstand löschen" title="Zählerstand löschen">${ICON.close}</button></td>` : ''}</tr>`;
       }).join('')}</tbody></table>`;
     },
 
-    // Foto mit Markierungen der Hähne (Nummer = Reihenfolge in der Liste)
+    // Foto mit Markierungen: Hähne als Kreis mit Nummer, Zähler als Kästchen „Z1“ (Reihenfolge wie in der Liste)
     photoHtml(o, url, cls = '') {
-      const marks = o.wasser.haehne.map((x, i) => (x.foto ? `<span class="ws-mark${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%" title="${h(x.name || 'Absperrhahn')}">${i + 1}</span>` : '')).join('');
+      const mk = (x, label, title, extra) => (x.foto ? `<span class="ws-mark${extra}${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%" title="${h(title)}">${label}</span>` : '');
+      const marks = o.wasser.haehne.map((x, i) => mk(x, i + 1, x.name || 'Absperrhahn', '')).join('')
+        + (o.wasser.zaehler || []).map((z, i) => mk(z, `Z${i + 1}`, `Zähler ${z.nr || ''}`, ' is-meter')).join('');
       return `<div class="ws-photo ${cls}"><img src="${h(url)}" alt="" draggable="false" onerror="window.reloadPlacePhotos && window.reloadPlacePhotos()">${marks}</div>`;
     },
 
@@ -3118,8 +3134,9 @@
           ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
               ${x.foto && o.photo ? `<span class="ws-no" title="Nummer auf dem Foto">${i + 1}</span>` : ''}
-              <span class="ws-h-main"><strong>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</strong>
+              <span class="ws-h-main"><strong>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
                 ${x.info ? `<span class="small">${h(x.info)}</span>` : ''}</span>
+              <label class="ws-zu${x.zu ? ' is-zu' : ''}" title="${x.zu ? `abgedreht am ${fmtDate(x.zu)}` : 'Hahn ist offen'}"><input type="checkbox" data-hahn-zu="${x.id}"${x.zu ? ' checked' : ''}> zu</label>
               ${ed ? `<select class="ws-h-act" data-hahn-act="${x.id}" aria-label="Aktionen für ${h(x.name || 'Absperrhahn')}" title="Bearbeiten, Bereich zeichnen …">
                 <option value="">…</option>
                 <option value="edit">Name / Info / Sommerwasser</option>
@@ -3132,22 +3149,21 @@
             </li>`).join('')}</ul>` : '<p class="muted small" style="margin:0 0 6px">Noch keine Absperrhähne eingetragen.</p>'}
           ${ed ? `<div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws="add-hahn">${ICON.plus} Absperrhahn</button></div>` : ''}
 
-          ${w.zaehler || ed ? '<div class="section-title">Wasserzähler</div>' : ''}
-          ${w.zaehler ? `<div class="ws-meter"><span>${WICO.meter}<strong class="mono">${h(w.zaehler.nr || 'ohne Nummer')}</strong></span>
-              ${ed ? '<button type="button" class="link-btn muted-link small" data-ws="meter-edit">ändern</button>' : ''}</div>
-            ${this.readingsHtml(w.zaehler, { del: ed })}
-            <div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws="read-add">${ICON.plus} Zählerstand</button></div>`
-          : ed ? '<div class="card-actions" style="margin-top:0"><button type="button" class="btn btn-ghost btn-sm" data-ws="meter-edit">' + ICON.plus + ' Wasserzähler hinterlegen</button></div>' : ''}
-
-          ${S.hatSommerwasser(o) ? `
-            <div class="section-title">Sommerwasser</div>
-            <div class="ws-sw">
-              <p class="small" style="margin:0"><strong>${S.swHaehne(o).map((x) => h(x.name || 'Absperrhahn')).join(', ')}</strong> – vor dem ersten Frost abstellen</p>
-              ${w.abstellInfo ? `<p class="small" style="margin:0;white-space:pre-line">${h(w.abstellInfo)}</p>` : '<p class="small muted" style="margin:0">Noch keine Infos zum Abstellen (über „Bearbeiten“).</p>'}
-              <div class="ws-sw-state">${S.isAbgestellt(o)
-                ? `<span class="ok">${ICON.check} abgestellt am ${fmtDate(w.abgestellt)}</span><button type="button" class="link-btn muted-link small" data-ws="angestellt">wieder angestellt</button>`
-                : `<span class="${frost ? 'warn' : 'muted'}">${frost ? `Frost angekündigt: ${fmtDate(frost.date)} (${Math.round(frost.min)} °C)` : `Winter ${saison}/${String(saison + 1).slice(2)}: noch an`}</span><button type="button" class="btn btn-sm" data-ws="abgestellt">${ICON.check} Abgestellt</button>`}</div>
-            </div>` : ''}
+          ${w.zaehler.length || ed ? `<div class="section-title">Wasserzähler${w.zaehler.length > 1 ? ` · ${w.zaehler.length}` : ''}</div>` : ''}
+          ${w.zaehler.map((z, i) => `<div class="ws-zbox${MapView.selHahn === z.id ? ' is-sel' : ''}">
+            <div class="ws-meter" data-meter="${z.id}" title="Auf dem Foto hervorheben">
+              <span>${z.foto && o.photo ? `<span class="ws-no is-meter">Z${i + 1}</span>` : WICO.meter}<strong class="mono">${h(z.nr || 'ohne Nummer')}</strong></span>
+              ${ed ? `<select class="ws-h-act" data-meter-act="${z.id}" aria-label="Aktionen für Zähler ${h(z.nr || '')}">
+                <option value="">…</option>
+                <option value="edit">Zählernummer ändern</option>
+                ${o.photo ? `<option value="foto">${z.foto ? 'Auf Foto neu markieren' : 'Auf Foto markieren'}</option>` : ''}
+                <option disabled>──────────</option>
+                <option value="del">Zähler entfernen</option>
+              </select>` : ''}</div>
+            ${this.readingsHtml(z, { del: ed })}
+            <div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws-read="${z.id}">${ICON.plus} Zählerstand</button></div>
+          </div>`).join('')}
+          ${ed ? `<div class="card-actions" style="margin-top:${w.zaehler.length ? 8 : 0}px"><button type="button" class="btn btn-ghost btn-sm" data-ws="meter-add">${ICON.plus} Wasserzähler</button></div>` : ''}
 
           ${todoSection('place', o.id, true)}
           ${this.sunLegend(S.hatSommerwasser(o))}
@@ -3163,8 +3179,9 @@
     bindPanel(panel, o) {
       MapUI.bindPlacePhoto(panel, o);
       const reshow = () => MapUI.showPanel('place', o.id);
+      $$('[data-hahn-zu]', panel).forEach((c) => c.addEventListener('change', () => this.setZu(o, c.dataset.hahnZu, c.checked)));
       $$('[data-hahn]', panel).forEach((li) => li.addEventListener('click', (e) => {
-        if (e.target.closest('select')) return;
+        if (e.target.closest('select, .ws-zu')) return;
         MapView.selHahn = MapView.selHahn === li.dataset.hahn ? null : li.dataset.hahn;
         MapView.render();
         reshow();
@@ -3187,11 +3204,31 @@
         }
       }));
       $$('[data-ws-delread]', panel).forEach((b) => b.onclick = () => {
-        const i = +b.dataset.wsDelread, r = o.wasser.zaehler.ablesungen[i];
+        const [zid, idx] = b.dataset.wsDelread.split(':');
+        const z = this.meter(o, zid), r = z && z.ablesungen[+idx];
         if (!r || !confirm(`Zählerstand vom ${fmtDate(r.datum)} (${fmtNum(r.stand)} m³) löschen?`)) return;
-        o.wasser.zaehler.ablesungen.splice(i, 1);
+        z.ablesungen.splice(+idx, 1);
         S.save();
       });
+      $$('[data-ws-read]', panel).forEach((b) => b.onclick = () => this.addReading(o, b.dataset.wsRead));
+      $$('[data-meter]', panel).forEach((row) => row.addEventListener('click', (e) => {
+        if (e.target.closest('select')) return;
+        MapView.selHahn = MapView.selHahn === row.dataset.meter ? null : row.dataset.meter;
+        reshow();
+      }));
+      $$('[data-meter-act]', panel).forEach((sel) => sel.addEventListener('change', () => {
+        const act = sel.value, zid = sel.dataset.meterAct;
+        sel.value = '';
+        if (act === 'edit') this.editMeter(o, zid);
+        if (act === 'foto') this.markPhoto(o, zid);
+        if (act === 'del') {
+          const z = this.meter(o, zid);
+          if (!confirm(`Wasserzähler ${z.nr || ''} mit ${z.ablesungen.length} Zählerständen entfernen?`)) return;
+          o.wasser.zaehler = o.wasser.zaehler.filter((y) => y.id !== zid);
+          if (MapView.selHahn === zid) MapView.selHahn = null;
+          S.save(); toast('Zähler entfernt');
+        }
+      }));
       $$('[data-ws]', panel).forEach((el) => {
         const act = el.dataset.ws;
         el.addEventListener('click', () => {
@@ -3199,20 +3236,9 @@
           if (act === 'edit-on' || act === 'edit-done') { this.editing = act === 'edit-on' ? o.id : null; reshow(); }
           if (act === 'add-hahn') this.editHahn(o, null);
           if (act === 'photo-view') this.viewPhoto(o);
-          if (act === 'meter-edit') this.editMeter(o);
-          if (act === 'read-add') this.addReading(o);
-          if (act === 'abgestellt') this.setAbgestellt(o, true);
-          if (act === 'angestellt') this.setAbgestellt(o, false);
+          if (act === 'meter-add') this.editMeter(o, null);
         });
       });
-    },
-
-    setAbgestellt(o, on) {
-      if (this.guard()) return;
-      o.wasser.abgestellt = on ? today() : '';
-      S.save();
-      if (on) toast(`${o.name}: Sommerwasser abgestellt`);
-      sommerwasserCheck();
     },
 
     // Schacht anlegen / bearbeiten (Name, Infotext, Infos zum Abstellen des Sommerwassers)
@@ -3232,7 +3258,7 @@
             <button type="button" class="btn btn-ghost btn-sm" data-move>Neu platzieren</button>
             <button type="button" class="btn btn-danger btn-sm" data-del>${ICON.trash} Schacht löschen</button></div>` : '',
         onSubmit: (v) => {
-          const wasser = { ...(w || { haehne: [], zaehler: null, abgestellt: '' }), abstellInfo: v.abstell.trim() };
+          const wasser = { ...(w || { haehne: [], zaehler: [], abgestellt: '' }), abstellInfo: v.abstell.trim() };
           if (o) { Object.assign(o, { name: v.name.trim(), notes: v.notes.trim(), wasser }); S.save(); toast('Gespeichert'); sommerwasserCheck(); return; }
           const neu = { id: S.uid('o'), kind: 'schacht', name: v.name.trim(), notes: v.notes.trim(), icalUrl: '', photo: null, pos: null, wasser };
           if (!location.hash.startsWith('#/karte')) location.hash = '#/karte';
@@ -3321,13 +3347,14 @@
       $('.ws-lb-img', dlg).innerHTML = this.photoHtml(o, await this.fullUrl(o), 'is-big');
     },
 
-    // Position eines Hahns auf dem Foto antippen
+    // Position eines Hahns oder Zählers auf dem Foto antippen
     async markPhoto(o, hid) {
-      const x = this.hahn(o, hid);
+      const x = this.hahn(o, hid) || this.meter(o, hid);
       if (!x || !o.photo || this.guard()) return;
+      const isMeter = !this.hahn(o, hid);
       const dlg = $('#dialog');
       let pos = x.foto ? x.foto.slice() : null;
-      dlg.innerHTML = `<div class="ws-lightbox"><p class="ws-lb-hint">Auf dem Foto antippen, wo „${h(x.name || 'Absperrhahn')}“ sitzt.</p>
+      dlg.innerHTML = `<div class="ws-lightbox"><p class="ws-lb-hint">Auf dem Foto antippen, wo ${isMeter ? `der Zähler ${h(x.nr || '')}` : `„${h(x.name || 'Absperrhahn')}“`} sitzt.</p>
         <div class="ws-lb-img is-mark"></div>
         <div class="lightbox-bar"><span class="grow"></span><button type="button" class="btn btn-ghost btn-sm" data-cancel>Abbrechen</button>
         <button type="button" class="btn btn-sm" data-save>Speichern</button></div></div>`;
@@ -3337,7 +3364,8 @@
       const box = $('.ws-lb-img', dlg);
       const url = await this.fullUrl(o);
       const draw = () => {
-        const tmp = { wasser: { haehne: o.wasser.haehne.map((y) => (y.id === hid ? { ...y, foto: pos } : y)) } };
+        const put = (y) => (y.id === hid ? { ...y, foto: pos } : y);
+        const tmp = { wasser: { haehne: o.wasser.haehne.map(put), zaehler: o.wasser.zaehler.map(put) } };
         const prevSel = MapView.selHahn; MapView.selHahn = hid;
         box.innerHTML = this.photoHtml(tmp, url, 'is-big');
         MapView.selHahn = prevSel;
@@ -3356,30 +3384,26 @@
       dlg.showModal();
     },
 
-    editMeter(o) {
+    editMeter(o, zid) {
       if (this.guard()) return;
-      const z = o.wasser.zaehler;
+      const z = zid ? this.meter(o, zid) : null;
       formDialog({
-        title: z ? 'Wasserzähler' : 'Wasserzähler hinterlegen',
+        title: z ? 'Wasserzähler' : 'Wasserzähler hinzufügen',
         fields: [{ name: 'nr', label: 'Zählernummer', value: z ? z.nr : '', placeholder: 'steht auf dem Zähler' }],
-        extra: z ? `<div class="card-actions" style="margin:0"><button type="button" class="btn btn-danger btn-sm" data-del>${ICON.trash} Zähler entfernen</button></div>` : '',
         onSubmit: (v) => {
-          if (z) z.nr = v.nr.trim(); else o.wasser.zaehler = { nr: v.nr.trim(), ablesungen: [] };
+          if (z) { z.nr = v.nr.trim(); S.save(); toast('Gespeichert'); return; }
+          const neu = { id: S.uid('z'), nr: v.nr.trim(), foto: null, ablesungen: [] };
+          o.wasser.zaehler.push(neu);
           S.save();
-          toast('Gespeichert');
-          if (!z) setTimeout(() => this.addReading(o), 200);
+          toast('Zähler angelegt');
+          setTimeout(() => this.addReading(o, neu.id), 200);
         },
       });
-      const del = $('#dialog [data-del]');
-      if (del) del.onclick = () => {
-        if (!confirm(`Wasserzähler ${z.nr || ''} mit ${z.ablesungen.length} Zählerständen entfernen?`)) return;
-        o.wasser.zaehler = null; S.save(); $('#dialog').close(); toast('Zähler entfernt');
-      };
     },
 
-    addReading(o) {
+    addReading(o, zid) {
       if (this.guard()) return;
-      const z = o.wasser.zaehler;
+      const z = this.meter(o, zid);
       if (!z) return;
       const last = z.ablesungen[z.ablesungen.length - 1];
       formDialog({
@@ -3410,19 +3434,18 @@
       const fold = (o) => {
         const w = o.wasser;
         const counts = [`<span class="if-c">${w.haehne.length} ${w.haehne.length === 1 ? 'Hahn' : 'Hähne'}</span>`,
-          w.zaehler ? '<span class="if-c">Zähler</span>' : '', S.hatSommerwasser(o) ? `<span class="if-c${S.isAbgestellt(o) ? ' is-free' : ''}">Sommerwasser${S.isAbgestellt(o) ? ' aus' : ''}</span>` : ''].join('');
-        const last = w.zaehler && w.zaehler.ablesungen[w.zaehler.ablesungen.length - 1];
+          w.zaehler.length ? `<span class="if-c">${w.zaehler.length} Zähler</span>` : '', S.hatSommerwasser(o) ? `<span class="if-c${S.isAbgestellt(o) ? ' is-free' : ''}">Sommerwasser${S.isAbgestellt(o) ? ' aus' : ''}</span>` : ''].join('');
         return `<details class="infra-fold" data-fold="${o.id}"${this.openIds.has(o.id) ? ' open' : ''}>
           <summary><span class="pin pin-place pin-wasser pin-house" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i></span>
             <span class="if-main"><span class="if-t">${h(o.name)}</span>${o.notes ? `<span class="if-loc">${h(o.notes)}</span>` : (o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>')}</span>
             <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="if-body">
             ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li><strong>${h(x.name || 'Absperrhahn')}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
-            ${w.zaehler ? `<p class="small" style="margin:6px 0 0">${WICO.meter} Zähler <span class="mono">${h(w.zaehler.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}</p>` : ''}
+            ${w.zaehler.map((z) => { const last = z.ablesungen[z.ablesungen.length - 1]; return `<p class="small ws-tech-z">${WICO.meter} Zähler <span class="mono">${h(z.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}
+              <button type="button" class="link-btn small" data-ws-read="${o.id}:${z.id}">${ICON.plus} Stand</button></p>`; }).join('')}
             <div class="card-actions">
               ${o.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/place/${o.id}">${ICON.map} Map</a>` : `<button type="button" class="btn btn-sm" data-ws-place="${o.id}">${ICON.map} Auf Map platzieren</button>`}
               <button type="button" class="btn btn-ghost btn-sm" data-ws-edit="${o.id}">${ICON.edit} Bearbeiten</button>
-              ${w.zaehler ? `<button type="button" class="btn btn-ghost btn-sm" data-ws-read="${o.id}">${ICON.plus} Zählerstand</button>` : ''}
             </div>
           </div></details>`;
       };
@@ -3446,19 +3469,19 @@
           </div>
           ${sw.length ? `<ul class="ws-check">${sw.map((o) => `
             <li class="${S.isAbgestellt(o) ? 'is-done' : ''}">
-              <label class="ws-check-box"><input type="checkbox" data-ws-sw="${o.id}"${S.isAbgestellt(o) ? ' checked' : ''}>
-                <span><strong>${h(o.name)}</strong>${S.isAbgestellt(o) ? ` <span class="ok small">abgestellt am ${fmtDate(o.wasser.abgestellt)}</span>` : ''}</span></label>
-              ${o.wasser.abstellInfo ? `<p class="small" style="white-space:pre-line">${h(o.wasser.abstellInfo)}</p>` : '<p class="small muted">Keine Infos zum Abstellen hinterlegt.</p>'}
-              <p class="small muted">Hähne: ${S.swHaehne(o).map((x) => h(x.name || 'Absperrhahn')).join(' · ')}</p>
+              <strong>${h(this.title(o))}</strong>
+              ${S.swHaehne(o).map((x) => `<label class="ws-check-box"><input type="checkbox" data-ws-zu="${o.id}:${x.id}"${x.zu ? ' checked' : ''}>
+                <span>${h(x.name || 'Absperrhahn')}${x.zu ? ` <span class="ok small">abgedreht am ${fmtDate(x.zu)}</span>` : frost ? ` ${this.warnIco}` : ''}</span></label>`).join('')}
+              ${o.wasser.abstellInfo ? `<p class="small" style="white-space:pre-line">${h(o.wasser.abstellInfo)}</p>` : ''}
             </li>`).join('')}</ul>
             <p class="small muted">Sobald in der 7-Tage-Wettervorhersage Frost angekündigt ist, erscheint automatisch das To-Do „Sommerwasser abstellen“ (fällig am Frosttag). Sind alle abgehakt, ist es erledigt.</p>`
           : '<p class="muted small">Noch kein Absperrhahn als „Sommerwasser“ markiert (beim Hahn über „…“ → „Name / Info / Sommerwasser“).</p>'}
         </div>`;
       const nb = $('[data-ws-new]', root); if (nb) nb.onclick = () => this.edit(null);
       $$('[data-ws-edit]', root).forEach((b) => b.onclick = () => this.edit(b.dataset.wsEdit));
-      $$('[data-ws-read]', root).forEach((b) => b.onclick = () => this.addReading(S.place(b.dataset.wsRead)));
+      $$('[data-ws-read]', root).forEach((b) => b.onclick = () => { const [oid, zid] = b.dataset.wsRead.split(':'); this.addReading(S.place(oid), zid); });
       $$('[data-ws-place]', root).forEach((b) => b.onclick = () => { const o = S.place(b.dataset.wsPlace); if (o) Actions._place(o, o.name, 'place'); });
-      $$('[data-ws-sw]', root).forEach((c) => c.onchange = () => { const o = S.place(c.dataset.wsSw); if (o) this.setAbgestellt(o, c.checked); });
+      $$('[data-ws-zu]', root).forEach((c) => c.onchange = () => { const [oid, hid] = c.dataset.wsZu.split(':'); const o = S.place(oid); if (o) this.setZu(o, hid, c.checked); });
       const folds = $$('.infra-fold', root), allBtn = $('[data-fold-all]', root);
       const syncAll = () => { if (allBtn) allBtn.textContent = folds.length && folds.every((d) => d.open) ? 'Alle zuklappen' : 'Alle aufklappen'; };
       folds.forEach((d) => d.addEventListener('toggle', () => { if (d.open) this.openIds.add(d.dataset.fold); else this.openIds.delete(d.dataset.fold); syncAll(); }));
@@ -4098,11 +4121,18 @@
   const ALARM_SEEN = 'wch-alarm-gesehen';
   function renderAlarms() {
     const bar = $('#wd-alarm');
-    if (!bar || !window.Waechter) return;
-    const list = Waechter.alarms();
+    if (!bar) return;
+    const list = window.Waechter ? Waechter.alarms() : [];
+    // Frost angekündigt und Sommerwasser-Hähne noch offen
+    const frost = Wasser.frostDay();
+    const offen = frost && S.data ? S.schaechte().filter((o) => Wasser.frostOpen(o).length) : [];
+    if (offen.length) {
+      list.push({ id: offen[0].id, key: `frost:${frost.date}`, level: 'warn', name: `Frost am ${fmtDate(frost.date)} (${Math.round(frost.min)} °C)`, href: '#/technik/wasser',
+        text: `Sommerwasser abdrehen – noch offen: ${offen.map((o) => `${Wasser.title(o)} (${Wasser.frostOpen(o).map((x) => x.name || 'Absperrhahn').join(', ')})`).join('; ')}` });
+    }
     bar.hidden = !list.length;
     bar.className = `wd-alarm${list.some((a) => a.level === 'alarm') ? ' is-alarm' : ''}`;
-    bar.innerHTML = list.map((a) => `<a href="#/karte/place/${a.id}"><strong>${h(a.name)}:</strong> ${h(a.text)}</a>`).join('');
+    bar.innerHTML = list.map((a) => `<a href="${a.href || `#/karte/place/${a.id}`}"><strong>${h(a.name)}:</strong> ${h(a.text)}</a>`).join('');
     // Fenster nur für Alarme (rot), die auf diesem Gerät noch nicht bestätigt wurden
     let seen = [];
     try { seen = JSON.parse(sessionStorage.getItem(ALARM_SEEN) || '[]'); } catch (e) { /* egal */ }
@@ -4175,6 +4205,8 @@
     Wetter.onChange(() => {
       renderMapWeather();
       sommerwasserCheck();
+      renderAlarms();
+      MapView.render();
       if (location.hash.startsWith('#/technik/wasser') && !$('#dialog').open) Wasser.renderTech($('#view-page'));
       if (location.hash.startsWith('#/kalender')) { Kalender.renderWeather(); Kalender.renderGrid(); Kalender.renderAgenda(); }
     });

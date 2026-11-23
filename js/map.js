@@ -331,7 +331,7 @@
               className: '',
               html: airbnb
                 ? window.Airbnb.markerHtml(o, { selected: isSel, extra: todoDot('place', o.id) + (window.Waechter ? window.Waechter.badgeHtml(o.id) : '') })
-                : `<div class="pin pin-place${Store.isSchacht(o) ? ' pin-wasser' : ''}${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}</div>`,
+                : `<div class="pin pin-place${Store.isSchacht(o) ? ' pin-wasser' : ''}${isSel ? ' is-selected' : ''}" title="${escapeHtml(name)}"><i>${kind.icon}</i><span>${escapeHtml(name)}</span>${todoDot('place', o.id)}${Store.isSchacht(o) && this.handlers.schachtWarn && this.handlers.schachtWarn(o) ? '<b class="pin-warn" title="Frost angekündigt – Sommerwasser-Hahn offen">!</b>' : ''}</div>`,
               iconSize: [0, airbnb ? 0 : 28],
               iconAnchor: [0, airbnb ? 0 : 14],
             }),

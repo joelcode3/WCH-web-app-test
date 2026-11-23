@@ -89,8 +89,9 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   App → To Do: nur „erledigt“ (abhaken). Zuständigkeit/Ort wird in der App geklärt. In der App gelöschte kommen nicht wieder.
   Verbinden/Abgleichen/Trennen im Reiter Einstellungen (`js/mstodo.js`). Client Secret läuft nach 24 Monaten ab.
 - **Wasser (GEBAUT 19.11.2026, umgebaut 24.11.)**: Ort-Art `schacht` (Wasserschacht, Symbol ausgefüllter Tropfen, eigene Ebene „Wasser“ in der Legende, `Wasser` in app.js),
-  Daten in `place.wasser` = { haehne:[{id,name,info,area (Eckpunkte in Map-Pixeln), foto [x%,y%], sommerwasser}], zaehler {nr, ablesungen[{datum,stand}]}|null,
-  abstellInfo, abgestellt (Datum) }. Klick auf den Schacht zeigt die Bereiche der Hähne türkis, beschriftet nur mit dem Hahn-Namen (keine eigenen Nummern),
+  Daten in `place.wasser` = { haehne:[{id,name,info,area (Eckpunkte in Map-Pixeln), foto [x%,y%], sommerwasser, zu (Datum abgedreht oder '')}],
+  zaehler:[{id,nr,foto,ablesungen[{datum,stand}]}] (mehrere je Schacht, auf dem Foto als Kästchen „Z1“), abstellInfo }.
+  Im Schacht-Fenster je Hahn Häkchen „zu“; bei Frost in der Vorhersage und offenem Sommerwasser-Hahn rotes „!“ (Hahn, Schacht-Symbol auf der Map) und gelbe Warnleiste oben (`renderAlarms`, zusammen mit den Stromwächter-Alarmen). Kein Sommerwasser-Textblock im Schacht-Fenster. Klick auf den Schacht zeigt die Bereiche der Hähne türkis, beschriftet nur mit dem Hahn-Namen (keine eigenen Nummern),
   Klick auf einen Hahn hebt ihn hervor. Bereiche: Ecken antippen, rechtwinklige Kanten (`startDraw` mit `ortho`), Ecken beim Anzeigen leicht abgerundet (`roundCorners`).
   Überfahren des Schachts (Maus) zeigt „Wasserschacht <Name>“, Hähne + Zählernummer (hellblaues Feld, fett). Foto mit kleinen Nummern-Kreisen (gewählt: hellblauer Ring). Schacht-Fenster zeigt nur Infos; Bearbeiten (Hahn-Menü, Foto, Zähler ändern, + Absperrhahn) erst nach Knopf „Bearbeiten“ (`Wasser.editing`). Legende „Sonne = Sommerwasser“ nur unten im Schacht-Fenster (nicht im Hover-Feld).
   Sommerwasser je Absperrhahn (Symbol Sonne mit Tropfen, Hinweis „Sommerwasser“); Schacht zählt, wenn ein Hahn Sommerwasser ist (`Store.hatSommerwasser`).
