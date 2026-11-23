@@ -3114,8 +3114,7 @@
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
               ${x.foto && o.photo ? `<span class="ws-no" title="Nummer auf dem Foto">${i + 1}</span>` : ''}
               <span class="ws-h-main"><strong>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</strong>
-                ${x.info ? `<span class="small">${h(x.info)}</span>` : ''}
-                <span class="small muted">${x.area ? 'Bereich eingezeichnet' : '<span class="warn">kein Bereich</span>'}${o.photo ? (x.foto ? ' · auf Foto markiert' : ' · nicht auf Foto') : ''}</span></span>
+                ${x.info ? `<span class="small">${h(x.info)}</span>` : ''}</span>
               <select class="ws-h-act" data-hahn-act="${x.id}" aria-label="Aktionen für ${h(x.name || 'Absperrhahn')}" title="Bearbeiten, Bereich zeichnen …">
                 <option value="">…</option>
                 <option value="edit">Name / Info / Sommerwasser</option>
