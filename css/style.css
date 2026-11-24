@@ -1462,3 +1462,9 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .bx-last { color: var(--text-leise); font-size: .8rem; }
 .nr.nr-xs { min-width: 30px; height: 18px; padding: 0 4px; border-radius: 5px; font-size: .72rem; }
 .section-title.ws-st.is-strom svg { stroke: #a87a0e; }
+
+/* Stromkasten: Zähler-Symbol orange, Sicherung grau hinter der Kennung, Stände wie beim Wasser */
+.bx-code svg, .section-title.ws-st.is-strom svg { stroke: #e08a1e; }
+.bx-fuse { margin-left: 8px; font-size: .82rem; font-weight: 500; color: var(--text-leise); }
+.bx-info { margin-left: 26px; }
+.bx-meter .ws-read { margin: 4px 0 0 26px; width: calc(100% - 26px); }

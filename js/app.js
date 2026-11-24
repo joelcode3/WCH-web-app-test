@@ -674,18 +674,22 @@
         </div></li>`;
     },
 
-    // Zähler im Stromkasten: Kennung „S-03/55“ fett, darunter klein Sicherung, Parzelle + Bewohner, letzter Stand
+    // Zähler im Stromkasten: Kennung „S-03/55“ fett, Sicherung grau dahinter, darunter Parzelle + Mieter, dann die letzten Zählerstände
     boxMeterItem(m) {
       const p = S.parcel(m.parcelId);
-      const last = S.lastReading(m.id);
       const fuse = S.fusesText(m);
-      const who = p ? `${nrBadge(p, 'nr-xs')}<span>${h(tenantName(p))}${p.residents > 0 ? ` <span class="muted">· ${p.residents} ${p.residents === 1 ? 'Person' : 'Personen'}</span>` : ''}</span>`
-        : `${S.isFreeMeter(m) ? '<span class="nr nr-xs nr-free">F</span>' : '<span class="nr nr-xs nr-free">B</span>'}<span>${h(S.purposeText(m))} <span class="muted">· ${S.isFreeMeter(m) ? 'frei' : 'Betrieb'}</span></span>`;
+      const all = S.readingsOf(m.id);
+      const rs = all.slice(-3).reverse();
+      const who = p ? `${nrBadge(p, 'nr-xs')}<span>${h(tenantName(p))}</span>`
+        : `<span class="nr nr-xs nr-free">${S.isFreeMeter(m) ? 'F' : 'B'}</span><span>${h(S.purposeText(m))} <span class="muted">· ${S.isFreeMeter(m) ? 'frei' : 'Betrieb'}</span></span>`;
+      const reads = rs.length ? `<table class="ws-read"><tbody>${rs.map((r) => {
+        const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
+        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} kWh</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} kWh` : ''}</td></tr>`;
+      }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
       return `<li class="bx-meter${p ? ' is-link' : ''}"${p ? ` data-goto="#/karte/parcel/${p.id}" tabindex="0"` : ''}>
-        <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong></div>
-        <div class="bx-info">${BICO.fuse}<span>${fuse ? `Sicherung ${h(fuse)}` : '<span class="muted">keine Sicherung eingetragen</span>'}</span></div>
+        <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">Sicherung ${h(fuse)}</span>` : ''}</div>
         <div class="bx-info">${who}</div>
-        <div class="bx-info bx-last">${last ? `zuletzt ${fmtNum(last.value)} kWh · ${fmtDate(last.date)}` : 'noch kein Zählerstand'}</div>
+        ${reads}
       </li>`;
     },
 
@@ -3095,10 +3099,10 @@
      Ort (Art "schacht") mit Zusatzfeld place.wasser.
      ====================================================================== */
 
-  // Symbole im Stromkasten-Fenster: Zähler und Sicherung (Linien wie bei den Wasserschächten)
+  // Symbol im Stromkasten-Fenster: Zähler (wie Wasserzähler, orange)
   const BICO = {
-    meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2.5"/><rect x="7.5" y="6.5" width="9" height="4" rx="1"/><path d="M8 15h2M14 15h2M8 18h8"/></svg>',
-    fuse: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="8" width="11" height="8" rx="2"/><path d="M2 12h4.5M17.5 12H22M9 12h6"/></svg>',
+    // gleiches Zähler-Symbol wie beim Wasser (Farbe orange per CSS)
+    meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-3.5 M8 16h8"/></svg>',
   };
 
   const WICO = {
