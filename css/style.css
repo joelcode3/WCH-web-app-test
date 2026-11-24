@@ -1561,3 +1561,13 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
   .qr-diff { font-size: .82rem; }
   .qr-form h2 { font-size: 1.2rem; }
 }
+
+/* Zähler bei genug Breite einzeilig: Kennung links, Stände rechts daneben */
+.bx-meters, .bx-card { container-type: inline-size; }
+@container (min-width: 500px) {
+  .bx-meter { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(0, 340px); column-gap: 16px; align-items: start; }
+  .bx-meter > .bx-code { grid-column: 1; padding-top: 2px; }
+  .bx-meter > .ws-read, .bx-meter > .bx-more, .bx-meter > p, .bx-meter > .bx-lastline { grid-column: 2; margin: 0; width: 100%; }
+  .bx-meter > .bx-more { margin-top: 2px; }
+  .bx-meter > .bx-lastline { justify-self: end; }
+}
