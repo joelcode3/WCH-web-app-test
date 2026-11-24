@@ -1575,3 +1575,60 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 /* Map-Schnellansicht Stromkasten: nur Zähler + Sicherung, ohne Stände */
 .bx-meters.is-compact .bx-group .bx-meter { padding-top: 4px; }
 .bx-meters.is-compact .bx-group .bx-meter + .bx-meter { margin-top: 4px; }
+
+/* Zählerkennung: Kasten-Teil dunkelgrau, Zählernummer schwarz (Variante A) */
+.mc-pre { color: #6b746d; }
+.mc-nr { color: #111; }
+.bx-meter.is-inaktiv .mc-nr { color: inherit; }
+/* Infrastruktur: Titelzeile einzeilig (Gastank mit Liter/Notiz) */
+.if-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.if-inl { font-weight: 500; color: var(--text-leise); margin-left: 6px; }
+/* Seiten mit Unterreitern: Scrollleiste immer, damit nichts seitlich springt */
+html:has(.tabs) { overflow-y: scroll; }
+/* Infrastruktur: Knöpfe (Map, Bearbeiten …) im aufgeklappten Eintrag rechts */
+.infra-fold .if-body > .card-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+/* Stände-Tabellen gleich ausgerichtet (Datum | Stand | Verbrauch), auch bei inaktiven Zählern */
+.bx-meter .ws-read { table-layout: fixed; }
+.bx-meter .ws-read td:nth-child(1) { width: 32%; }
+.bx-meter .ws-read td:nth-child(2) { width: 36%; }
+/* Wasser: Sommerwasser-Checkliste zum Aufklappen */
+.sw-fold { margin-top: 18px; }
+.sw-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 14px; border: 1px solid var(--linie); border-radius: var(--radius); background: var(--papier); margin: 0; }
+.sw-fold > summary::-webkit-details-marker { display: none; }
+.sw-fold > summary h2 { margin: 0; }
+.sw-fold > summary .if-chev { margin-left: auto; }
+.sw-fold[open] > summary { margin-bottom: 10px; }
+.sw-fold[open] > summary .if-chev { transform: rotate(180deg); }
+
+/* Stromkasten bearbeiten: Zähler kompakt, eine Zeile je Zähler */
+.mx-head, .mx-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 110px 36px; gap: 8px; align-items: center; }
+.mx-head { font-size: .78rem; font-weight: 600; color: var(--text-leise); padding: 0 2px 4px; }
+.mx-row { padding: 6px 0; border-top: 1px dashed var(--linie); }
+.mx-row:last-child { border-bottom: 1px dashed var(--linie); margin-bottom: 10px; }
+.mx-row input { padding: 7px 10px; font-size: .95rem; }
+.mx-row .meter-remove { width: 34px; height: 34px; }
+.mx-row .mx-label { grid-column: 2 / 4; }
+.mx-row .dup-warn { grid-column: 1 / -1; margin: 0; }
+.mx-row.has-warn .mx-nr { border-color: #d98f7f; background: #fdf3f0; }
+.mx-assign { position: relative; min-width: 0; }
+.mx-assign input { width: 100%; }
+.mx-list { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 2px); max-height: 260px; overflow-y: auto; margin: 0; padding: 4px;
+  list-style: none; background: #fff; border: 1px solid var(--linie); border-radius: var(--radius-s); box-shadow: 0 8px 24px rgba(36,48,42,.15); }
+.mx-list li { padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: .92rem; }
+.mx-list li.is-sel { background: #eef5ec; }
+.mx-list li.is-cur { font-weight: 700; }
+@media (max-width: 600px) {
+  .mx-head { display: none; }
+  .mx-row { grid-template-columns: minmax(0, 1fr) 90px 36px; }
+  .mx-row .mx-assign { grid-column: 1 / -1; grid-row: 2; }
+  .mx-row .mx-label { grid-column: 1 / -1; }
+}
+.mx-head, .mx-row { max-width: 820px; }
+/* Reihenfolge: Zähler-Nr. | Sicherung | Zuordnung | Löschen */
+.mx-head, .mx-row { grid-template-columns: 150px 110px minmax(0, 1fr) 36px; }
+.mx-row .mx-label { grid-column: 3 / 4; }
+@media (max-width: 600px) {
+  .mx-row { grid-template-columns: minmax(0, 1fr) 90px 36px; }
+  .mx-row .mx-label { grid-column: 1 / -1; }
+}
