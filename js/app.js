@@ -132,96 +132,6 @@
     if (first && window.matchMedia('(min-width: 861px)').matches) first.focus();
   }
 
-  /* Ablesen direkt aus Infrastruktur: alle Zähler eines Kastens/Tanks in einem Fenster */
-  function readDialog(title, meters) {
-    meters = S.sortMeters(meters);
-    if (!meters.length) { toast('Keine Zähler zum Ablesen'); return; }
-    const dlg = $('#dialog');
-    let date = today();
-    const draft = {};
-    const state = (m) => {
-      const saved = S.data.readings.find((r) => r.meterId === m.id && r.date === date);
-      const prev = S.readingBefore(m.id, date, false);
-      const raw = draft[m.id] !== undefined ? draft[m.id] : (saved ? String(saved.value).replace('.', ',') : '');
-      const val = parseNum(raw);
-      const diff = !isNaN(val) && prev ? val - prev.value : null;
-      return { saved, prev, raw, diff, warn: diff !== null && diff < 0 };
-    };
-    const diffHtml = (m, st) => {
-      if (st.diff === null) return st.saved && draft[m.id] === undefined ? '<span class="muted small">gespeichert</span>' : '';
-      if (st.warn) return `<span class="warn">${fmtNum(st.diff)} ${unit(m.type)} !</span>`;
-      return `+${fmtNum(st.diff)} ${unit(m.type)}`;
-    };
-    const row = (m) => {
-      const p = S.parcel(m.parcelId), st = state(m);
-      return `<div class="qr-row${st.warn ? ' is-warn' : st.saved ? ' is-done' : ''}" data-row="${m.id}">
-        <div class="qr-who"><strong class="mono">${h(S.meterCode(m) || 'ohne Nr.')}</strong>
-          <span class="small muted">${p ? `${h(p.nr)} · ${h(tenantName(p))}` : h(S.purposeText(m))}</span>
-          <span class="small muted">${st.prev ? `zuletzt <span class="mono">${fmtNum(st.prev.value)}</span> am ${fmtDate(st.prev.date)}` : 'noch kein Stand'}</span></div>
-        <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="Stand" aria-label="Zählerstand ${h(S.meterCode(m) || '')}">
-        <div class="qr-diff">${diffHtml(m, st)}</div>
-      </div>`;
-    };
-    const draw = () => {
-      const done = meters.filter((m) => state(m).saved).length;
-      $('.qr-list', dlg).innerHTML = meters.map(row).join('');
-      $('.qr-prog', dlg).textContent = `${done} von ${meters.length} für den ${fmtDate(date)} erfasst`;
-      $$('input[data-meter]', dlg).forEach((inp) => {
-        inp.addEventListener('input', () => {
-          const m = S.meter(inp.dataset.meter);
-          if (inp.value.trim() === '') delete draft[m.id]; else draft[m.id] = inp.value;
-          const st = state(m), r = inp.closest('.qr-row');
-          r.classList.toggle('is-warn', st.warn); r.classList.toggle('is-done', !st.warn && !!st.saved);
-          $('.qr-diff', r).innerHTML = diffHtml(m, st);
-        });
-        inp.addEventListener('keydown', (e) => {
-          if (e.key !== 'Enter') return;
-          e.preventDefault();
-          const all = $$('input[data-meter]', dlg), next = all[all.indexOf(inp) + 1];
-          if (next) next.focus(); else inp.blur();
-        });
-      });
-    };
-    dlg.innerHTML = `
-      <form method="dialog" novalidate class="qr-form">
-        <h2>Ablesen · ${title}</h2>
-        <label class="field"><span>Ablesedatum</span><input type="date" name="datum" value="${date}"></label>
-        <p class="small muted qr-prog"></p>
-        <div class="qr-list"></div>
-        <div class="dialog-actions">
-          <button type="button" class="btn btn-ghost" data-cancel>Abbrechen</button>
-          <button type="submit" class="btn">Speichern</button>
-        </div>
-      </form>`;
-    const form = $('form', dlg);
-    $('[data-cancel]', dlg).onclick = () => {
-      if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) return;
-      dlg.close();
-    };
-    form.elements.datum.onchange = (e) => {
-      if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) { e.target.value = date; return; }
-      Object.keys(draft).forEach((k) => delete draft[k]);
-      date = e.target.value || today(); draw();
-    };
-    form.onsubmit = (e) => {
-      e.preventDefault();
-      const entries = Object.entries(draft);
-      if (!entries.length) { dlg.close(); return; }
-      const bad = entries.filter(([, v]) => isNaN(parseNum(v)));
-      if (bad.length) { toast(`${bad.length} Eingabe(n) sind keine gültige Zahl`); return; }
-      const warn = entries.filter(([id, v]) => { const prev = S.readingBefore(id, date, false); return prev && parseNum(v) < prev.value; });
-      if (warn.length && !confirm(`${warn.length} Zählerstand/-stände sind kleiner als der vorherige Stand (Zählertausch oder Tippfehler?).\nTrotzdem speichern?`)) return;
-      entries.forEach(([id, v]) => S.upsertReading(id, date, parseNum(v)));
-      S.save();
-      dlg.close();
-      toast(`${entries.length} ${entries.length === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert`);
-    };
-    draw();
-    dlg.showModal();
-    const first = $('input[data-meter]', dlg);
-    if (first && window.matchMedia('(min-width: 861px)').matches) first.focus();
-  }
-
   function fieldHtml(f) {
     const v = f.value ?? '';
     let input;
@@ -820,7 +730,7 @@
           const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
           return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
         }).join('')}</tbody></table></details>` : '');
-      return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}">
+      return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}" data-mid="${m.id}">
         <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
         ${body}
       </div>`;
@@ -2079,6 +1989,97 @@
 
   const Technik = {
     openIds: new Set(),   // aufgeklappte Kästen/Tanks (bleiben beim Neuzeichnen offen)
+
+    // Ablesen direkt in den Zeilen: rechts neben jedem Zähler ein Eingabefeld, oben Datum + Speichern
+    startReading(fold, type, root) {
+      if (!fold || fold.classList.contains('is-reading')) return;
+      const others = $$('.infra-fold.is-reading', root);
+      if (others.length) { toast('Bitte erst die andere Ablesung speichern oder abbrechen'); return; }
+      const items = $$('.bx-meter[data-mid]', fold).filter((el) => { const m = S.meter(el.dataset.mid); return m && m.type === type; });
+      if (!items.length) { toast('Keine Zähler zum Ablesen'); return; }
+      let date = today();
+      const draft = {};
+      fold.classList.add('is-reading');
+      const body = $('.if-body', fold);
+      const bar = document.createElement('div');
+      bar.className = 'rd-bar';
+      bar.innerHTML = `<label class="rd-date"><span>Ablesedatum</span><input type="date" value="${date}"></label>
+        <span class="small muted rd-info"></span>
+        <span class="rd-btns"><button type="button" class="btn btn-ghost btn-sm" data-rd-cancel>Abbrechen</button>
+        <button type="button" class="btn btn-sm" data-rd-save>Speichern</button></span>`;
+      body.prepend(bar);
+      const actions = $('.card-actions', body);
+      if (actions) actions.hidden = true;
+      const state = (m) => {
+        const saved = S.data.readings.find((r) => r.meterId === m.id && r.date === date);
+        const prev = S.readingBefore(m.id, date, false);
+        const raw = draft[m.id] !== undefined ? draft[m.id] : (saved ? String(saved.value).replace('.', ',') : '');
+        const val = parseNum(raw);
+        const diff = !isNaN(val) && prev ? val - prev.value : null;
+        return { saved, raw, diff, warn: diff !== null && diff < 0 };
+      };
+      const show = (el, m) => {
+        const st = state(m);
+        el.classList.toggle('is-warn', st.warn);
+        el.classList.toggle('is-done', !st.warn && !!st.saved && draft[m.id] === undefined);
+        $('.rd-diff', el).innerHTML = st.diff === null ? (st.saved && draft[m.id] === undefined ? 'gespeichert' : '')
+          : st.warn ? `<span class="warn">${fmtNum(st.diff)} ${unit(m.type)} !</span>` : `+${fmtNum(st.diff)} ${unit(m.type)}`;
+      };
+      const info = () => {
+        const n = Object.keys(draft).length, done = items.filter((el) => state(S.meter(el.dataset.mid)).saved).length;
+        $('.rd-info', bar).textContent = `${done} von ${items.length} für den ${fmtDate(date)} erfasst${n ? ` · ${n} neu` : ''}`;
+      };
+      const fill = () => items.forEach((el) => {
+        const m = S.meter(el.dataset.mid);
+        $('input', el.querySelector('.rd-in')).value = state(m).raw;
+        show(el, m);
+      });
+      items.forEach((el) => {
+        const m = S.meter(el.dataset.mid);
+        const box = document.createElement('div');
+        box.className = 'rd-in';
+        box.innerHTML = `<input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="neuer Stand" aria-label="Zählerstand ${h(S.meterCode(m) || '')}"><span class="rd-diff"></span>`;
+        el.appendChild(box);
+        el.classList.add('rd-row');
+        const inp = $('input', box);
+        ['click', 'keydown'].forEach((ev) => box.addEventListener(ev, (e) => e.stopPropagation()));
+        inp.addEventListener('input', () => {
+          if (inp.value.trim() === '') delete draft[m.id]; else draft[m.id] = inp.value;
+          show(el, m); info();
+        });
+        inp.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const all = $$('.rd-in input', fold), next = all[all.indexOf(inp) + 1];
+          if (next) next.focus(); else inp.blur();
+        });
+      });
+      const stop = () => this.render(root, type === 'gas' ? 'gas' : 'strom');
+      $('input[type=date]', bar).onchange = (e) => {
+        if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) { e.target.value = date; return; }
+        Object.keys(draft).forEach((k) => delete draft[k]);
+        date = e.target.value || today(); fill(); info();
+      };
+      $('[data-rd-cancel]', bar).onclick = () => {
+        if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) return;
+        stop();
+      };
+      $('[data-rd-save]', bar).onclick = () => {
+        const entries = Object.entries(draft);
+        if (!entries.length) { stop(); return; }
+        const bad = entries.filter(([, v]) => isNaN(parseNum(v)));
+        if (bad.length) { toast(`${bad.length} Eingabe(n) sind keine gültige Zahl`); return; }
+        const warn = entries.filter(([id, v]) => { const prev = S.readingBefore(id, date, false); return prev && parseNum(v) < prev.value; });
+        if (warn.length && !confirm(`${warn.length} Zählerstand/-stände sind kleiner als der vorherige Stand (Zählertausch oder Tippfehler?).\nTrotzdem speichern?`)) return;
+        entries.forEach(([id, v]) => S.upsertReading(id, date, parseNum(v)));
+        S.save();
+        toast(`${entries.length} ${entries.length === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert`);
+        stop();
+      };
+      fill(); info();
+      const first = $('.rd-in input', fold);
+      if (first && window.matchMedia('(min-width: 861px)').matches) first.focus();
+    },
     // typ: 'strom' (Stromkästen, Zähler im Haus) | 'gas' (Gastanks, Gasflaschen)
     render(root, typ = 'strom') {
       const boxes = S.boxesSorted();
@@ -2171,13 +2172,11 @@
       if (nb) nb.onclick = () => Actions.newBox(false);
       if (nt) nt.onclick = () => Actions.newTank(false);
       $$('[data-edit-box]', root).forEach((b) => b.onclick = () => Actions.editBox(b.dataset.editBox));
-      $$('.infra-list [data-goto]', root).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
-      $$('[data-read]', root).forEach((el) => el.onclick = () => {
-        const [kind, id] = el.dataset.read.split(':');
-        if (kind === 'box') { const b = S.box(id); readDialog(`Stromkasten ${h(b.nr)}`, S.metersInBox(id).filter((m) => m.type === 'strom')); }
-        else if (kind === 'tank') { const t = S.tank(id); readDialog(`Gastank ${h(t.nr)}`, S.parcelsOnTank(id).flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'))); }
-        else readDialog('Zähler im Haus', S.data.meters.filter((m) => m.type === 'strom' && m.inHouse));
-      });
+      $$('.infra-list [data-goto]', root).forEach((el) => el.addEventListener('click', (e) => {
+        if (el.closest('.is-reading')) return;   // beim Ablesen nicht wegspringen
+        location.hash = el.dataset.goto;
+      }));
+      $$('[data-read]', root).forEach((el) => el.onclick = () => this.startReading(el.closest('.infra-fold'), el.dataset.read.startsWith('tank') ? 'gas' : 'strom', root));
       $$('[data-edit-tank]', root).forEach((b) => b.onclick = () => Actions.editTank(b.dataset.editTank));
       $$('[data-place-box]', root).forEach((b) => b.onclick = () => Actions.placeBox(b.dataset.placeBox));
       $$('[data-place-tank]', root).forEach((b) => b.onclick = () => Actions.placeTank(b.dataset.placeTank));
