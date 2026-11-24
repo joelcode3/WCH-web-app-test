@@ -1513,3 +1513,5 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .infra-h.ws-st.is-gas svg { stroke: #2f9e74; }
 /* Fenster-Kopf: Symbol im Schildchen etwas größer (Blitz, Gas-Flamme) */
 .panel-head .pin.pin-box svg, .panel-head .pin.pin-tank svg { width: 21px; height: 21px; }
+/* Mieter-Detailseite: Zähler-Karten untereinander */
+.bx-grid { grid-template-columns: 1fr; max-width: 640px; }
