@@ -223,15 +223,20 @@
   // Parzellen sind "Block.Nr" (1.01 … / 2.01 …), Kästen und Tanks einfache Zahlen.
   function freeNrs(list, block) {
     const used = new Set();
+    // Kästen/Tanks mit Vorsatz („S-01“, „G-02“): neue Nummern im selben Stil vorschlagen
+    const pre = block == null ? (list.map((x) => (/^([A-Za-z]+)-\d+$/.exec(String(x.nr || '').trim()) || [])[1]).find(Boolean) || '') : '';
     list.forEach((x) => {
-      const m = String(x.nr || '').trim().match(block == null ? /^(\d+)/ : /^(\d+)\.(\d+)/);
+      const m = String(x.nr || '').trim().match(block == null ? /^(?:[A-Za-z]+-)?(\d+)/ : /^(\d+)\.(\d+)/);
       if (!m) return;
       if (block == null) used.add(+m[1]);
       else if (+m[1] === +block) used.add(+m[2]);
     });
     const max = used.size ? Math.max(...used) : 0;
     const out = [];
-    for (let n = 1; n <= max + 1; n++) if (!used.has(n)) out.push(block == null ? String(n) : `${block}.${String(n).padStart(2, '0')}`);
+    for (let n = 1; n <= max + 1; n++) {
+      if (used.has(n)) continue;
+      out.push(block == null ? (pre ? `${pre}-${String(n).padStart(2, '0')}` : String(n)) : `${block}.${String(n).padStart(2, '0')}`);
+    }
     return out;
   }
   const parcelBlocks = () => {
@@ -2493,11 +2498,14 @@
       const plan = S.renamePlan();
       this._rename = plan;
       if (!plan.length) return '';
-      const row = (r) => `<span${r.conflict ? ' class="warn" title="Name schon vergeben – wird ausgelassen"' : ''}>${r.type === 'schacht' ? 'Wasserschacht' : 'Stromkasten'} ${h(r.from)} → <strong>${h(r.to)}</strong>${r.conflict ? ' (schon vergeben)' : ''}</span>`;
-      const ws = plan.filter((r) => r.type === 'schacht'), bs = plan.filter((r) => r.type === 'box');
+      const row = (r) => `<span${r.conflict ? ' class="warn" title="Name schon vergeben – wird ausgelassen"' : ''}>${r.type === 'schacht' ? 'Wasserschacht' : r.type === 'tank' ? 'Gastank' : 'Stromkasten'} ${h(r.from)} → <strong>${h(r.to)}</strong>${r.conflict ? ' (schon vergeben)' : ''}</span>`;
+      const ws = plan.filter((r) => r.type === 'schacht'), bs = plan.filter((r) => r.type === 'box'), ts = plan.filter((r) => r.type === 'tank');
+      const parts = [ws.length ? `<strong>${ws.length} Wasserschächte</strong> von „2-…“ auf „W-…“ (Nummer jeweils eins höher)` : '',
+        bs.length ? `<strong>${bs.length} Stromkästen</strong> von „1-…“ auf „S-…“` : '',
+        ts.length ? `<strong>${ts.length} Gastanks</strong> auf „G-01“, „G-02“ usw.` : ''].filter(Boolean);
       return `<section class="card plan-sync">
-        <h2>Neue Namen für Wasserschächte und Stromkästen</h2>
-        <p style="margin-top:0">${ws.length ? `<strong>${ws.length} Wasserschächte</strong> von „2-…“ auf „W-…“ (Nummer jeweils eins höher)` : ''}${ws.length && bs.length ? ' und ' : ''}${bs.length ? `<strong>${bs.length} Stromkästen</strong> von „1-…“ auf „S-…“` : ''}.
+        <h2>Neue Namen für Wasserschächte, Stromkästen und Gastanks</h2>
+        <p style="margin-top:0">${(parts.length > 1 ? `${parts.slice(0, -1).join(', ')} und ${parts[parts.length - 1]}` : parts[0]).replace(/\.?$/, '.')}
           Zähler, Zählerstände, Hähne, Fotos und To-Dos bleiben erhalten – nur der Name ändert sich.</p>
         <details><summary>Änderungen anzeigen (alt → neu)</summary><div class="sync-list">${plan.map(row).join('')}</div></details>
         <div class="card-actions"><button class="btn" id="d-rename">Jetzt umbenennen</button></div>

@@ -26,7 +26,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
 - Gastank-Beschriftung ohne vorangestelltes „T“.
-- Namen (26.11.2026): Wasserschächte „W-01“ … (früher „2-01“, Umbenennung +1 über Einstellungen), Stromkästen „S-01“ … (früher „1-01“);
+- Namen (26.11.2026): Wasserschächte „W-01“ … (früher „2-01“, Umbenennung +1 über Einstellungen), Stromkästen „S-01“ … (früher „1-01“), Gastanks „G-01“ … (früher „G-1“, ebenfalls über die Umbenennungs-Karte; neue Nummern übernehmen den Vorsatz, `freeNrs`);
   Absperrhähne mit Kennbuchstabe je Schacht (`kz`: A, B, C …) → Anzeige „Absperrhahn W-08/A“ (`Store.hahnCode/hahnLabel`), Bezeichnung freiwillig;
   Absperrhahn-Symbol nach Vorlage des Betreibers als Linien (Rohr, runder Ventilkörper, T-Griff; `WICO.valve`, Variante V3): steht vor der Überschrift „Absperrhähne“ (Zähler-Symbol vor „Wasserzähler“) und im Hover-Feld; im Schacht-Fenster Schildchen nur „A“ (türkis) bzw. „Z3“ (blaugrau) ohne Symbol; im Foto runde Markierungen. Alle Kennzeichen (A, B, Z1, Z12 …) immer als echte Kreise, längere Texte mit kleinerer Schrift (`is-long`).
   Wasserzähler platzweit fortlaufend nummeriert (`znr`, Z1, Z2 … über alle Schächte, fest; `Store.nextZnr`).
