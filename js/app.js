@@ -674,23 +674,39 @@
         </div></li>`;
     },
 
-    // Zähler im Stromkasten: Kennung „S-03/55“ fett, Sicherung grau dahinter, darunter Parzelle + Mieter, dann die letzten Zählerstände
+    // Stromkasten: Zähler nach Parzelle gruppiert – Parzelle (Nummer + Mieter) oben, darunter ihre Zähler
+    // mit Sicherung und den letzten Ständen. Unveränderter Stand seit der letzten Ablesung → „inaktiv“ (ausgegraut).
+    boxMeterGroups(meters) {
+      const groups = [];
+      const byKey = new Map();
+      meters.forEach((m) => {
+        const key = m.parcelId ? `p:${m.parcelId}` : `m:${m.id}`;
+        if (!byKey.has(key)) { const g = { p: S.parcel(m.parcelId), meters: [] }; byKey.set(key, g); groups.push(g); }
+        byKey.get(key).meters.push(m);
+      });
+      return groups.map((g) => {
+        const m0 = g.meters[0];
+        const head = g.p ? `${nrBadge(g.p, 'nr-xs')}<strong>${h(tenantName(g.p))}</strong>`
+          : `<span class="nr nr-xs nr-free">${S.isFreeMeter(m0) ? 'F' : 'B'}</span><strong>${h(S.purposeText(m0))}</strong> <span class="muted">· ${S.isFreeMeter(m0) ? 'frei' : 'Betrieb'}</span>`;
+        return `<li class="bx-group${g.p ? ' is-link' : ''}"${g.p ? ` data-goto="#/karte/parcel/${g.p.id}" tabindex="0"` : ''}>
+          <div class="bx-head">${head}${g.meters.length > 1 ? ` <span class="muted small">· ${g.meters.length} Zähler</span>` : ''}</div>
+          ${g.meters.map((m) => this.boxMeterItem(m)).join('')}
+        </li>`;
+      }).join('');
+    },
     boxMeterItem(m) {
-      const p = S.parcel(m.parcelId);
       const fuse = S.fusesText(m);
       const all = S.readingsOf(m.id);
       const rs = all.slice(-3).reverse();
-      const who = p ? `${nrBadge(p, 'nr-xs')}<span>${h(tenantName(p))}</span>`
-        : `<span class="nr nr-xs nr-free">${S.isFreeMeter(m) ? 'F' : 'B'}</span><span>${h(S.purposeText(m))} <span class="muted">· ${S.isFreeMeter(m) ? 'frei' : 'Betrieb'}</span></span>`;
+      const inaktiv = all.length >= 2 && all[all.length - 1].value === all[all.length - 2].value;
       const reads = rs.length ? `<table class="ws-read"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
         return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} kWh</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} kWh` : ''}</td></tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
-      return `<li class="bx-meter${p ? ' is-link' : ''}"${p ? ` data-goto="#/karte/parcel/${p.id}" tabindex="0"` : ''}>
-        <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">Sicherung ${h(fuse)}</span>` : ''}</div>
-        <div class="bx-info">${who}</div>
+      return `<div class="bx-meter${inaktiv ? ' is-inaktiv' : ''}">
+        <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
         ${reads}
-      </li>`;
+      </div>`;
     },
 
     boxPanel(b) {
@@ -704,7 +720,7 @@
         </div>
         <div class="panel-body">
           <div class="section-title ws-st is-strom">${BICO.meter}Stromzähler${meters.length ? ` · ${meters.length}` : ''}</div>
-          ${meters.length ? `<ul class="bx-meters">${meters.map((m) => this.boxMeterItem(m)).join('')}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
+          ${meters.length ? `<ul class="bx-meters">${this.boxMeterGroups(meters)}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
           ${todoSection('box', b.id)}
         </div>
         <div class="panel-actions">
@@ -3103,6 +3119,8 @@
   const BICO = {
     // gleiches Zähler-Symbol wie beim Wasser (Farbe orange per CSS)
     meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-3.5 M8 16h8"/></svg>',
+    // Schmelzsicherung: Körper mit Anschlüssen links und rechts
+    fuse: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="8" width="12" height="8" rx="2"/><path d="M2 12h4M18 12h4M9.5 12h5"/></svg>',
   };
 
   const WICO = {

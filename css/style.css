@@ -1468,3 +1468,16 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .bx-fuse { margin-left: 8px; font-size: .82rem; font-weight: 500; color: var(--text-leise); }
 .bx-info { margin-left: 26px; }
 .bx-meter .ws-read { margin: 4px 0 0 26px; width: calc(100% - 26px); }
+
+/* Stromkasten Variante A: Parzelle als Karte, Zähler darunter, inaktive Zähler ausgegraut */
+.bx-group { padding: 8px 10px; border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier); list-style: none; }
+.bx-group.is-link { cursor: pointer; }
+.bx-group.is-link:hover, .bx-group.is-link:focus-visible { border-color: #e0a526; background: #fdf7e6; outline: none; }
+.bx-head { display: flex; align-items: center; gap: 7px; font-size: .95rem; padding-bottom: 6px; border-bottom: 1px dashed var(--linie); }
+.bx-group .bx-meter { border: 0; padding: 6px 0 0 14px; background: none; border-radius: 0; }
+.bx-group .bx-meter + .bx-meter { border-top: 1px dashed var(--linie); margin-top: 6px; }
+.bx-fuse { display: inline-flex; align-items: center; gap: 3px; }
+.bx-fuse svg { width: 15px; height: 15px; fill: none; stroke: #8a918b; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bx-meter.is-inaktiv { opacity: .5; }
+.bx-inaktiv { margin-left: 8px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-leise);
+  border: 1px solid #c9ccc6; border-radius: 999px; padding: 1px 7px; }
