@@ -696,14 +696,18 @@
       const groups = [];
       const byKey = new Map();
       meters.forEach((m) => {
-        const key = m.parcelId ? `p:${m.parcelId}` : `m:${m.id}`;
+        // freie Zähler zusammen in einer Gruppe, Betriebszähler je Zweck
+        const key = m.parcelId ? `p:${m.parcelId}` : S.isFreeMeter(m) ? 'frei' : `s:${S.purposeText(m)}`;
         if (!byKey.has(key)) { const g = { p: S.parcel(m.parcelId), meters: [] }; byKey.set(key, g); groups.push(g); }
         byKey.get(key).meters.push(m);
       });
+      const fr = byKey.get('frei');   // freie Zähler ans Ende
+      if (fr) { groups.splice(groups.indexOf(fr), 1); groups.push(fr); }
       return groups.map((g) => {
         const m0 = g.meters[0];
         const head = g.p ? `${nrBadge(g.p, 'nr-xs')}<strong>${h(tenantName(g.p))}</strong>`
-          : `<span class="nr nr-xs nr-free">${S.isFreeMeter(m0) ? 'F' : 'B'}</span><strong>${h(S.purposeText(m0))}</strong> <span class="muted">· ${S.isFreeMeter(m0) ? 'frei' : 'Betrieb'}</span>`;
+          : S.isFreeMeter(m0) ? `<span class="nr nr-xs nr-free">F</span><strong>Frei – nicht zugeordnet</strong>`
+            : `<span class="nr nr-xs nr-free">B</span><strong>${h(S.purposeText(m0))} <span class="muted" style="font-weight:400">· Betrieb</span></strong>`;
         return `<li class="bx-group${g.p ? ' is-link' : ''}"${g.p ? ` data-goto="#/karte/parcel/${g.p.id}" tabindex="0"` : ''}>
           <div class="bx-head">${head}</div>
           ${g.meters.map((m) => this.boxMeterItem(m, opts)).join('')}
