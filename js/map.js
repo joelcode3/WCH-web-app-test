@@ -324,7 +324,7 @@
           L.polygon(roundCorners(hh.area, 6).map(toLL), {
             renderer: this.renderer, color: '#0b8c96', weight: on ? 3 : 2, dashArray: on ? null : '6 4',
             fillColor: '#3cc8d0', fillOpacity: on ? 0.42 : dim ? 0.12 : 0.28, interactive: false,
-          }).bindTooltip(escapeHtml(hh.name || 'Absperrhahn'), { permanent: true, direction: 'center', className: 'area-tip' }).addTo(L_.areas);
+          }).bindTooltip(escapeHtml(Store.hahnLabel(selPlace, hh)), { permanent: true, direction: 'center', className: 'area-tip' }).addTo(L_.areas);
         });
       }
 

@@ -26,6 +26,11 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
 - Gastank-Beschriftung ohne vorangestelltes „T“.
+- Namen (26.11.2026): Wasserschächte „W-01“ … (früher „2-01“, Umbenennung +1 über Einstellungen), Stromkästen „S-01“ … (früher „1-01“);
+  Absperrhähne mit Kennbuchstabe je Schacht (`kz`: A, B, C …) → Anzeige „Absperrhahn W-08/A“ (`Store.hahnCode/hahnLabel`), Bezeichnung freiwillig;
+  Zähler im Stromkasten werden als „S-06/55“ angezeigt (`Store.meterCode`), gespeichert bleibt nur die echte Zählernummer.
+  In Listen heißen Schächte „Wasserschacht W-01“ (`Store.placeLabel`). Einmal-Umbenennung: `Store.renamePlan/applyRename`, Karte in Einstellungen mit Vorschau.
+- Map-Schildchen einheitlich mit weißem Rand: Stromkasten gelb, Gastank grün, Wasserschacht kräftiges Türkis (#7fd3db) mit dunkler Schrift.
 - Suche (Map): Parzellen, Stromkästen (gelb), Gastanks (grün, mit Parzellen), Wasserschächte (türkis, auch nach Hahn-/Zählernummer), Orte; ohne Groß-/Kleinschreibung.
 - Satellitenbild an: Parzellen ohne Füllung, nur weiße Umrandung (gewählte gelb), keine Statusfarben.
 - Parzellen immer unterste Ebene (eigene `parcelPane`, z-index 300) – darf nichts verdecken (Safari zeichnete sonst Parzellen über Tanks).
