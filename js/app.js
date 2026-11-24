@@ -3667,7 +3667,7 @@
           w.zaehler.length ? `<span class="if-c">${w.zaehler.length} Zähler</span>` : '', S.hatSommerwasser(o) ? `<span class="if-c${S.isAbgestellt(o) ? ' is-free' : ''}">Sommerwasser${S.isAbgestellt(o) ? ' aus' : ''}</span>` : ''].join('');
         return `<details class="infra-fold" data-fold="${o.id}"${this.openIds.has(o.id) ? ' open' : ''}>
           <summary><span class="pin pin-place pin-wasser" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i><span>${h(o.name)}</span></span>
-            <span class="if-main"><span class="if-t">${h(this.title(o))}</span>${o.notes ? `<span class="if-loc">${h(o.notes)}</span>` : (o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>')}</span>
+            <span class="if-main"><span class="if-t">${h(this.title(o))}${o.notes ? `<span class="if-inl">· ${h(o.notes)}</span>` : ''}</span>${o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>'}</span>
             <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="if-body">
             ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li>${WICO.valve}<strong>${h(S.hahnLabel(o, x))}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
