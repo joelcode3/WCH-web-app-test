@@ -1414,3 +1414,21 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .pin.pin-place.pin-wasser { background: #7fd3db; color: #0d2a3a; border-color: #fff; }
 .pin.pin-place.pin-wasser i svg, .pin.pin-place.pin-wasser svg.pk-ico { color: #0d2a3a; }
 .pin.pin-place.pin-wasser.is-selected { border-color: #0d2a3a; }
+
+/* Absperrhahn-/Zähler-Schildchen (Symbol + Buchstabe bzw. Z-Nummer) */
+.ws-ic { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 22px; padding: 0 7px 0 4px; border-radius: 999px;
+  background: #0b8c96; color: #fff; font: 700 12px/1 system-ui, sans-serif; margin: 1px 6px 0 0; }
+.ws-ic svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.ws-ic.is-meter { background: #3d6b8c; }
+.ws-zbox .ws-meter > span { display: inline-flex; align-items: center; }
+/* Foto: runde Markierungen, Zähler blaugrau */
+.ws-mark.is-meter { border-radius: 999px; background: #3d6b8c; min-width: 20px; padding: 0 5px; }
+/* Hover-Feld: Zeilen mit Symbol */
+.schacht-tip .st-row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+.schacht-tip .st-row > svg { width: 16px; height: 16px; flex: none; fill: none; stroke: #0b8c96; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.schacht-tip .st-row.is-meter > svg { stroke: #3d6b8c; }
+.schacht-tip .st-zs { margin-top: 6px; padding-top: 5px; border-top: 1px solid #cfe9ec; }
+/* Infrastruktur-Liste */
+.ws-tech-h { list-style: none; padding-left: 0; }
+.ws-tech-h li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ws-tech-h li > svg, .ws-tech-z svg { width: 16px; height: 16px; fill: none; stroke: #0b8c96; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

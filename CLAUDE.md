@@ -28,6 +28,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Gastank-Beschriftung ohne vorangestelltes „T“.
 - Namen (26.11.2026): Wasserschächte „W-01“ … (früher „2-01“, Umbenennung +1 über Einstellungen), Stromkästen „S-01“ … (früher „1-01“);
   Absperrhähne mit Kennbuchstabe je Schacht (`kz`: A, B, C …) → Anzeige „Absperrhahn W-08/A“ (`Store.hahnCode/hahnLabel`), Bezeichnung freiwillig;
+  Absperrhahn-Symbol: klassischer Hahn seitlich mit leicht schrägem Handrad (`WICO.valve`, Variante C2); Schildchen türkis „[Symbol] A“, Zähler blaugrau „[Symbol] Z3“; im Foto runde Markierungen (Buchstabe bzw. Z-Nummer).
+  Wasserzähler platzweit fortlaufend nummeriert (`znr`, Z1, Z2 … über alle Schächte, fest; `Store.nextZnr`).
   Zähler im Stromkasten werden als „S-06/55“ angezeigt (`Store.meterCode`), gespeichert bleibt nur die echte Zählernummer.
   In Listen heißen Schächte „Wasserschacht W-01“ (`Store.placeLabel`). Einmal-Umbenennung: `Store.renamePlan/applyRename`, Karte in Einstellungen mit Vorschau.
 - Map-Schildchen einheitlich mit weißem Rand: Stromkasten gelb, Gastank grün, Wasserschacht kräftiges Türkis (#7fd3db) mit dunkler Schrift.

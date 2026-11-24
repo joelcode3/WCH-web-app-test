@@ -371,6 +371,7 @@
     swHaehne: (o) => (o && o.wasser ? o.wasser.haehne.filter((x) => x.sommerwasser) : []),
     hatSommerwasser(o) { return this.swHaehne(o).length > 0; },
     kzLetter,
+    nextZnr() { return this.data.places.filter((o) => o.kind === 'schacht' && o.wasser).flatMap((o) => o.wasser.zaehler).reduce((mx, z) => Math.max(mx, z.znr || 0), 0) + 1; },
     // Absperrhahn: Kennung „W-08/A“, Bezeichnung (ohne reine Nummern) und beides zusammen
     hahnCode: (o, x) => `${o.name}/${x.kz}`,
     hahnName: (x) => (x.name && !HAHN_NUM.test(x.name) ? x.name.trim() : ''),
@@ -558,12 +559,20 @@
             zu: typeof x.zu === 'string' ? x.zu : (altZu && (alt || x.sommerwasser) ? altZu : '') })),   // abgedreht seit (Datum) oder ''
           // mehrere Wasserzähler je Schacht (früher ein einzelner → in die Liste übernehmen)
           zaehler: (Array.isArray(w.zaehler) ? w.zaehler : w.zaehler && typeof w.zaehler === 'object' ? [w.zaehler] : []).map((z) => ({
-            id: z.id || uid('z'), nr: z.nr || '', foto: Array.isArray(z.foto) ? z.foto : null,
+            id: z.id || uid('z'), znr: +z.znr || 0, nr: z.nr || '', foto: Array.isArray(z.foto) ? z.foto : null,
             ablesungen: (Array.isArray(z.ablesungen) ? z.ablesungen : []).filter((a) => a && a.datum)
               .map((a) => ({ datum: a.datum, stand: Number(a.stand) })).sort((a, b) => a.datum.localeCompare(b.datum)) })),
           abstellInfo: w.abstellInfo || '', abgestellt: w.abgestellt || '',
         };
       });
+      // Wasserzähler platzweit fortlaufend nummeriert (Z1, Z2 …): fehlende Nummern der Reihe nach (nach Schachtname) vergeben
+      {
+        const all = d.places.filter((o) => o.kind === 'schacht').sort((a, b) => compareNr(a.name || '', b.name || ''))
+          .flatMap((o) => o.wasser.zaehler);
+        let max = all.reduce((mx, z) => Math.max(mx, z.znr || 0), 0);
+        const seen = new Set();
+        all.forEach((z) => { if (!z.znr || seen.has(z.znr)) z.znr = ++max; seen.add(z.znr); });
+      }
       d.boxes.forEach((b) => { if (b.limitKwh === undefined || b.limitKwh === null) b.limitKwh = ''; });
       d.meters.forEach((m) => {
         m.parcelId = m.parcelId || '';

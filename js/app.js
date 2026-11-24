@@ -547,7 +547,7 @@
         // Wasserschächte: Name, Hähne, Zählernummern
         S.schaechte().forEach((o) => {
           const w = o.wasser || { haehne: [], zaehler: [] };
-          const hay = [Wasser.title(o), ...w.haehne.map((x) => S.hahnLabel(o, x)), ...w.zaehler.map((z) => z.nr)].join(' ').toLowerCase();
+          const hay = [Wasser.title(o), ...w.haehne.map((x) => S.hahnLabel(o, x)), ...w.zaehler.map((z) => `z${z.znr} ${z.nr}`)].join(' ').toLowerCase();
           if (!hay.includes(q)) return;
           const sub = [w.haehne.length ? `${w.haehne.length} ${w.haehne.length === 1 ? 'Hahn' : 'Hähne'}` : '', w.zaehler.length ? `Zähler ${w.zaehler.map((z) => z.nr).filter(Boolean).join(', ')}` : ''].filter(Boolean).join(' · ');
           res.push({ type: 'place', id: o.id, html: `<span class="pin pin-place pin-wasser" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i><span>${h(o.name)}</span></span><span><strong>${h(Wasser.title(o))}</strong><br><span class="muted small">${h(sub || 'Wasserschacht')}</span></span>` });
@@ -3081,7 +3081,8 @@
      ====================================================================== */
 
   const WICO = {
-    valve: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4 M8 5h8 M12 7v3 M5 10h14v4H5z M8 14v2.5 M16 14v2.5"/></svg>',
+    // klassischer Absperrhahn seitlich: Rohr, Ventilkörper, Spindel, Handrad leicht schräg
+    valve: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 18.5h4M18 18.5h4"/><path d="M6 16h12v5H6z"/><path d="M10 16v-2.5h4V16M12 13.5V9.5"/><ellipse cx="12" cy="7" rx="6.5" ry="2.6" transform="rotate(-14 12 7)"/><path d="M5.7 8.6l12.6-3.2"/></svg>',
     meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-3.5 M8 16h8"/></svg>',
     // Sommerwasser: Sonne mit kleinem Tropfen
     sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 2.6v2.2 M10 15.2v2.2 M2.6 10h2.2 M15.2 10h2.2 M4.8 4.8l1.5 1.5 M13.7 6.3l1.5-1.5 M4.8 15.2l1.5-1.5"/><path class="sw-drop" d="M18.6 13.6c1.5 2 2.3 3.2 2.3 4.2a2.3 2.3 0 0 1-4.6 0c0-1 .8-2.2 2.3-4.2z"/></svg>',
@@ -3127,8 +3128,8 @@
     tipHtml(o) {
       const w = o.wasser;
       return `<div class="st-title">${h(this.title(o))}</div>
-        ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(S.hahnLabel(o, x))}${this.sunHtml(x)}</li>`).join('')}</ul>` : '<div class="st-none">keine Absperrhähne</div>'}
-        ${w.zaehler.length ? `<div class="schacht-tip-z">${WICO.meter}<span>Zähler ${w.zaehler.map((z) => h(z.nr || 'ohne Nummer')).join(', ')}</span></div>` : ''}`;
+        ${w.haehne.length ? w.haehne.map((x) => `<div class="st-row">${WICO.valve}<span>${h(S.hahnLabel(o, x))}${this.sunHtml(x)}</span></div>`).join('') : '<div class="st-none">keine Absperrhähne</div>'}
+        ${w.zaehler.length ? `<div class="st-zs">${w.zaehler.map((z) => `<div class="st-row is-meter">${WICO.meter}<span>Z${z.znr}${z.nr ? ` · ${h(z.nr)}` : ''}</span></div>`).join('')}</div>` : ''}`;
     },
     readingsHtml(z, opts = {}) {
       const rs = z.ablesungen.slice(-(opts.n || 3)).reverse();
@@ -3145,7 +3146,7 @@
     photoHtml(o, url, cls = '') {
       const mk = (x, label, title, extra) => (x.foto ? `<span class="ws-mark${extra}${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%" title="${h(title)}">${label}</span>` : '');
       const marks = o.wasser.haehne.map((x) => mk(x, h(x.kz), S.hahnLabel(o, x), '')).join('')
-        + (o.wasser.zaehler || []).map((z, i) => mk(z, `Z${i + 1}`, `Zähler ${z.nr || ''}`, ' is-meter')).join('');
+        + (o.wasser.zaehler || []).map((z) => mk(z, `Z${z.znr}`, `Zähler ${z.nr || ''}`, ' is-meter')).join('');
       return `<div class="ws-photo ${cls}"><img src="${h(url)}" alt="" draggable="false" onerror="window.reloadPlacePhotos && window.reloadPlacePhotos()">${marks}</div>`;
     },
 
@@ -3175,8 +3176,8 @@
           <div class="section-title">Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
           ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
-              ${x.foto && o.photo ? `<span class="ws-no" title="Markierung auf dem Foto">${h(x.kz)}</span>` : ''}
-              <span class="ws-h-main"><strong>Absperrhahn ${h(S.hahnCode(o, x))}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
+              <span class="ws-ic" title="Absperrhahn">${WICO.valve}${h(x.kz)}</span>
+              <span class="ws-h-main"><strong>${h(S.hahnCode(o, x))}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
                 ${S.hahnName(x) ? `<span class="small">${h(S.hahnName(x))}</span>` : ''}
                 ${x.info ? `<span class="small muted">${h(x.info)}</span>` : ''}</span>
               <label class="ws-zu${x.zu ? ' is-zu' : ''}" title="${x.zu ? `abgedreht am ${fmtDate(x.zu)}` : 'Hahn ist offen'}"><input type="checkbox" data-hahn-zu="${x.id}"${x.zu ? ' checked' : ''}> zu</label>
@@ -3195,7 +3196,7 @@
           ${w.zaehler.length || ed ? `<div class="section-title">Wasserzähler${w.zaehler.length > 1 ? ` · ${w.zaehler.length}` : ''}</div>` : ''}
           ${w.zaehler.map((z, i) => `<div class="ws-zbox${MapView.selHahn === z.id ? ' is-sel' : ''}">
             <div class="ws-meter" data-meter="${z.id}" title="Auf dem Foto hervorheben">
-              <span>${z.foto && o.photo ? `<span class="ws-no is-meter">Z${i + 1}</span>` : WICO.meter}<strong class="mono">${h(z.nr || 'ohne Nummer')}</strong></span>
+              <span><span class="ws-ic is-meter" title="Wasserzähler">${WICO.meter}Z${z.znr}</span><strong>Zähler <span class="mono">${h(z.nr || 'ohne Nummer')}</span></strong></span>
               ${ed ? `<select class="ws-h-act" data-meter-act="${z.id}" aria-label="Aktionen für Zähler ${h(z.nr || '')}">
                 <option value="">…</option>
                 <option value="edit">Zählernummer ändern</option>
@@ -3451,7 +3452,7 @@
         fields: [{ name: 'nr', label: 'Zählernummer', value: z ? z.nr : '', placeholder: 'steht auf dem Zähler' }],
         onSubmit: (v) => {
           if (z) { z.nr = v.nr.trim(); S.save(); toast('Gespeichert'); return; }
-          const neu = { id: S.uid('z'), nr: v.nr.trim(), foto: null, ablesungen: [] };
+          const neu = { id: S.uid('z'), znr: S.nextZnr(), nr: v.nr.trim(), foto: null, ablesungen: [] };
           o.wasser.zaehler.push(neu);
           S.save();
           toast('Zähler angelegt');
@@ -3499,8 +3500,8 @@
             <span class="if-main"><span class="if-t">${h(o.name)}</span>${o.notes ? `<span class="if-loc">${h(o.notes)}</span>` : (o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>')}</span>
             <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="if-body">
-            ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li><strong>${h(S.hahnLabel(o, x))}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
-            ${w.zaehler.map((z) => { const last = z.ablesungen[z.ablesungen.length - 1]; return `<p class="small ws-tech-z">${WICO.meter} Zähler <span class="mono">${h(z.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}
+            ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li>${WICO.valve}<strong>${h(S.hahnLabel(o, x))}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
+            ${w.zaehler.map((z) => { const last = z.ablesungen[z.ablesungen.length - 1]; return `<p class="small ws-tech-z">${WICO.meter} Z${z.znr} · Zähler <span class="mono">${h(z.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}
               <button type="button" class="link-btn small" data-ws-read="${o.id}:${z.id}">${ICON.plus} Stand</button></p>`; }).join('')}
             <div class="card-actions">
               ${o.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/place/${o.id}">${ICON.map} Map</a>` : `<button type="button" class="btn btn-sm" data-ws-place="${o.id}">${ICON.map} Auf Map platzieren</button>`}
