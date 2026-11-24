@@ -602,6 +602,18 @@
 
     hidePanel() { $('#map-panel').hidden = true; },
 
+    // Zähler der Parzelle – gleiche Darstellung wie im Stromkasten-Fenster (Strom und Gas getrennt)
+    parcelMeters(meters) {
+      if (!meters.length) return '<div class="section-title">Zähler</div><p class="muted small">Keine Zähler hinterlegt.</p>';
+      const block = (type, label) => {
+        const ms = meters.filter((m) => m.type === type);
+        if (!ms.length) return '';
+        return `<div class="section-title ws-st ${type === 'gas' ? 'is-gas' : 'is-strom'}">${BICO.meter}${label} · ${ms.length}</div>
+          <div class="bx-group bx-plain">${ms.map((m) => this.boxMeterItem(m)).join('')}</div>`;
+      };
+      return block('strom', 'Stromzähler') + block('gas', 'Gaszähler');
+    },
+
     parcelPanel(p) {
       if (!p) return '';
       const meters = S.metersOf(p.id);
@@ -626,8 +638,7 @@
             <dt>Gas</dt><dd>${p.gas === 'tank' && S.tank(p.gasTankId)
               ? `<button class="link-btn" data-goto="#/karte/tank/${p.gasTankId}">${gasText(p)}</button>` : gasText(p)}</dd>
           </dl>
-          <div class="section-title">Zähler</div>
-          ${meters.length ? `<ul class="meter-list">${meters.map((m) => this.meterItem(m, 'parcel')).join('')}</ul>` : '<p class="muted small">Keine Zähler hinterlegt.</p>'}
+          ${this.parcelMeters(meters)}
           ${p.notes ? `<div class="section-title">Notizen</div><p class="small" style="margin:0;white-space:pre-line">${h(p.notes)}</p>` : ''}
           ${todoSection('parcel', p.id)}
           ${MapView.editMode ? `<div class="section-title">Umriss bearbeiten</div>
@@ -689,7 +700,7 @@
         const head = g.p ? `${nrBadge(g.p, 'nr-xs')}<strong>${h(tenantName(g.p))}</strong>`
           : `<span class="nr nr-xs nr-free">${S.isFreeMeter(m0) ? 'F' : 'B'}</span><strong>${h(S.purposeText(m0))}</strong> <span class="muted">· ${S.isFreeMeter(m0) ? 'frei' : 'Betrieb'}</span>`;
         return `<li class="bx-group${g.p ? ' is-link' : ''}"${g.p ? ` data-goto="#/karte/parcel/${g.p.id}" tabindex="0"` : ''}>
-          <div class="bx-head">${head}${g.meters.length > 1 ? ` <span class="muted small">· ${g.meters.length} Zähler</span>` : ''}</div>
+          <div class="bx-head">${head}</div>
           ${g.meters.map((m) => this.boxMeterItem(m)).join('')}
         </li>`;
       }).join('');
@@ -701,9 +712,9 @@
       const inaktiv = all.length >= 2 && all[all.length - 1].value === all[all.length - 2].value;
       const reads = rs.length ? `<table class="ws-read"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} kWh</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} kWh` : ''}</td></tr>`;
+        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
-      return `<div class="bx-meter${inaktiv ? ' is-inaktiv' : ''}">
+      return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}">
         <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
         ${reads}
       </div>`;
