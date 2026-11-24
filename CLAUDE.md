@@ -34,7 +34,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   In Listen heißen Schächte „Wasserschacht W-01“ (`Store.placeLabel`). Einmal-Umbenennung: `Store.renamePlan/applyRename`, Karte in Einstellungen mit Vorschau.
 - Stromkasten-Fenster (26.11.2026, Variante A): Zähler nach Parzelle gruppiert (Karte: Parzellennummer + Mieter, „· 2 Zähler“), darunter je Zähler
   „S-01/50“ fett mit orangem Zähler-Symbol, Sicherung grau mit Sicherungs-Symbol dahinter, letzte 3 Stände mit Verbrauch; Stand bei der letzten Ablesung
-  unverändert → Zähler ausgegraut mit „inaktiv“ (keine Zähler-Anzahl im Kopf). Parzellen-Fenster (Map) zeigt die Zähler genauso (`parcelMeters`: Stromzähler orange, Gaszähler grün).
+  unverändert → Zähler ausgegraut mit „inaktiv“, dann nur der letzte Stand ohne Verbrauch und ohne ältere Stände (eine Zeile) (keine Zähler-Anzahl im Kopf). Parzellen-Fenster (Map) zeigt die Zähler genauso (`parcelMeters`: Stromzähler orange, Gaszähler grün).
   Unverändert → Zähler ausgegraut mit „inaktiv“ (`boxMeterGroups/boxMeterItem`, Symbole `BICO`). Schacht-Fenster-Kopf wie beim Stromkasten: Schildchen (Tropfen + Name) + „Wasserschacht W-08“.
 - Mieter-Detailseite, Block Infrastruktur: Überschriften „Strom“ (ohne Zähleranzahl) mit Blitz, „Gas“ mit Flamme (jeweils auf farbigem Kreis wie die Map-Schildchen: gelb bzw. grün, `.h-ico`); darunter der Ort, anklickbar → Map: „Stromkasten“ bzw. „Gastank“ mit Map-Schildchen dahinter (S-05, G-2) (sonst „Gasflaschen“/„im Haus“); keine Heizungsart; Zähler als Karten untereinander wie im Stromkasten-Fenster
   (Kennung, Sicherung, letzte 3 Stände, ältere aufklappbar, „inaktiv“), ohne Standortzeile (steckt in der Kennung). Blitz/Flamme im Fenster-Kopf (Stromkasten/Gastank) größer.

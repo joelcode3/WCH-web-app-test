@@ -728,13 +728,14 @@
     boxMeterItem(m, opts = {}) {
       const fuse = S.fusesText(m);
       const all = S.readingsOf(m.id);
-      const n = opts.n === undefined ? 3 : opts.n;
-      const rs = all.slice(-(n || 1)).reverse();
-      const older = opts.more ? all.slice(0, Math.max(0, all.length - n)).reverse() : [];
       const inaktiv = all.length >= 2 && all[all.length - 1].value === all[all.length - 2].value;
+      // inaktiv: nur der letzte Stand, ohne Verbrauch und ohne ältere Stände (eine Zeile)
+      const n = inaktiv ? 1 : opts.n === undefined ? 3 : opts.n;
+      const rs = all.slice(-(n || 1)).reverse();
+      const older = opts.more && !inaktiv ? all.slice(0, Math.max(0, all.length - n)).reverse() : [];
       const reads = rs.length ? `<table class="ws-read"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
+        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev && !inaktiv ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
       const last = all[all.length - 1];
       const body = opts.reads === false ? ''

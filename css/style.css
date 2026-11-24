@@ -1587,3 +1587,7 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 html:has(.tabs) { overflow-y: scroll; }
 /* Infrastruktur: Knöpfe (Map, Bearbeiten …) im aufgeklappten Eintrag rechts */
 .infra-fold .if-body > .card-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+/* Stände-Tabellen gleich ausgerichtet (Datum | Stand | Verbrauch), auch bei inaktiven Zählern */
+.bx-meter .ws-read { table-layout: fixed; }
+.bx-meter .ws-read td:nth-child(1) { width: 32%; }
+.bx-meter .ws-read td:nth-child(2) { width: 36%; }
