@@ -705,18 +705,34 @@
         </li>`;
       }).join('');
     },
-    boxMeterItem(m) {
+    // opts.place: Zählerort (Kasten/im Haus/Gas-Ort) als Zeile zeigen; opts.n: Anzahl Stände (0 = nur der letzte, ohne Tabelle);
+    // opts.more: restliche Stände zum Aufklappen
+    boxMeterItem(m, opts = {}) {
       const fuse = S.fusesText(m);
       const all = S.readingsOf(m.id);
-      const rs = all.slice(-3).reverse();
+      const n = opts.n === undefined ? 3 : opts.n;
+      const rs = all.slice(-(n || 1)).reverse();
+      const older = opts.more ? all.slice(0, Math.max(0, all.length - n)).reverse() : [];
       const inaktiv = all.length >= 2 && all[all.length - 1].value === all[all.length - 2].value;
       const reads = rs.length ? `<table class="ws-read"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
         return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
+      const b = m.type === 'strom' && !m.inHouse ? S.box(m.boxId) : null;
+      const place = !opts.place ? '' : `<div class="bx-info bx-place">${m.type === 'strom'
+        ? (m.inHouse ? 'im Haus' : b ? `<a href="#/karte/box/${b.id}">${ICON.strom} Stromkasten ${h(b.nr)}</a>${b.location ? ` <span class="muted">· ${h(b.location)}</span>` : ''}` : '<span class="warn">kein Kasten</span>')
+        : h(m.location || 'Ort nicht angegeben')}</div>`;
+      const last = all[all.length - 1];
+      const body = n === 0
+        ? `<div class="bx-info bx-lastline">${last ? `<strong>${fmtNum(last.value)} ${unit(m.type)}</strong> <span class="muted">· ${fmtDate(last.date)}</span>` : '<span class="muted">Noch kein Zählerstand.</span>'}</div>`
+        : reads + (older.length ? `<details class="bx-more"><summary>Ältere Stände (${older.length})</summary><table class="ws-read"><tbody>${older.map((r) => {
+          const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
+          return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
+        }).join('')}</tbody></table></details>` : '');
       return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}">
         <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
-        ${reads}
+        ${place}
+        ${body}
       </div>`;
     },
 
@@ -1315,6 +1331,12 @@
       // Ablesehistorie je Zähler; Zähler ohne Ablesung erscheinen mit einer leeren Zeile
       const meterPlaceHtml = (m) => (m.type !== 'strom' ? h(m.location || '–')
         : m.inHouse ? 'im Haus' : S.box(m.boxId) ? `<a href="#/karte/box/${m.boxId}">Kasten ${h(S.box(m.boxId).nr)}</a>` : '<span class="warn">kein Kasten</span>');
+      // Zähler wie im Stromkasten-/Parzellen-Fenster: Karten nebeneinander (Variante 1: letzte Stände + ältere aufklappbar,
+      // Variante 2: kompakte Karten mit letztem Stand + vollständiger Verlauf als Tabelle darunter)
+      const infraMeters = (list, fuses = true) => (window.__infraV === 2
+        ? `<div class="bx-grid">${list.map((m) => `<div class="bx-card">${MapUI.boxMeterItem(m, { place: true, n: 0 })}</div>`).join('')}</div>
+           <details class="bx-hist"><summary>Verlauf aller Zählerstände</summary>${histTable(list, true, fuses)}</details>`
+        : `<div class="bx-grid">${list.map((m) => `<div class="bx-card">${MapUI.boxMeterItem(m, { place: true, n: 3, more: true })}</div>`).join('')}</div>`);
       const histTable = (list, full, fuses = true) => {
         const rows = [];
         list.forEach((m) => {
@@ -1376,14 +1398,14 @@
             <section class="card span-all todo-card">${todoSection('parcel', p.id)}</section>
             <section class="card span-all infra-card">
               <h2>Infrastruktur</h2>
-              <h3 class="infra-h">${ICON.strom} Strom</h3>
-              ${strom.length ? histTable(strom, true) : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
-              <h3 class="infra-h">${ICON.gas} Gas</h3>
+              <h3 class="infra-h ws-st is-strom">${BICO.meter} Strom${strom.length ? ` · ${strom.length} Zähler` : ''}</h3>
+              ${strom.length ? infraMeters(strom) : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
+              <h3 class="infra-h ws-st is-gas">${BICO.meter} Gas</h3>
               <dl class="facts infra-facts">
                 <dt>Versorgung</dt><dd>${tank ? `<a href="#/karte/tank/${tank.id}">Gastank ${h(tank.nr)}</a>` : p.gas === 'bottle' ? '<strong>Gasflaschen</strong>' : gasText(p)}</dd>
                 <dt>Heizung</dt><dd>${h(S.HEATING[p.heating] || '–')}</dd>
               </dl>
-              ${gas.length ? histTable(gas, true, false) : p.gas === 'tank' ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
+              ${gas.length ? infraMeters(gas, false) : p.gas === 'tank' ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
             </section>
           </div>
         </div>`;

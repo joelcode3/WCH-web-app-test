@@ -1489,3 +1489,27 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 /* lange Mieternamen: Umbruch ohne Versatz, Parzellennummer bleibt oben */
 .bx-head { align-items: flex-start; }
 .bx-head .nr { margin-top: 2px; flex: none; }
+
+/* Mieter-Detailseite: Zähler als Karten nebeneinander */
+.bx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin: 6px 0 4px; }
+.bx-card { border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier); padding: 10px 12px; }
+.bx-card .bx-meter { padding: 0; }
+.bx-card .bx-info, .bx-card .ws-read { margin-left: 26px; }
+.bx-card .ws-read { width: calc(100% - 26px); }
+.bx-place a { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; }
+.bx-place svg { width: 13px; height: 13px; fill: currentColor; stroke: none; }
+.bx-lastline { margin-top: 4px; }
+.bx-more { margin: 4px 0 0 26px; font-size: .85rem; }
+.bx-more summary { cursor: pointer; color: var(--text-leise); font-weight: 600; }
+.bx-more .ws-read { margin-left: 0; width: 100%; }
+.bx-hist { margin-top: 8px; }
+.bx-hist summary { cursor: pointer; font-weight: 600; color: var(--wald); }
+.infra-h.ws-st { text-transform: none; letter-spacing: 0; font-size: 1rem; color: var(--text); }
+.infra-h.ws-st svg { width: 18px; height: 18px; }
+@media (max-width: 860px) { .bx-grid { grid-template-columns: 1fr; } }
+.bx-card .bx-meter { border: 0; background: none; border-radius: 0; }
+.infra-h.ws-st svg { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.infra-h.ws-st.is-strom svg { stroke: #e08a1e; }
+.infra-h.ws-st.is-gas svg { stroke: #2f9e74; }
+/* Fenster-Kopf: Symbol im Schildchen etwas größer (Blitz, Gas-Flamme) */
+.panel-head .pin.pin-box svg, .panel-head .pin.pin-tank svg { width: 21px; height: 21px; }
