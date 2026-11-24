@@ -674,6 +674,21 @@
         </div></li>`;
     },
 
+    // Zähler im Stromkasten: Kennung „S-03/55“ fett, darunter klein Sicherung, Parzelle + Bewohner, letzter Stand
+    boxMeterItem(m) {
+      const p = S.parcel(m.parcelId);
+      const last = S.lastReading(m.id);
+      const fuse = S.fusesText(m);
+      const who = p ? `${nrBadge(p, 'nr-xs')}<span>${h(tenantName(p))}${p.residents > 0 ? ` <span class="muted">· ${p.residents} ${p.residents === 1 ? 'Person' : 'Personen'}</span>` : ''}</span>`
+        : `${S.isFreeMeter(m) ? '<span class="nr nr-xs nr-free">F</span>' : '<span class="nr nr-xs nr-free">B</span>'}<span>${h(S.purposeText(m))} <span class="muted">· ${S.isFreeMeter(m) ? 'frei' : 'Betrieb'}</span></span>`;
+      return `<li class="bx-meter${p ? ' is-link' : ''}"${p ? ` data-goto="#/karte/parcel/${p.id}" tabindex="0"` : ''}>
+        <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong></div>
+        <div class="bx-info">${BICO.fuse}<span>${fuse ? `Sicherung ${h(fuse)}` : '<span class="muted">keine Sicherung eingetragen</span>'}</span></div>
+        <div class="bx-info">${who}</div>
+        <div class="bx-info bx-last">${last ? `zuletzt ${fmtNum(last.value)} kWh · ${fmtDate(last.date)}` : 'noch kein Zählerstand'}</div>
+      </li>`;
+    },
+
     boxPanel(b) {
       if (!b) return '';
       const meters = S.metersInBox(b.id);
@@ -684,8 +699,8 @@
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">
-          <div class="section-title">${meters.length} Stromzähler in diesem Kasten</div>
-          ${meters.length ? `<ul class="meter-list">${meters.map((m) => this.meterItem(m, 'box')).join('')}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
+          <div class="section-title ws-st is-strom">${BICO.meter}Stromzähler${meters.length ? ` · ${meters.length}` : ''}</div>
+          ${meters.length ? `<ul class="bx-meters">${meters.map((m) => this.boxMeterItem(m)).join('')}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
           ${todoSection('box', b.id)}
         </div>
         <div class="panel-actions">
@@ -3080,6 +3095,12 @@
      Ort (Art "schacht") mit Zusatzfeld place.wasser.
      ====================================================================== */
 
+  // Symbole im Stromkasten-Fenster: Zähler und Sicherung (Linien wie bei den Wasserschächten)
+  const BICO = {
+    meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2.5"/><rect x="7.5" y="6.5" width="9" height="4" rx="1"/><path d="M8 15h2M14 15h2M8 18h8"/></svg>',
+    fuse: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="8" width="11" height="8" rx="2"/><path d="M2 12h4.5M17.5 12H22M9 12h6"/></svg>',
+  };
+
   const WICO = {
     // Absperrhahn als Linien (Vorlage des Betreibers): Rohr, runder Ventilkörper, Spindel, T-Griff
     valve: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 3.4q-.7 0-.7.8v2.4q0 .8.7.8l7.3-1h2.2l7.3 1q.7 0 .7-.8V4.2q0-.8-.7-.8l-7.3 1h-2.2z"/><path d="M12 7v3.5"/><path d="M2 12.8h5.2M16.8 12.8H22M2 17h5.2M16.8 17H22M2 12.8v4.2M22 12.8v4.2"/><circle cx="12" cy="14.9" r="4.6"/></svg>',
@@ -3160,8 +3181,8 @@
       const frost = this.frostDay();
       return `
         <div class="panel-head">
-          <span class="pin pin-place pin-wasser ws-head-ico"><i>${kind.icon}</i></span>
-          <div class="title"><h2>${h(this.title(o))}</h2>${ed ? '<span class="small ws-ed-hint">Bearbeiten</span>' : ''}</div>
+          <span class="pin pin-place pin-wasser" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i><span>${h(o.name)}</span></span>
+          <div class="title"><h2>${h(this.title(o)).replace(/-/g, '\u2011')}</h2>${ed ? '<span class="small ws-ed-hint">Bearbeiten</span>' : ''}</div>
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">

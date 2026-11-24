@@ -1449,3 +1449,16 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .ws-photo.is-big .ws-mark { width: 24px; height: 24px; font-size: 12px; }
 .ws-photo.is-big .ws-mark.is-meter { font-size: 10px; }
 .ws-photo.is-big .ws-mark.is-long { font-size: 8.5px; }
+
+/* Stromkasten-Fenster: Zählerliste */
+.bx-meters { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bx-meter { padding: 8px 10px; border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier); }
+.bx-meter.is-link { cursor: pointer; }
+.bx-meter.is-link:hover, .bx-meter.is-link:focus-visible { border-color: #e0a526; background: #fdf7e6; outline: none; }
+.bx-code { display: flex; align-items: center; gap: 7px; font-size: 1.02rem; }
+.bx-code svg { width: 19px; height: 19px; flex: none; fill: none; stroke: #a87a0e; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bx-info { display: flex; align-items: center; gap: 6px; margin: 3px 0 0 26px; font-size: .85rem; color: var(--text); }
+.bx-info svg { width: 16px; height: 16px; flex: none; fill: none; stroke: #6b746d; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bx-last { color: var(--text-leise); font-size: .8rem; }
+.nr.nr-xs { min-width: 30px; height: 18px; padding: 0 4px; border-radius: 5px; font-size: .72rem; }
+.section-title.ws-st.is-strom svg { stroke: #a87a0e; }
