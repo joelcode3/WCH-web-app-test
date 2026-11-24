@@ -1414,3 +1414,70 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .pin.pin-place.pin-wasser { background: #7fd3db; color: #0d2a3a; border-color: #fff; }
 .pin.pin-place.pin-wasser i svg, .pin.pin-place.pin-wasser svg.pk-ico { color: #0d2a3a; }
 .pin.pin-place.pin-wasser.is-selected { border-color: #0d2a3a; }
+
+/* Absperrhahn-/Zähler-Schildchen (Symbol + Buchstabe bzw. Z-Nummer) */
+.ws-ic { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 22px; padding: 0 7px 0 4px; border-radius: 999px;
+  background: #0b8c96; color: #fff; font: 700 12px/1 system-ui, sans-serif; margin: 1px 6px 0 0; }
+.ws-ic svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; }
+.ws-ic.is-meter { background: #3d6b8c; }
+.ws-zbox .ws-meter > span { display: inline-flex; align-items: center; }
+/* Foto: runde Markierungen, Zähler blaugrau */
+.ws-mark.is-meter { border-radius: 999px; background: #3d6b8c; min-width: 20px; padding: 0 5px; }
+/* Hover-Feld: Zeilen mit Symbol */
+.schacht-tip .st-row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+.schacht-tip .st-row > svg { width: 16px; height: 16px; flex: none; fill: none; stroke: #0b8c96; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.schacht-tip .st-row.is-meter > svg { stroke: #3d6b8c; }
+.schacht-tip .st-zs { margin-top: 6px; padding-top: 5px; border-top: 1px solid #cfe9ec; }
+/* Infrastruktur-Liste */
+.ws-tech-h { list-style: none; padding-left: 0; }
+.ws-tech-h li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ws-tech-h li > svg, .ws-tech-z svg { width: 16px; height: 16px; fill: none; stroke: #0b8c96; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Schacht-Fenster: Symbol vor den Überschriften „Absperrhähne“ / „Wasserzähler“, Schildchen nur mit Buchstabe bzw. Z-Nummer */
+.section-title.ws-st { display: flex; align-items: center; gap: 6px; }
+.section-title.ws-st svg { width: 17px; height: 17px; flex: none; fill: none; stroke: #0b8c96; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.section-title.ws-st.is-meter svg { stroke: #3d6b8c; }
+.ws-ic { justify-content: center; min-width: 24px; padding: 0 7px; }
+
+/* Alle Kennzeichen (A, B, Z1 …) als echte Kreise – längere Texte mit kleinerer Schrift */
+.ws-ic, .ws-ic.is-meter { width: 24px; min-width: 0; height: 24px; padding: 0; gap: 0; border-radius: 50%; justify-content: center; font-size: 12px; letter-spacing: -.02em; }
+.ws-ic.is-meter { font-size: 10px; }
+.ws-ic.is-long { font-size: 8.5px; }
+.ws-mark, .ws-mark.is-meter, .ws-mark.is-sel { width: 20px; min-width: 0; height: 20px; padding: 0; border-radius: 50%; font-size: 11px; line-height: 1; letter-spacing: -.02em; }
+.ws-mark.is-meter { font-size: 9px; }
+.ws-mark.is-long { font-size: 7.5px; }
+.ws-photo.is-big .ws-mark { width: 24px; height: 24px; font-size: 12px; }
+.ws-photo.is-big .ws-mark.is-meter { font-size: 10px; }
+.ws-photo.is-big .ws-mark.is-long { font-size: 8.5px; }
+
+/* Stromkasten-Fenster: Zählerliste */
+.bx-meters { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bx-meter { padding: 8px 10px; border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier); }
+.bx-meter.is-link { cursor: pointer; }
+.bx-meter.is-link:hover, .bx-meter.is-link:focus-visible { border-color: #e0a526; background: #fdf7e6; outline: none; }
+.bx-code { display: flex; align-items: center; gap: 7px; font-size: 1.02rem; }
+.bx-code svg { width: 19px; height: 19px; flex: none; fill: none; stroke: #a87a0e; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bx-info { display: flex; align-items: center; gap: 6px; margin: 3px 0 0 26px; font-size: .85rem; color: var(--text); }
+.bx-info svg { width: 16px; height: 16px; flex: none; fill: none; stroke: #6b746d; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bx-last { color: var(--text-leise); font-size: .8rem; }
+.nr.nr-xs { min-width: 30px; height: 18px; padding: 0 4px; border-radius: 5px; font-size: .72rem; }
+.section-title.ws-st.is-strom svg { stroke: #a87a0e; }
+
+/* Stromkasten: Zähler-Symbol orange, Sicherung grau hinter der Kennung, Stände wie beim Wasser */
+.bx-code svg, .section-title.ws-st.is-strom svg { stroke: #e08a1e; }
+.bx-fuse { margin-left: 8px; font-size: .82rem; font-weight: 500; color: var(--text-leise); }
+.bx-info { margin-left: 26px; }
+.bx-meter .ws-read { margin: 4px 0 0 26px; width: calc(100% - 26px); }
+
+/* Stromkasten Variante A: Parzelle als Karte, Zähler darunter, inaktive Zähler ausgegraut */
+.bx-group { padding: 8px 10px; border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier); list-style: none; }
+.bx-group.is-link { cursor: pointer; }
+.bx-group.is-link:hover, .bx-group.is-link:focus-visible { border-color: #e0a526; background: #fdf7e6; outline: none; }
+.bx-head { display: flex; align-items: center; gap: 7px; font-size: .95rem; padding-bottom: 6px; border-bottom: 1px dashed var(--linie); }
+.bx-group .bx-meter { border: 0; padding: 6px 0 0 14px; background: none; border-radius: 0; }
+.bx-group .bx-meter + .bx-meter { border-top: 1px dashed var(--linie); margin-top: 6px; }
+.bx-fuse { display: inline-flex; align-items: center; gap: 3px; }
+.bx-fuse svg { width: 15px; height: 15px; fill: none; stroke: #8a918b; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bx-meter.is-inaktiv { opacity: .5; }
+.bx-inaktiv { margin-left: 8px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-leise);
+  border: 1px solid #c9ccc6; border-radius: 999px; padding: 1px 7px; }

@@ -547,7 +547,7 @@
         // Wasserschächte: Name, Hähne, Zählernummern
         S.schaechte().forEach((o) => {
           const w = o.wasser || { haehne: [], zaehler: [] };
-          const hay = [Wasser.title(o), ...w.haehne.map((x) => S.hahnLabel(o, x)), ...w.zaehler.map((z) => z.nr)].join(' ').toLowerCase();
+          const hay = [Wasser.title(o), ...w.haehne.map((x) => S.hahnLabel(o, x)), ...w.zaehler.map((z) => `z${z.znr} ${z.nr}`)].join(' ').toLowerCase();
           if (!hay.includes(q)) return;
           const sub = [w.haehne.length ? `${w.haehne.length} ${w.haehne.length === 1 ? 'Hahn' : 'Hähne'}` : '', w.zaehler.length ? `Zähler ${w.zaehler.map((z) => z.nr).filter(Boolean).join(', ')}` : ''].filter(Boolean).join(' · ');
           res.push({ type: 'place', id: o.id, html: `<span class="pin pin-place pin-wasser" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i><span>${h(o.name)}</span></span><span><strong>${h(Wasser.title(o))}</strong><br><span class="muted small">${h(sub || 'Wasserschacht')}</span></span>` });
@@ -674,6 +674,41 @@
         </div></li>`;
     },
 
+    // Stromkasten: Zähler nach Parzelle gruppiert – Parzelle (Nummer + Mieter) oben, darunter ihre Zähler
+    // mit Sicherung und den letzten Ständen. Unveränderter Stand seit der letzten Ablesung → „inaktiv“ (ausgegraut).
+    boxMeterGroups(meters) {
+      const groups = [];
+      const byKey = new Map();
+      meters.forEach((m) => {
+        const key = m.parcelId ? `p:${m.parcelId}` : `m:${m.id}`;
+        if (!byKey.has(key)) { const g = { p: S.parcel(m.parcelId), meters: [] }; byKey.set(key, g); groups.push(g); }
+        byKey.get(key).meters.push(m);
+      });
+      return groups.map((g) => {
+        const m0 = g.meters[0];
+        const head = g.p ? `${nrBadge(g.p, 'nr-xs')}<strong>${h(tenantName(g.p))}</strong>`
+          : `<span class="nr nr-xs nr-free">${S.isFreeMeter(m0) ? 'F' : 'B'}</span><strong>${h(S.purposeText(m0))}</strong> <span class="muted">· ${S.isFreeMeter(m0) ? 'frei' : 'Betrieb'}</span>`;
+        return `<li class="bx-group${g.p ? ' is-link' : ''}"${g.p ? ` data-goto="#/karte/parcel/${g.p.id}" tabindex="0"` : ''}>
+          <div class="bx-head">${head}${g.meters.length > 1 ? ` <span class="muted small">· ${g.meters.length} Zähler</span>` : ''}</div>
+          ${g.meters.map((m) => this.boxMeterItem(m)).join('')}
+        </li>`;
+      }).join('');
+    },
+    boxMeterItem(m) {
+      const fuse = S.fusesText(m);
+      const all = S.readingsOf(m.id);
+      const rs = all.slice(-3).reverse();
+      const inaktiv = all.length >= 2 && all[all.length - 1].value === all[all.length - 2].value;
+      const reads = rs.length ? `<table class="ws-read"><tbody>${rs.map((r) => {
+        const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
+        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} kWh</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} kWh` : ''}</td></tr>`;
+      }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
+      return `<div class="bx-meter${inaktiv ? ' is-inaktiv' : ''}">
+        <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
+        ${reads}
+      </div>`;
+    },
+
     boxPanel(b) {
       if (!b) return '';
       const meters = S.metersInBox(b.id);
@@ -684,8 +719,8 @@
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">
-          <div class="section-title">${meters.length} Stromzähler in diesem Kasten</div>
-          ${meters.length ? `<ul class="meter-list">${meters.map((m) => this.meterItem(m, 'box')).join('')}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
+          <div class="section-title ws-st is-strom">${BICO.meter}Stromzähler${meters.length ? ` · ${meters.length}` : ''}</div>
+          ${meters.length ? `<ul class="bx-meters">${this.boxMeterGroups(meters)}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
           ${todoSection('box', b.id)}
         </div>
         <div class="panel-actions">
@@ -3080,8 +3115,17 @@
      Ort (Art "schacht") mit Zusatzfeld place.wasser.
      ====================================================================== */
 
+  // Symbol im Stromkasten-Fenster: Zähler (wie Wasserzähler, orange)
+  const BICO = {
+    // gleiches Zähler-Symbol wie beim Wasser (Farbe orange per CSS)
+    meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-3.5 M8 16h8"/></svg>',
+    // Schmelzsicherung: Körper mit Anschlüssen links und rechts
+    fuse: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="8" width="12" height="8" rx="2"/><path d="M2 12h4M18 12h4M9.5 12h5"/></svg>',
+  };
+
   const WICO = {
-    valve: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4 M8 5h8 M12 7v3 M5 10h14v4H5z M8 14v2.5 M16 14v2.5"/></svg>',
+    // Absperrhahn als Linien (Vorlage des Betreibers): Rohr, runder Ventilkörper, Spindel, T-Griff
+    valve: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 3.4q-.7 0-.7.8v2.4q0 .8.7.8l7.3-1h2.2l7.3 1q.7 0 .7-.8V4.2q0-.8-.7-.8l-7.3 1h-2.2z"/><path d="M12 7v3.5"/><path d="M2 12.8h5.2M16.8 12.8H22M2 17h5.2M16.8 17H22M2 12.8v4.2M22 12.8v4.2"/><circle cx="12" cy="14.9" r="4.6"/></svg>',
     meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-3.5 M8 16h8"/></svg>',
     // Sommerwasser: Sonne mit kleinem Tropfen
     sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 2.6v2.2 M10 15.2v2.2 M2.6 10h2.2 M15.2 10h2.2 M4.8 4.8l1.5 1.5 M13.7 6.3l1.5-1.5 M4.8 15.2l1.5-1.5"/><path class="sw-drop" d="M18.6 13.6c1.5 2 2.3 3.2 2.3 4.2a2.3 2.3 0 0 1-4.6 0c0-1 .8-2.2 2.3-4.2z"/></svg>',
@@ -3127,8 +3171,8 @@
     tipHtml(o) {
       const w = o.wasser;
       return `<div class="st-title">${h(this.title(o))}</div>
-        ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(S.hahnLabel(o, x))}${this.sunHtml(x)}</li>`).join('')}</ul>` : '<div class="st-none">keine Absperrhähne</div>'}
-        ${w.zaehler.length ? `<div class="schacht-tip-z">${WICO.meter}<span>Zähler ${w.zaehler.map((z) => h(z.nr || 'ohne Nummer')).join(', ')}</span></div>` : ''}`;
+        ${w.haehne.length ? w.haehne.map((x) => `<div class="st-row">${WICO.valve}<span>${h(S.hahnLabel(o, x))}${this.sunHtml(x)}</span></div>`).join('') : '<div class="st-none">keine Absperrhähne</div>'}
+        ${w.zaehler.length ? `<div class="st-zs">${w.zaehler.map((z) => `<div class="st-row is-meter">${WICO.meter}<span>${h(z.nr || 'ohne Nummer')}</span></div>`).join('')}</div>` : ''}`;
     },
     readingsHtml(z, opts = {}) {
       const rs = z.ablesungen.slice(-(opts.n || 3)).reverse();
@@ -3144,8 +3188,8 @@
     // Foto mit Markierungen: Hähne als Kreis mit ihrem Buchstaben, Zähler als Kästchen „Z1“
     photoHtml(o, url, cls = '') {
       const mk = (x, label, title, extra) => (x.foto ? `<span class="ws-mark${extra}${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%" title="${h(title)}">${label}</span>` : '');
-      const marks = o.wasser.haehne.map((x) => mk(x, h(x.kz), S.hahnLabel(o, x), '')).join('')
-        + (o.wasser.zaehler || []).map((z, i) => mk(z, `Z${i + 1}`, `Zähler ${z.nr || ''}`, ' is-meter')).join('');
+      const marks = o.wasser.haehne.map((x) => mk(x, h(x.kz), S.hahnLabel(o, x), x.kz.length > 1 ? ' is-long' : '')).join('')
+        + (o.wasser.zaehler || []).map((z) => mk(z, `Z${z.znr}`, `Zähler ${z.nr || ''}`, z.znr >= 10 ? ' is-meter is-long' : ' is-meter')).join('');
       return `<div class="ws-photo ${cls}"><img src="${h(url)}" alt="" draggable="false" onerror="window.reloadPlacePhotos && window.reloadPlacePhotos()">${marks}</div>`;
     },
 
@@ -3159,8 +3203,8 @@
       const frost = this.frostDay();
       return `
         <div class="panel-head">
-          <span class="pin pin-place pin-wasser ws-head-ico"><i>${kind.icon}</i></span>
-          <div class="title"><h2>${h(this.title(o))}</h2>${ed ? '<span class="small ws-ed-hint">Bearbeiten</span>' : ''}</div>
+          <span class="pin pin-place pin-wasser" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px"><i>${kind.icon}</i><span>${h(o.name)}</span></span>
+          <div class="title"><h2>${h(this.title(o)).replace(/-/g, '\u2011')}</h2>${ed ? '<span class="small ws-ed-hint">Bearbeiten</span>' : ''}</div>
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">
@@ -3172,11 +3216,11 @@
             ${ed ? `<label class="tile-change" title="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}<input type="file" accept="image/*" hidden data-place-photo></label>` : ''}
           </div>` : ''}
 
-          <div class="section-title">Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
+          <div class="section-title ws-st">${WICO.valve}Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
           ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
-              ${x.foto && o.photo ? `<span class="ws-no" title="Markierung auf dem Foto">${h(x.kz)}</span>` : ''}
-              <span class="ws-h-main"><strong>Absperrhahn ${h(S.hahnCode(o, x))}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
+              <span class="ws-ic${x.kz.length > 1 ? ' is-long' : ''}" title="Absperrhahn ${h(S.hahnCode(o, x))}">${h(x.kz)}</span>
+              <span class="ws-h-main"><strong>${h(S.hahnCode(o, x))}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
                 ${S.hahnName(x) ? `<span class="small">${h(S.hahnName(x))}</span>` : ''}
                 ${x.info ? `<span class="small muted">${h(x.info)}</span>` : ''}</span>
               <label class="ws-zu${x.zu ? ' is-zu' : ''}" title="${x.zu ? `abgedreht am ${fmtDate(x.zu)}` : 'Hahn ist offen'}"><input type="checkbox" data-hahn-zu="${x.id}"${x.zu ? ' checked' : ''}> zu</label>
@@ -3192,10 +3236,10 @@
             </li>`).join('')}</ul>` : '<p class="muted small" style="margin:0 0 6px">Noch keine Absperrhähne eingetragen.</p>'}
           ${ed ? `<div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws="add-hahn">${ICON.plus} Absperrhahn</button></div>` : ''}
 
-          ${w.zaehler.length || ed ? `<div class="section-title">Wasserzähler${w.zaehler.length > 1 ? ` · ${w.zaehler.length}` : ''}</div>` : ''}
+          ${w.zaehler.length || ed ? `<div class="section-title ws-st is-meter">${WICO.meter}Wasserzähler${w.zaehler.length > 1 ? ` · ${w.zaehler.length}` : ''}</div>` : ''}
           ${w.zaehler.map((z, i) => `<div class="ws-zbox${MapView.selHahn === z.id ? ' is-sel' : ''}">
             <div class="ws-meter" data-meter="${z.id}" title="Auf dem Foto hervorheben">
-              <span>${z.foto && o.photo ? `<span class="ws-no is-meter">Z${i + 1}</span>` : WICO.meter}<strong class="mono">${h(z.nr || 'ohne Nummer')}</strong></span>
+              <span><span class="ws-ic is-meter${z.znr >= 10 ? ' is-long' : ''}" title="Wasserzähler Z${z.znr}">Z${z.znr}</span><strong>Zähler <span class="mono">${h(z.nr || 'ohne Nummer')}</span></strong></span>
               ${ed ? `<select class="ws-h-act" data-meter-act="${z.id}" aria-label="Aktionen für Zähler ${h(z.nr || '')}">
                 <option value="">…</option>
                 <option value="edit">Zählernummer ändern</option>
@@ -3451,7 +3495,7 @@
         fields: [{ name: 'nr', label: 'Zählernummer', value: z ? z.nr : '', placeholder: 'steht auf dem Zähler' }],
         onSubmit: (v) => {
           if (z) { z.nr = v.nr.trim(); S.save(); toast('Gespeichert'); return; }
-          const neu = { id: S.uid('z'), nr: v.nr.trim(), foto: null, ablesungen: [] };
+          const neu = { id: S.uid('z'), znr: S.nextZnr(), nr: v.nr.trim(), foto: null, ablesungen: [] };
           o.wasser.zaehler.push(neu);
           S.save();
           toast('Zähler angelegt');
@@ -3499,8 +3543,8 @@
             <span class="if-main"><span class="if-t">${h(o.name)}</span>${o.notes ? `<span class="if-loc">${h(o.notes)}</span>` : (o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>')}</span>
             <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="if-body">
-            ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li><strong>${h(S.hahnLabel(o, x))}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
-            ${w.zaehler.map((z) => { const last = z.ablesungen[z.ablesungen.length - 1]; return `<p class="small ws-tech-z">${WICO.meter} Zähler <span class="mono">${h(z.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}
+            ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li>${WICO.valve}<strong>${h(S.hahnLabel(o, x))}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
+            ${w.zaehler.map((z) => { const last = z.ablesungen[z.ablesungen.length - 1]; return `<p class="small ws-tech-z">${WICO.meter} Z${z.znr} · Zähler <span class="mono">${h(z.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}
               <button type="button" class="link-btn small" data-ws-read="${o.id}:${z.id}">${ICON.plus} Stand</button></p>`; }).join('')}
             <div class="card-actions">
               ${o.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/place/${o.id}">${ICON.map} Map</a>` : `<button type="button" class="btn btn-sm" data-ws-place="${o.id}">${ICON.map} Auf Map platzieren</button>`}

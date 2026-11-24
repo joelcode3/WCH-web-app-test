@@ -28,8 +28,13 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Gastank-Beschriftung ohne vorangestelltes „T“.
 - Namen (26.11.2026): Wasserschächte „W-01“ … (früher „2-01“, Umbenennung +1 über Einstellungen), Stromkästen „S-01“ … (früher „1-01“);
   Absperrhähne mit Kennbuchstabe je Schacht (`kz`: A, B, C …) → Anzeige „Absperrhahn W-08/A“ (`Store.hahnCode/hahnLabel`), Bezeichnung freiwillig;
+  Absperrhahn-Symbol nach Vorlage des Betreibers als Linien (Rohr, runder Ventilkörper, T-Griff; `WICO.valve`, Variante V3): steht vor der Überschrift „Absperrhähne“ (Zähler-Symbol vor „Wasserzähler“) und im Hover-Feld; im Schacht-Fenster Schildchen nur „A“ (türkis) bzw. „Z3“ (blaugrau) ohne Symbol; im Foto runde Markierungen. Alle Kennzeichen (A, B, Z1, Z12 …) immer als echte Kreise, längere Texte mit kleinerer Schrift (`is-long`).
+  Wasserzähler platzweit fortlaufend nummeriert (`znr`, Z1, Z2 … über alle Schächte, fest; `Store.nextZnr`).
   Zähler im Stromkasten werden als „S-06/55“ angezeigt (`Store.meterCode`), gespeichert bleibt nur die echte Zählernummer.
   In Listen heißen Schächte „Wasserschacht W-01“ (`Store.placeLabel`). Einmal-Umbenennung: `Store.renamePlan/applyRename`, Karte in Einstellungen mit Vorschau.
+- Stromkasten-Fenster (26.11.2026, Variante A): Zähler nach Parzelle gruppiert (Karte: Parzellennummer + Mieter, „· 2 Zähler“), darunter je Zähler
+  „S-01/50“ fett mit orangem Zähler-Symbol, Sicherung grau mit Sicherungs-Symbol dahinter, letzte 3 Stände mit Verbrauch; Stand bei der letzten Ablesung
+  unverändert → Zähler ausgegraut mit „inaktiv“ (`boxMeterGroups/boxMeterItem`, Symbole `BICO`). Schacht-Fenster-Kopf wie beim Stromkasten: Schildchen (Tropfen + Name) + „Wasserschacht W-08“.
 - Map-Schildchen einheitlich mit weißem Rand: Stromkasten gelb, Gastank grün, Wasserschacht kräftiges Türkis (#7fd3db) mit dunkler Schrift.
 - Suche (Map): Parzellen, Stromkästen (gelb), Gastanks (grün, mit Parzellen), Wasserschächte (türkis, auch nach Hahn-/Zählernummer), Orte; ohne Groß-/Kleinschreibung.
 - Satellitenbild an: Parzellen ohne Füllung, nur weiße Umrandung (gewählte gelb), keine Statusfarben.
