@@ -132,6 +132,96 @@
     if (first && window.matchMedia('(min-width: 861px)').matches) first.focus();
   }
 
+  /* Ablesen direkt aus Infrastruktur: alle Zähler eines Kastens/Tanks in einem Fenster */
+  function readDialog(title, meters) {
+    meters = S.sortMeters(meters);
+    if (!meters.length) { toast('Keine Zähler zum Ablesen'); return; }
+    const dlg = $('#dialog');
+    let date = today();
+    const draft = {};
+    const state = (m) => {
+      const saved = S.data.readings.find((r) => r.meterId === m.id && r.date === date);
+      const prev = S.readingBefore(m.id, date, false);
+      const raw = draft[m.id] !== undefined ? draft[m.id] : (saved ? String(saved.value).replace('.', ',') : '');
+      const val = parseNum(raw);
+      const diff = !isNaN(val) && prev ? val - prev.value : null;
+      return { saved, prev, raw, diff, warn: diff !== null && diff < 0 };
+    };
+    const diffHtml = (m, st) => {
+      if (st.diff === null) return st.saved && draft[m.id] === undefined ? '<span class="muted small">gespeichert</span>' : '';
+      if (st.warn) return `<span class="warn">${fmtNum(st.diff)} ${unit(m.type)} !</span>`;
+      return `+${fmtNum(st.diff)} ${unit(m.type)}`;
+    };
+    const row = (m) => {
+      const p = S.parcel(m.parcelId), st = state(m);
+      return `<div class="qr-row${st.warn ? ' is-warn' : st.saved ? ' is-done' : ''}" data-row="${m.id}">
+        <div class="qr-who"><strong class="mono">${h(S.meterCode(m) || 'ohne Nr.')}</strong>
+          <span class="small muted">${p ? `${h(p.nr)} · ${h(tenantName(p))}` : h(S.purposeText(m))}</span>
+          <span class="small muted">${st.prev ? `zuletzt <span class="mono">${fmtNum(st.prev.value)}</span> am ${fmtDate(st.prev.date)}` : 'noch kein Stand'}</span></div>
+        <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="Stand" aria-label="Zählerstand ${h(S.meterCode(m) || '')}">
+        <div class="qr-diff">${diffHtml(m, st)}</div>
+      </div>`;
+    };
+    const draw = () => {
+      const done = meters.filter((m) => state(m).saved).length;
+      $('.qr-list', dlg).innerHTML = meters.map(row).join('');
+      $('.qr-prog', dlg).textContent = `${done} von ${meters.length} für den ${fmtDate(date)} erfasst`;
+      $$('input[data-meter]', dlg).forEach((inp) => {
+        inp.addEventListener('input', () => {
+          const m = S.meter(inp.dataset.meter);
+          if (inp.value.trim() === '') delete draft[m.id]; else draft[m.id] = inp.value;
+          const st = state(m), r = inp.closest('.qr-row');
+          r.classList.toggle('is-warn', st.warn); r.classList.toggle('is-done', !st.warn && !!st.saved);
+          $('.qr-diff', r).innerHTML = diffHtml(m, st);
+        });
+        inp.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const all = $$('input[data-meter]', dlg), next = all[all.indexOf(inp) + 1];
+          if (next) next.focus(); else inp.blur();
+        });
+      });
+    };
+    dlg.innerHTML = `
+      <form method="dialog" novalidate class="qr-form">
+        <h2>Ablesen · ${title}</h2>
+        <label class="field"><span>Ablesedatum</span><input type="date" name="datum" value="${date}"></label>
+        <p class="small muted qr-prog"></p>
+        <div class="qr-list"></div>
+        <div class="dialog-actions">
+          <button type="button" class="btn btn-ghost" data-cancel>Abbrechen</button>
+          <button type="submit" class="btn">Speichern</button>
+        </div>
+      </form>`;
+    const form = $('form', dlg);
+    $('[data-cancel]', dlg).onclick = () => {
+      if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) return;
+      dlg.close();
+    };
+    form.elements.datum.onchange = (e) => {
+      if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) { e.target.value = date; return; }
+      Object.keys(draft).forEach((k) => delete draft[k]);
+      date = e.target.value || today(); draw();
+    };
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const entries = Object.entries(draft);
+      if (!entries.length) { dlg.close(); return; }
+      const bad = entries.filter(([, v]) => isNaN(parseNum(v)));
+      if (bad.length) { toast(`${bad.length} Eingabe(n) sind keine gültige Zahl`); return; }
+      const warn = entries.filter(([id, v]) => { const prev = S.readingBefore(id, date, false); return prev && parseNum(v) < prev.value; });
+      if (warn.length && !confirm(`${warn.length} Zählerstand/-stände sind kleiner als der vorherige Stand (Zählertausch oder Tippfehler?).\nTrotzdem speichern?`)) return;
+      entries.forEach(([id, v]) => S.upsertReading(id, date, parseNum(v)));
+      S.save();
+      dlg.close();
+      toast(`${entries.length} ${entries.length === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert`);
+    };
+    draw();
+    dlg.showModal();
+    const first = $('input[data-meter]', dlg);
+    if (first && window.matchMedia('(min-width: 861px)').matches) first.focus();
+  }
+
   function fieldHtml(f) {
     const v = f.value ?? '';
     let input;
@@ -2034,12 +2124,13 @@
                 <div class="card-actions">
                   ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-box="${b.id}">${ICON.edit} Bearbeiten</button>
-                  <a class="btn btn-ghost btn-sm" href="#/ablesung?typ=strom&gruppe=${b.id}">Ablesen</a>
+                  ${ms.some((m) => m.type === 'strom') ? `<button type="button" class="btn btn-sm" data-read="box:${b.id}">${ICON.edit} Ablesen</button>` : ''}
                 </div>`);
             }).join('') || '<p class="muted">Noch keine Stromkästen angelegt.</p>'}
             ${fold('haus', `<span class="pin pin-box pin-house" style="transform:none">${ICON.house}</span>`, ['Zähler im Haus', 'beim Mieter, kein Kasten'],
               cnt(inHouse.length, 'Zähler', 'Zähler') || '<span class="if-c muted">keine</span>',
-              inHouse.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(inHouse)}</ul>` : '<p class="muted small">–</p>')}
+              inHouse.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(inHouse)}</ul>
+                <div class="card-actions"><button type="button" class="btn btn-sm" data-read="haus">${ICON.edit} Ablesen</button></div>` : '<p class="muted small">–</p>')}
           </div>
 
           ` : `
@@ -2065,7 +2156,7 @@
                 <div class="card-actions">
                   ${t.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/tank/${t.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-tank="${t.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-tank="${t.id}">${ICON.edit} Bearbeiten</button>
-                  <a class="btn btn-ghost btn-sm" href="#/ablesung?typ=gas&gruppe=${t.id}">Ablesen</a>
+                  ${ps.some((p) => S.metersOf(p.id).some((m) => m.type === 'gas')) ? `<button type="button" class="btn btn-sm" data-read="tank:${t.id}">${ICON.edit} Ablesen</button>` : ''}
                 </div>`);
             }).join('') || '<p class="muted">Noch keine Gastanks angelegt.</p>'}
             ${(() => { const bt = S.parcelsSorted().filter((p) => p.gas === 'bottle');
@@ -2081,6 +2172,12 @@
       if (nt) nt.onclick = () => Actions.newTank(false);
       $$('[data-edit-box]', root).forEach((b) => b.onclick = () => Actions.editBox(b.dataset.editBox));
       $$('.infra-list [data-goto]', root).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
+      $$('[data-read]', root).forEach((el) => el.onclick = () => {
+        const [kind, id] = el.dataset.read.split(':');
+        if (kind === 'box') { const b = S.box(id); readDialog(`Stromkasten ${h(b.nr)}`, S.metersInBox(id).filter((m) => m.type === 'strom')); }
+        else if (kind === 'tank') { const t = S.tank(id); readDialog(`Gastank ${h(t.nr)}`, S.parcelsOnTank(id).flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'))); }
+        else readDialog('Zähler im Haus', S.data.meters.filter((m) => m.type === 'strom' && m.inHouse));
+      });
       $$('[data-edit-tank]', root).forEach((b) => b.onclick = () => Actions.editTank(b.dataset.editTank));
       $$('[data-place-box]', root).forEach((b) => b.onclick = () => Actions.placeBox(b.dataset.placeBox));
       $$('[data-place-tank]', root).forEach((b) => b.onclick = () => Actions.placeTank(b.dataset.placeTank));
