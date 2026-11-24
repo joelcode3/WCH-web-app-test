@@ -1526,3 +1526,9 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .infra-h.ws-st .h-ico.pin-box svg { fill: #2b2205; }
 .infra-h.ws-st .h-ico.pin-tank svg { fill: #0f4632; }
 .infra-h.ws-st { gap: 8px; }
+/* Mieter-Detailseite: Ort (Stromkasten / Gastank) unter der Überschrift, wie auf der Map, anklickbar */
+.infra-where { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 2px 0 8px; }
+.infra-pin { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); font-weight: 600; }
+.infra-pin .pin { transform: none; }
+.infra-pin:hover span:last-child { text-decoration: underline; }
+.infra-plain { font-weight: 600; color: var(--text); }

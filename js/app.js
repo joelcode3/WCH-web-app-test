@@ -1323,6 +1323,12 @@
       const gas = meters.filter((m) => m.type === 'gas');
       const tank = p.gas === 'tank' ? S.tank(p.gasTankId) : null;
       // Zähler wie im Stromkasten-/Parzellen-Fenster: Karten untereinander, letzte 3 Stände, ältere aufklappbar
+      // Ort über den Zählern: Stromkasten wie auf der Map (anklickbar → Kasten auf der Map)
+      const stromOrte = [...new Set(strom.map((m) => (m.inHouse || !S.box(m.boxId) ? '' : m.boxId)))].map((bid) => {
+        if (!bid) return '<span class="infra-plain">im Haus</span>';
+        const bx = S.box(bid);
+        return `<a class="infra-pin" href="#/karte/box/${bx.id}" title="Auf der Map zeigen"><span class="pin pin-box">${ICON.strom}<span>${h(bx.nr)}</span></span><span>Stromkasten ${h(bx.nr)}</span></a>`;
+      }).join('');
       const infraMeters = (list) => `<div class="bx-grid">${list.map((m) => `<div class="bx-card">${MapUI.boxMeterItem(m, { n: 3, more: true })}</div>`).join('')}</div>`;
 
       root.innerHTML = `
@@ -1366,12 +1372,10 @@
             <section class="card span-all infra-card">
               <h2>Infrastruktur</h2>
               <h3 class="infra-h ws-st is-strom"><span class="h-ico pin-box">${ICON.strom}</span> Strom</h3>
-              ${strom.length ? infraMeters(strom) : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
+              ${strom.length ? `<div class="infra-where">${stromOrte}</div>${infraMeters(strom)}` : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
               <h3 class="infra-h ws-st is-gas"><span class="h-ico pin-tank">${ICON.gas}</span> Gas</h3>
-              <dl class="facts infra-facts">
-                <dt>Versorgung</dt><dd>${tank ? `<a href="#/karte/tank/${tank.id}">Gastank ${h(tank.nr)}</a>` : p.gas === 'bottle' ? '<strong>Gasflaschen</strong>' : gasText(p)}</dd>
-                <dt>Heizung</dt><dd>${h(S.HEATING[p.heating] || '–')}</dd>
-              </dl>
+              <div class="infra-where">${tank ? `<a class="infra-pin" href="#/karte/tank/${tank.id}" title="Auf der Map zeigen"><span class="pin pin-tank">${ICON.gas}<span>${h(tank.nr)}</span></span><span>Gastank ${h(tank.nr)}</span></a>`
+                : `<span class="infra-plain">${p.gas === 'bottle' ? 'Gasflaschen' : gasText(p)}</span>`}</div>
               ${gas.length ? infraMeters(gas) : p.gas === 'tank' ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
             </section>
           </div>
