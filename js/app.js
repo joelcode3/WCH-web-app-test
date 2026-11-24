@@ -3694,10 +3694,12 @@
           <div class="infra-list is-rows">${list.map(fold).join('') || '<p class="muted">Noch keine Wasserschächte. Mit „+ Wasserschacht“ anlegen und auf der Map platzieren.</p>'}</div>
           ${this.sunLegend(list.some((o) => S.hatSommerwasser(o)))}
 
-          <div class="page-head section-head">
+          <details class="sw-fold"${this.swOpen ?? (frost && pend.length) ? ' open' : ''}>
+          <summary class="page-head section-head">
             <h2>Sommerwasser-Checkliste</h2>
-            <span class="muted small">Winter ${saison}/${String(saison + 1).slice(2)}</span>
-          </div>
+            <span class="muted small">Winter ${saison}/${String(saison + 1).slice(2)}${sw.length ? ` · ${sw.filter((o) => S.isAbgestellt(o)).length} von ${sw.length} abgedreht` : ''}</span>
+            <svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
           ${sw.length ? `<ul class="ws-check">${sw.map((o) => `
             <li class="${S.isAbgestellt(o) ? 'is-done' : ''}">
               <strong>${h(this.title(o))}</strong>
@@ -3707,7 +3709,9 @@
             </li>`).join('')}</ul>
             <p class="small muted">Sobald in der 7-Tage-Wettervorhersage Frost angekündigt ist, erscheint automatisch das To-Do „Sommerwasser abstellen“ (fällig am Frosttag). Sind alle abgehakt, ist es erledigt.</p>`
           : '<p class="muted small">Noch kein Absperrhahn als „Sommerwasser“ markiert (beim Hahn über „…“ → „Name / Info / Sommerwasser“).</p>'}
+          </details>
         </div>`;
+      const swf = $('.sw-fold', root); if (swf) swf.addEventListener('toggle', () => { this.swOpen = swf.open; });
       const nb = $('[data-ws-new]', root); if (nb) nb.onclick = () => this.edit(null);
       $$('[data-ws-edit]', root).forEach((b) => b.onclick = () => this.edit(b.dataset.wsEdit));
       $$('[data-ws-read]', root).forEach((b) => b.onclick = () => { const [oid, zid] = b.dataset.wsRead.split(':'); this.addReading(S.place(oid), zid); });

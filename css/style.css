@@ -1591,3 +1591,12 @@ html:has(.tabs) { overflow-y: scroll; }
 .bx-meter .ws-read { table-layout: fixed; }
 .bx-meter .ws-read td:nth-child(1) { width: 32%; }
 .bx-meter .ws-read td:nth-child(2) { width: 36%; }
+/* Wasser: Sommerwasser-Checkliste zum Aufklappen */
+.sw-fold { margin-top: 18px; }
+.sw-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 14px; border: 1px solid var(--linie); border-radius: var(--radius); background: var(--papier); margin: 0; }
+.sw-fold > summary::-webkit-details-marker { display: none; }
+.sw-fold > summary h2 { margin: 0; }
+.sw-fold > summary .if-chev { margin-left: auto; }
+.sw-fold[open] > summary { margin-bottom: 10px; }
+.sw-fold[open] > summary .if-chev { transform: rotate(180deg); }
