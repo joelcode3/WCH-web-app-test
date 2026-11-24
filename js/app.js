@@ -743,7 +743,7 @@
       return `
         <div class="panel-head">
           <span class="pin pin-box" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px">${ICON.strom}<span>${h(b.nr)}</span></span>
-          <div class="title"><h2>Stromkasten ${h(b.nr)}</h2><span class="muted small">${h(b.location || 'kein Standorthinweis')}</span></div>
+          <div class="title"><h2>Stromkasten ${h(b.nr)}</h2>${b.location ? `<span class="muted small">${h(b.location)}</span>` : ''}</div>
           <button class="close" aria-label="Schließen">${ICON.close}</button>
         </div>
         <div class="panel-body">
