@@ -36,6 +36,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   „S-01/50“ fett mit orangem Zähler-Symbol, Sicherung grau mit Sicherungs-Symbol dahinter, letzte 3 Stände mit Verbrauch; Stand bei der letzten Ablesung
   unverändert → Zähler ausgegraut mit „inaktiv“ (keine Zähler-Anzahl im Kopf). Parzellen-Fenster (Map) zeigt die Zähler genauso (`parcelMeters`: Stromzähler orange, Gaszähler grün).
   Unverändert → Zähler ausgegraut mit „inaktiv“ (`boxMeterGroups/boxMeterItem`, Symbole `BICO`). Schacht-Fenster-Kopf wie beim Stromkasten: Schildchen (Tropfen + Name) + „Wasserschacht W-08“.
+- Mieter-Detailseite, Block Infrastruktur: Überschriften „Strom · n Zähler“ mit Blitz, „Gas“ mit Flamme; Zähler als Karten untereinander wie im Stromkasten-Fenster
+  (Kennung, Sicherung, letzte 3 Stände, ältere aufklappbar, „inaktiv“), ohne Standortzeile (steckt in der Kennung). Blitz/Flamme im Fenster-Kopf (Stromkasten/Gastank) größer.
 - Map-Schildchen einheitlich mit weißem Rand: Stromkasten gelb, Gastank grün, Wasserschacht kräftiges Türkis (#7fd3db) mit dunkler Schrift.
 - Suche (Map): Parzellen, Stromkästen (gelb), Gastanks (grün, mit Parzellen), Wasserschächte (türkis, auch nach Hahn-/Zählernummer), Orte; ohne Groß-/Kleinschreibung.
 - Satellitenbild an: Parzellen ohne Füllung, nur weiße Umrandung (gewählte gelb), keine Statusfarben.

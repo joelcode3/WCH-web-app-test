@@ -1496,8 +1496,6 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .bx-card .bx-meter { padding: 0; }
 .bx-card .bx-info, .bx-card .ws-read { margin-left: 26px; }
 .bx-card .ws-read { width: calc(100% - 26px); }
-.bx-place a { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; }
-.bx-place svg { width: 13px; height: 13px; fill: currentColor; stroke: none; }
 .bx-lastline { margin-top: 4px; }
 .bx-more { margin: 4px 0 0 26px; font-size: .85rem; }
 .bx-more summary { cursor: pointer; color: var(--text-leise); font-weight: 600; }
@@ -1515,3 +1513,7 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .panel-head .pin.pin-box svg, .panel-head .pin.pin-tank svg { width: 21px; height: 21px; }
 /* Mieter-Detailseite: Zähler-Karten untereinander */
 .bx-grid { grid-template-columns: 1fr; max-width: 640px; }
+/* Mieter-Detailseite: Überschriften mit Blitz bzw. Flamme (ausgefüllt, wie sonst in der App) */
+.infra-h.ws-st svg { fill: currentColor; stroke: none; }
+.infra-h.ws-st.is-strom { color: var(--text); } .infra-h.ws-st.is-strom svg { fill: #e0a526; }
+.infra-h.ws-st.is-gas svg { fill: #2f9e74; }
