@@ -1517,3 +1517,12 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .infra-h.ws-st svg { fill: currentColor; stroke: none; }
 .infra-h.ws-st.is-strom { color: var(--text); } .infra-h.ws-st.is-strom svg { fill: #e0a526; }
 .infra-h.ws-st.is-gas svg { fill: #2f9e74; }
+/* Überschriften Strom/Gas: Symbol auf farbigem Kreis wie die Map-Schildchen (Kasten gelb, Tank grün) */
+.h-ico { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.25); flex: none; transform: none; padding: 0; }
+.h-ico.pin-box { background: var(--sonne); }
+.h-ico.pin-tank { background: #8fdcbc; }
+.infra-h.ws-st .h-ico svg { width: 16px; height: 16px; stroke: none; }
+.infra-h.ws-st .h-ico.pin-box svg { fill: #2b2205; }
+.infra-h.ws-st .h-ico.pin-tank svg { fill: #0f4632; }
+.infra-h.ws-st { gap: 8px; }

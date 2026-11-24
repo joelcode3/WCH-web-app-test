@@ -1365,9 +1365,9 @@
             <section class="card span-all todo-card">${todoSection('parcel', p.id)}</section>
             <section class="card span-all infra-card">
               <h2>Infrastruktur</h2>
-              <h3 class="infra-h ws-st is-strom">${ICON.strom} Strom${strom.length ? ` · ${strom.length} Zähler` : ''}</h3>
+              <h3 class="infra-h ws-st is-strom"><span class="h-ico pin-box">${ICON.strom}</span> Strom${strom.length ? ` · ${strom.length} Zähler` : ''}</h3>
               ${strom.length ? infraMeters(strom) : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
-              <h3 class="infra-h ws-st is-gas">${ICON.gas} Gas</h3>
+              <h3 class="infra-h ws-st is-gas"><span class="h-ico pin-tank">${ICON.gas}</span> Gas</h3>
               <dl class="facts infra-facts">
                 <dt>Versorgung</dt><dd>${tank ? `<a href="#/karte/tank/${tank.id}">Gastank ${h(tank.nr)}</a>` : p.gas === 'bottle' ? '<strong>Gasflaschen</strong>' : gasText(p)}</dd>
                 <dt>Heizung</dt><dd>${h(S.HEATING[p.heating] || '–')}</dd>
