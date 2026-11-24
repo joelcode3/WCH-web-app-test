@@ -34,7 +34,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   In Listen heißen Schächte „Wasserschacht W-01“ (`Store.placeLabel`). Einmal-Umbenennung: `Store.renamePlan/applyRename`, Karte in Einstellungen mit Vorschau.
 - Stromkasten-Fenster (26.11.2026, Variante A): Zähler nach Parzelle gruppiert (Karte: Parzellennummer + Mieter, „· 2 Zähler“), darunter je Zähler
   „S-01/50“ fett mit orangem Zähler-Symbol, Sicherung grau mit Sicherungs-Symbol dahinter, letzte 3 Stände mit Verbrauch; Stand bei der letzten Ablesung
-  unverändert → Zähler ausgegraut mit „inaktiv“ (`boxMeterGroups/boxMeterItem`, Symbole `BICO`). Schacht-Fenster-Kopf wie beim Stromkasten: Schildchen (Tropfen + Name) + „Wasserschacht W-08“.
+  unverändert → Zähler ausgegraut mit „inaktiv“ (keine Zähler-Anzahl im Kopf). Parzellen-Fenster (Map) zeigt die Zähler genauso (`parcelMeters`: Stromzähler orange, Gaszähler grün).
+  Unverändert → Zähler ausgegraut mit „inaktiv“ (`boxMeterGroups/boxMeterItem`, Symbole `BICO`). Schacht-Fenster-Kopf wie beim Stromkasten: Schildchen (Tropfen + Name) + „Wasserschacht W-08“.
 - Map-Schildchen einheitlich mit weißem Rand: Stromkasten gelb, Gastank grün, Wasserschacht kräftiges Türkis (#7fd3db) mit dunkler Schrift.
 - Suche (Map): Parzellen, Stromkästen (gelb), Gastanks (grün, mit Parzellen), Wasserschächte (türkis, auch nach Hahn-/Zählernummer), Orte; ohne Groß-/Kleinschreibung.
 - Satellitenbild an: Parzellen ohne Füllung, nur weiße Umrandung (gewählte gelb), keine Statusfarben.

@@ -1481,3 +1481,11 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .bx-meter.is-inaktiv { opacity: .5; }
 .bx-inaktiv { margin-left: 8px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-leise);
   border: 1px solid #c9ccc6; border-radius: 999px; padding: 1px 7px; }
+
+/* Parzellen-Fenster: Zähler wie im Stromkasten; Gaszähler grün */
+.bx-plain .bx-meter:first-child { padding-top: 0; }
+.bx-plain .bx-meter { padding-left: 0; }
+.bx-meter.is-gas .bx-code svg, .section-title.ws-st.is-gas svg { stroke: #2f9e74; }
+/* lange Mieternamen: Umbruch ohne Versatz, Parzellennummer bleibt oben */
+.bx-head { align-items: flex-start; }
+.bx-head .nr { margin-top: 2px; flex: none; }
