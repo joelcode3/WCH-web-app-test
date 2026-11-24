@@ -1432,3 +1432,9 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .ws-tech-h { list-style: none; padding-left: 0; }
 .ws-tech-h li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ws-tech-h li > svg, .ws-tech-z svg { width: 16px; height: 16px; fill: none; stroke: #0b8c96; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Schacht-Fenster: Symbol vor den Überschriften „Absperrhähne“ / „Wasserzähler“, Schildchen nur mit Buchstabe bzw. Z-Nummer */
+.section-title.ws-st { display: flex; align-items: center; gap: 6px; }
+.section-title.ws-st svg { width: 17px; height: 17px; flex: none; fill: none; stroke: #0b8c96; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.section-title.ws-st.is-meter svg { stroke: #3d6b8c; }
+.ws-ic { justify-content: center; min-width: 24px; padding: 0 7px; }

@@ -3081,8 +3081,8 @@
      ====================================================================== */
 
   const WICO = {
-    // klassischer Absperrhahn seitlich: Rohr, Ventilkörper, Spindel, Handrad leicht schräg
-    valve: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 18.5h4M18 18.5h4"/><path d="M6 16h12v5H6z"/><path d="M10 16v-2.5h4V16M12 13.5V9.5"/><ellipse cx="12" cy="7" rx="6.5" ry="2.6" transform="rotate(-14 12 7)"/><path d="M5.7 8.6l12.6-3.2"/></svg>',
+    // Absperrhahn als Linien (Vorlage des Betreibers): Rohr, runder Ventilkörper, Spindel, T-Griff
+    valve: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 3.4q-.7 0-.7.8v2.4q0 .8.7.8l7.3-1h2.2l7.3 1q.7 0 .7-.8V4.2q0-.8-.7-.8l-7.3 1h-2.2z"/><path d="M12 7v3.5"/><path d="M2 12.8h5.2M16.8 12.8H22M2 17h5.2M16.8 17H22M2 12.8v4.2M22 12.8v4.2"/><circle cx="12" cy="14.9" r="4.6"/></svg>',
     meter: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 12l3.5-3.5 M8 16h8"/></svg>',
     // Sommerwasser: Sonne mit kleinem Tropfen
     sun: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 2.6v2.2 M10 15.2v2.2 M2.6 10h2.2 M15.2 10h2.2 M4.8 4.8l1.5 1.5 M13.7 6.3l1.5-1.5 M4.8 15.2l1.5-1.5"/><path class="sw-drop" d="M18.6 13.6c1.5 2 2.3 3.2 2.3 4.2a2.3 2.3 0 0 1-4.6 0c0-1 .8-2.2 2.3-4.2z"/></svg>',
@@ -3173,10 +3173,10 @@
             ${ed ? `<label class="tile-change" title="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}" aria-label="${o.photo ? 'Foto ändern' : 'Foto hinzufügen'}">${ICON.camera}<input type="file" accept="image/*" hidden data-place-photo></label>` : ''}
           </div>` : ''}
 
-          <div class="section-title">Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
+          <div class="section-title ws-st">${WICO.valve}Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
           ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
-              <span class="ws-ic" title="Absperrhahn">${WICO.valve}${h(x.kz)}</span>
+              <span class="ws-ic" title="Absperrhahn ${h(S.hahnCode(o, x))}">${h(x.kz)}</span>
               <span class="ws-h-main"><strong>${h(S.hahnCode(o, x))}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
                 ${S.hahnName(x) ? `<span class="small">${h(S.hahnName(x))}</span>` : ''}
                 ${x.info ? `<span class="small muted">${h(x.info)}</span>` : ''}</span>
@@ -3193,10 +3193,10 @@
             </li>`).join('')}</ul>` : '<p class="muted small" style="margin:0 0 6px">Noch keine Absperrhähne eingetragen.</p>'}
           ${ed ? `<div class="card-actions" style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-ws="add-hahn">${ICON.plus} Absperrhahn</button></div>` : ''}
 
-          ${w.zaehler.length || ed ? `<div class="section-title">Wasserzähler${w.zaehler.length > 1 ? ` · ${w.zaehler.length}` : ''}</div>` : ''}
+          ${w.zaehler.length || ed ? `<div class="section-title ws-st is-meter">${WICO.meter}Wasserzähler${w.zaehler.length > 1 ? ` · ${w.zaehler.length}` : ''}</div>` : ''}
           ${w.zaehler.map((z, i) => `<div class="ws-zbox${MapView.selHahn === z.id ? ' is-sel' : ''}">
             <div class="ws-meter" data-meter="${z.id}" title="Auf dem Foto hervorheben">
-              <span><span class="ws-ic is-meter" title="Wasserzähler">${WICO.meter}Z${z.znr}</span><strong>Zähler <span class="mono">${h(z.nr || 'ohne Nummer')}</span></strong></span>
+              <span><span class="ws-ic is-meter" title="Wasserzähler Z${z.znr}">Z${z.znr}</span><strong>Zähler <span class="mono">${h(z.nr || 'ohne Nummer')}</span></strong></span>
               ${ed ? `<select class="ws-h-act" data-meter-act="${z.id}" aria-label="Aktionen für Zähler ${h(z.nr || '')}">
                 <option value="">…</option>
                 <option value="edit">Zählernummer ändern</option>
