@@ -26,7 +26,7 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - airbnb-Unterkünfte auf der Map als Draufsicht in Originalgröße (Londonbus, Glampingzelt,
   Bäckerwagen = Kastenwagen creme/dunkelgrün), drehbar; Reihenfolge Bus 1, Bus 2, Zelt 1, Zelt 2, Bäckerwagen.
 - Gastank-Beschriftung ohne vorangestelltes „T“.
-- Namen (26.11.2026): Wasserschächte „W-01“ … (früher „2-01“, Umbenennung +1 über Einstellungen), Stromkästen „S-01“ … (früher „1-01“);
+- Namen (26.11.2026): Wasserschächte „W-01“ … (früher „2-01“, Umbenennung +1 über Einstellungen), Stromkästen „S-01“ … (früher „1-01“), Gastanks „G-01“ … (früher „G-1“, ebenfalls über die Umbenennungs-Karte; neue Nummern übernehmen den Vorsatz, `freeNrs`);
   Absperrhähne mit Kennbuchstabe je Schacht (`kz`: A, B, C …) → Anzeige „Absperrhahn W-08/A“ (`Store.hahnCode/hahnLabel`), Bezeichnung freiwillig;
   Absperrhahn-Symbol nach Vorlage des Betreibers als Linien (Rohr, runder Ventilkörper, T-Griff; `WICO.valve`, Variante V3): steht vor der Überschrift „Absperrhähne“ (Zähler-Symbol vor „Wasserzähler“) und im Hover-Feld; im Schacht-Fenster Schildchen nur „A“ (türkis) bzw. „Z3“ (blaugrau) ohne Symbol; im Foto runde Markierungen. Alle Kennzeichen (A, B, Z1, Z12 …) immer als echte Kreise, längere Texte mit kleinerer Schrift (`is-long`).
   Wasserzähler platzweit fortlaufend nummeriert (`znr`, Z1, Z2 … über alle Schächte, fest; `Store.nextZnr`).
@@ -36,6 +36,9 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   „S-01/50“ fett mit orangem Zähler-Symbol, Sicherung grau mit Sicherungs-Symbol dahinter, letzte 3 Stände mit Verbrauch; Stand bei der letzten Ablesung
   unverändert → Zähler ausgegraut mit „inaktiv“ (keine Zähler-Anzahl im Kopf). Parzellen-Fenster (Map) zeigt die Zähler genauso (`parcelMeters`: Stromzähler orange, Gaszähler grün).
   Unverändert → Zähler ausgegraut mit „inaktiv“ (`boxMeterGroups/boxMeterItem`, Symbole `BICO`). Schacht-Fenster-Kopf wie beim Stromkasten: Schildchen (Tropfen + Name) + „Wasserschacht W-08“.
+- Mieter-Detailseite, Block Infrastruktur: Überschriften „Strom“ (ohne Zähleranzahl) mit Blitz, „Gas“ mit Flamme (jeweils auf farbigem Kreis wie die Map-Schildchen: gelb bzw. grün, `.h-ico`); darunter der Ort, anklickbar → Map: „Stromkasten“ bzw. „Gastank“ mit Map-Schildchen dahinter (S-05, G-2) (sonst „Gasflaschen“/„im Haus“); keine Heizungsart; Zähler als Karten untereinander wie im Stromkasten-Fenster
+  (Kennung, Sicherung, letzte 3 Stände, ältere aufklappbar, „inaktiv“), ohne Standortzeile (steckt in der Kennung). Blitz/Flamme im Fenster-Kopf (Stromkasten/Gastank) größer.
+- Infrastruktur-Reiter Strom/Gas/Wasser: Kästen, Tanks, Schächte als breite Zeilen untereinander (`.infra-list.is-rows`); aufgeklappt Parzellen mit ihren Zählern wie im Stromkasten-Fenster (`MapUI.boxMeterGroups`); Knopf „Ablesen“ je Kasten/Tank (und „Zähler im Haus“) öffnet ein Fenster mit allen Zählern zum Eintippen (Datum, zuletzt, Verbrauch, Warnung bei kleinerem Stand; `readDialog` in app.js, Variante B vom Betreiber); Sommerwasser-Checkliste untereinander.
 - Map-Schildchen einheitlich mit weißem Rand: Stromkasten gelb, Gastank grün, Wasserschacht kräftiges Türkis (#7fd3db) mit dunkler Schrift.
 - Suche (Map): Parzellen, Stromkästen (gelb), Gastanks (grün, mit Parzellen), Wasserschächte (türkis, auch nach Hahn-/Zählernummer), Orte; ohne Groß-/Kleinschreibung.
 - Satellitenbild an: Parzellen ohne Füllung, nur weiße Umrandung (gewählte gelb), keine Statusfarben.

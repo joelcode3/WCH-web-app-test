@@ -132,6 +132,96 @@
     if (first && window.matchMedia('(min-width: 861px)').matches) first.focus();
   }
 
+  /* Ablesen direkt aus Infrastruktur: alle Zähler eines Kastens/Tanks in einem Fenster */
+  function readDialog(title, meters) {
+    meters = S.sortMeters(meters);
+    if (!meters.length) { toast('Keine Zähler zum Ablesen'); return; }
+    const dlg = $('#dialog');
+    let date = today();
+    const draft = {};
+    const state = (m) => {
+      const saved = S.data.readings.find((r) => r.meterId === m.id && r.date === date);
+      const prev = S.readingBefore(m.id, date, false);
+      const raw = draft[m.id] !== undefined ? draft[m.id] : (saved ? String(saved.value).replace('.', ',') : '');
+      const val = parseNum(raw);
+      const diff = !isNaN(val) && prev ? val - prev.value : null;
+      return { saved, prev, raw, diff, warn: diff !== null && diff < 0 };
+    };
+    const diffHtml = (m, st) => {
+      if (st.diff === null) return st.saved && draft[m.id] === undefined ? '<span class="muted small">gespeichert</span>' : '';
+      if (st.warn) return `<span class="warn">${fmtNum(st.diff)} ${unit(m.type)} !</span>`;
+      return `+${fmtNum(st.diff)} ${unit(m.type)}`;
+    };
+    const row = (m) => {
+      const p = S.parcel(m.parcelId), st = state(m);
+      return `<div class="qr-row${st.warn ? ' is-warn' : st.saved ? ' is-done' : ''}" data-row="${m.id}">
+        <div class="qr-who"><strong class="mono">${h(S.meterCode(m) || 'ohne Nr.')}</strong>
+          <span class="small muted">${p ? `${h(p.nr)} · ${h(tenantName(p))}` : h(S.purposeText(m))}</span>
+          <span class="small muted">${st.prev ? `zuletzt <span class="mono">${fmtNum(st.prev.value)}</span> am ${fmtDate(st.prev.date)}` : 'noch kein Stand'}</span></div>
+        <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="Stand" aria-label="Zählerstand ${h(S.meterCode(m) || '')}">
+        <div class="qr-diff">${diffHtml(m, st)}</div>
+      </div>`;
+    };
+    const draw = () => {
+      const done = meters.filter((m) => state(m).saved).length;
+      $('.qr-list', dlg).innerHTML = meters.map(row).join('');
+      $('.qr-prog', dlg).textContent = `${done} von ${meters.length} für den ${fmtDate(date)} erfasst`;
+      $$('input[data-meter]', dlg).forEach((inp) => {
+        inp.addEventListener('input', () => {
+          const m = S.meter(inp.dataset.meter);
+          if (inp.value.trim() === '') delete draft[m.id]; else draft[m.id] = inp.value;
+          const st = state(m), r = inp.closest('.qr-row');
+          r.classList.toggle('is-warn', st.warn); r.classList.toggle('is-done', !st.warn && !!st.saved);
+          $('.qr-diff', r).innerHTML = diffHtml(m, st);
+        });
+        inp.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const all = $$('input[data-meter]', dlg), next = all[all.indexOf(inp) + 1];
+          if (next) next.focus(); else inp.blur();
+        });
+      });
+    };
+    dlg.innerHTML = `
+      <form method="dialog" novalidate class="qr-form">
+        <h2>Ablesen · ${title}</h2>
+        <label class="field"><span>Ablesedatum</span><input type="date" name="datum" value="${date}"></label>
+        <p class="small muted qr-prog"></p>
+        <div class="qr-list"></div>
+        <div class="dialog-actions">
+          <button type="button" class="btn btn-ghost" data-cancel>Abbrechen</button>
+          <button type="submit" class="btn">Speichern</button>
+        </div>
+      </form>`;
+    const form = $('form', dlg);
+    $('[data-cancel]', dlg).onclick = () => {
+      if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) return;
+      dlg.close();
+    };
+    form.elements.datum.onchange = (e) => {
+      if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) { e.target.value = date; return; }
+      Object.keys(draft).forEach((k) => delete draft[k]);
+      date = e.target.value || today(); draw();
+    };
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const entries = Object.entries(draft);
+      if (!entries.length) { dlg.close(); return; }
+      const bad = entries.filter(([, v]) => isNaN(parseNum(v)));
+      if (bad.length) { toast(`${bad.length} Eingabe(n) sind keine gültige Zahl`); return; }
+      const warn = entries.filter(([id, v]) => { const prev = S.readingBefore(id, date, false); return prev && parseNum(v) < prev.value; });
+      if (warn.length && !confirm(`${warn.length} Zählerstand/-stände sind kleiner als der vorherige Stand (Zählertausch oder Tippfehler?).\nTrotzdem speichern?`)) return;
+      entries.forEach(([id, v]) => S.upsertReading(id, date, parseNum(v)));
+      S.save();
+      dlg.close();
+      toast(`${entries.length} ${entries.length === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert`);
+    };
+    draw();
+    dlg.showModal();
+    const first = $('input[data-meter]', dlg);
+    if (first && window.matchMedia('(min-width: 861px)').matches) first.focus();
+  }
+
   function fieldHtml(f) {
     const v = f.value ?? '';
     let input;
@@ -223,15 +313,20 @@
   // Parzellen sind "Block.Nr" (1.01 … / 2.01 …), Kästen und Tanks einfache Zahlen.
   function freeNrs(list, block) {
     const used = new Set();
+    // Kästen/Tanks mit Vorsatz („S-01“, „G-02“): neue Nummern im selben Stil vorschlagen
+    const pre = block == null ? (list.map((x) => (/^([A-Za-z]+)-\d+$/.exec(String(x.nr || '').trim()) || [])[1]).find(Boolean) || '') : '';
     list.forEach((x) => {
-      const m = String(x.nr || '').trim().match(block == null ? /^(\d+)/ : /^(\d+)\.(\d+)/);
+      const m = String(x.nr || '').trim().match(block == null ? /^(?:[A-Za-z]+-)?(\d+)/ : /^(\d+)\.(\d+)/);
       if (!m) return;
       if (block == null) used.add(+m[1]);
       else if (+m[1] === +block) used.add(+m[2]);
     });
     const max = used.size ? Math.max(...used) : 0;
     const out = [];
-    for (let n = 1; n <= max + 1; n++) if (!used.has(n)) out.push(block == null ? String(n) : `${block}.${String(n).padStart(2, '0')}`);
+    for (let n = 1; n <= max + 1; n++) {
+      if (used.has(n)) continue;
+      out.push(block == null ? (pre ? `${pre}-${String(n).padStart(2, '0')}` : String(n)) : `${block}.${String(n).padStart(2, '0')}`);
+    }
     return out;
   }
   const parcelBlocks = () => {
@@ -705,18 +800,29 @@
         </li>`;
       }).join('');
     },
-    boxMeterItem(m) {
+    // opts.n: Anzahl Stände (0 = nur der letzte, ohne Tabelle);
+    // opts.more: restliche Stände zum Aufklappen
+    boxMeterItem(m, opts = {}) {
       const fuse = S.fusesText(m);
       const all = S.readingsOf(m.id);
-      const rs = all.slice(-3).reverse();
+      const n = opts.n === undefined ? 3 : opts.n;
+      const rs = all.slice(-(n || 1)).reverse();
+      const older = opts.more ? all.slice(0, Math.max(0, all.length - n)).reverse() : [];
       const inaktiv = all.length >= 2 && all[all.length - 1].value === all[all.length - 2].value;
       const reads = rs.length ? `<table class="ws-read"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
         return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
+      const last = all[all.length - 1];
+      const body = n === 0
+        ? `<div class="bx-info bx-lastline">${last ? `<strong>${fmtNum(last.value)} ${unit(m.type)}</strong> <span class="muted">· ${fmtDate(last.date)}</span>` : '<span class="muted">Noch kein Zählerstand.</span>'}</div>`
+        : reads + (older.length ? `<details class="bx-more"><summary>Ältere Stände (${older.length})</summary><table class="ws-read"><tbody>${older.map((r) => {
+          const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
+          return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
+        }).join('')}</tbody></table></details>` : '');
       return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}">
         <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
-        ${reads}
+        ${body}
       </div>`;
     },
 
@@ -1311,30 +1417,14 @@
       const strom = meters.filter((m) => m.type === 'strom');
       const gas = meters.filter((m) => m.type === 'gas');
       const tank = p.gas === 'tank' ? S.tank(p.gasTankId) : null;
-
-      // Ablesehistorie je Zähler; Zähler ohne Ablesung erscheinen mit einer leeren Zeile
-      const meterPlaceHtml = (m) => (m.type !== 'strom' ? h(m.location || '–')
-        : m.inHouse ? 'im Haus' : S.box(m.boxId) ? `<a href="#/karte/box/${m.boxId}">Kasten ${h(S.box(m.boxId).nr)}</a>` : '<span class="warn">kein Kasten</span>');
-      const histTable = (list, full, fuses = true) => {
-        const rows = [];
-        list.forEach((m) => {
-          const rs = S.readingsOf(m.id);
-          if (!rs.length) rows.push({ m, r: null, diff: null });
-          rs.forEach((r, i) => rows.push({ m, r, diff: i > 0 ? r.value - rs[i - 1].value : null }));
-        });
-        rows.sort((a, b) => (b.r ? b.r.date : '').localeCompare(a.r ? a.r.date : '') || (a.m.number || '').localeCompare(b.m.number || ''));
-        if (!full && !rows.some((x) => x.r)) return '';
-        return `<div class="table-wrap"><table class="table-cards">
-          <thead><tr>${full ? `<th>Zählerort</th><th>Zählernummer</th>${fuses ? '<th>Sicherung</th>' : ''}` : ''}<th>Datum</th><th class="num">Stand</th><th class="num">Verbrauch</th></tr></thead>
-          <tbody>${rows.map(({ m, r, diff }) => `<tr>
-            ${full ? `<td data-label="Zählerort">${meterPlaceHtml(m)}</td>
-            <td data-label="Zählernummer" class="mono">${h(S.meterCode(m) || '—')}</td>
-            ${fuses ? `<td data-label="Sicherung">${h(S.fusesText(m) || '–')}</td>` : ''}` : ''}
-            <td data-label="Datum">${r ? fmtDate(r.date) : '–'}</td>
-            <td data-label="Stand" class="num">${r ? `${fmtNum(r.value)} ${unit(m.type)}` : '–'}</td>
-            <td data-label="Verbrauch" class="num">${diff === null ? '–' : `${fmtNum(diff)} ${unit(m.type)}`}</td></tr>`).join('')}
-          </tbody></table></div>`;
-      };
+      // Zähler wie im Stromkasten-/Parzellen-Fenster: Karten untereinander, letzte 3 Stände, ältere aufklappbar
+      // Ort über den Zählern: Stromkasten wie auf der Map (anklickbar → Kasten auf der Map)
+      const stromOrte = [...new Set(strom.map((m) => (m.inHouse || !S.box(m.boxId) ? '' : m.boxId)))].map((bid) => {
+        if (!bid) return '<span class="infra-plain">im Haus</span>';
+        const bx = S.box(bid);
+        return `<a class="infra-pin" href="#/karte/box/${bx.id}" title="Auf der Map zeigen"><span>Stromkasten</span><span class="pin pin-box">${ICON.strom}<span>${h(bx.nr)}</span></span></a>`;
+      }).join('');
+      const infraMeters = (list) => `<div class="bx-grid">${list.map((m) => `<div class="bx-card">${MapUI.boxMeterItem(m, { n: 3, more: true })}</div>`).join('')}</div>`;
 
       root.innerHTML = `
         <div class="page">
@@ -1376,14 +1466,12 @@
             <section class="card span-all todo-card">${todoSection('parcel', p.id)}</section>
             <section class="card span-all infra-card">
               <h2>Infrastruktur</h2>
-              <h3 class="infra-h">${ICON.strom} Strom</h3>
-              ${strom.length ? histTable(strom, true) : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
-              <h3 class="infra-h">${ICON.gas} Gas</h3>
-              <dl class="facts infra-facts">
-                <dt>Versorgung</dt><dd>${tank ? `<a href="#/karte/tank/${tank.id}">Gastank ${h(tank.nr)}</a>` : p.gas === 'bottle' ? '<strong>Gasflaschen</strong>' : gasText(p)}</dd>
-                <dt>Heizung</dt><dd>${h(S.HEATING[p.heating] || '–')}</dd>
-              </dl>
-              ${gas.length ? histTable(gas, true, false) : p.gas === 'tank' ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
+              <h3 class="infra-h ws-st is-strom"><span class="h-ico pin-box">${ICON.strom}</span> Strom</h3>
+              ${strom.length ? `<div class="infra-where">${stromOrte}</div>${infraMeters(strom)}` : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
+              <h3 class="infra-h ws-st is-gas"><span class="h-ico pin-tank">${ICON.gas}</span> Gas</h3>
+              <div class="infra-where">${tank ? `<a class="infra-pin" href="#/karte/tank/${tank.id}" title="Auf der Map zeigen"><span>Gastank</span><span class="pin pin-tank">${ICON.gas}<span>${h(tank.nr)}</span></span></a>`
+                : `<span class="infra-plain">${p.gas === 'bottle' ? 'Gasflaschen' : gasText(p)}</span>`}</div>
+              ${gas.length ? infraMeters(gas) : p.gas === 'tank' ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
             </section>
           </div>
         </div>`;
@@ -2011,7 +2099,6 @@
           <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <div class="if-body">${body}</div></details>`;
       const cnt = (n, one, many, cls = '') => (n ? `<span class="if-c${cls ? ' ' + cls : ''}">${n} ${n === 1 ? one : many}</span>` : '');
-      const otherRows = (ms) => (ms.length ? `<ul class="tenant-rows">${ms.map((m) => `<li><span class="tr-static">${S.isFreeMeter(m) ? '<span class="nr nr-sm nr-free">F</span>' : serviceBadge()}<span>${h(S.purposeText(m))}${m.number ? ` <span class="mono muted small">${h(S.meterCode(m))}</span>` : ''}</span></span></li>`).join('')}</ul>` : '');
 
       root.innerHTML = `
         <div class="page">
@@ -2024,7 +2111,7 @@
             <button type="button" class="btn btn-ghost btn-sm" data-fold-all></button>
             <button class="btn btn-sm" data-new="box">${ICON.plus} Stromkasten</button>
           </div>
-          <div class="infra-list">
+          <div class="infra-list is-rows">
             ${boxes.map((b) => {
               const ms = S.metersInBox(b.id);
               const svc = ms.filter((m) => S.isService(m) && !S.isFreeMeter(m));
@@ -2033,17 +2120,17 @@
               return fold(`box:${b.id}`, `<span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(b.nr)}</span></span>`,
                 [`Stromkasten ${h(b.nr)}`, b.location || (b.pos ? '' : 'noch nicht auf der Map')],
                 (cnt(ps, 'Parzelle', 'Parzellen') + cnt(svc.length, 'Betrieb', 'Betrieb') + cnt(free.length, 'frei', 'frei', 'is-free')) || '<span class="if-c muted">keine Zähler</span>',
-                `${rows(ms.map((m) => S.parcel(m.parcelId))) || (svc.length || free.length ? '' : '<p class="muted small">Noch keine Zähler.</p>')}
-                ${otherRows(ms.filter((m) => S.isService(m)))}
+                `${ms.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(ms)}</ul>` : '<p class="muted small">Noch keine Zähler.</p>'}
                 <div class="card-actions">
                   ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-box="${b.id}">${ICON.edit} Bearbeiten</button>
-                  <a class="btn btn-ghost btn-sm" href="#/ablesung?typ=strom&gruppe=${b.id}">Ablesen</a>
+                  ${ms.some((m) => m.type === 'strom') ? `<button type="button" class="btn btn-sm" data-read="box:${b.id}">${ICON.edit} Ablesen</button>` : ''}
                 </div>`);
             }).join('') || '<p class="muted">Noch keine Stromkästen angelegt.</p>'}
             ${fold('haus', `<span class="pin pin-box pin-house" style="transform:none">${ICON.house}</span>`, ['Zähler im Haus', 'beim Mieter, kein Kasten'],
               cnt(inHouse.length, 'Zähler', 'Zähler') || '<span class="if-c muted">keine</span>',
-              rows(inHouse.map((m) => S.parcel(m.parcelId))) || '<p class="muted small">–</p>')}
+              inHouse.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(inHouse)}</ul>
+                <div class="card-actions"><button type="button" class="btn btn-sm" data-read="haus">${ICON.edit} Ablesen</button></div>` : '<p class="muted small">–</p>')}
           </div>
 
           ` : `
@@ -2052,18 +2139,24 @@
             <button type="button" class="btn btn-ghost btn-sm" data-fold-all></button>
             <button class="btn btn-sm" data-new="tank">${ICON.plus} Gastank</button>
           </div>
-          <div class="infra-list">
+          <div class="infra-list is-rows">
             ${tanks.map((t) => {
               const ps = S.parcelsOnTank(t.id);
               const info = [t.capacity, t.notes].filter(Boolean).join(' · ');
               return fold(`tank:${t.id}`, `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span>`,
                 [`Gastank ${h(t.nr)}`, info || (t.pos ? '' : 'noch nicht auf der Map')],
                 cnt(ps.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine Parzellen</span>',
-                `${rows(ps) || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
+                `${(() => {
+                  const gm = ps.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
+                  const ohne = ps.filter((p) => !S.metersOf(p.id).some((m) => m.type === 'gas'));
+                  return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm)}</ul>` : '')
+                    + (ohne.length ? `<p class="small muted" style="margin:8px 0 0">Ohne Gaszähler: ${ohne.map((p) => h(p.nr)).join(', ')}</p>` : '')
+                    || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>';
+                })()}
                 <div class="card-actions">
                   ${t.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/tank/${t.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-tank="${t.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-tank="${t.id}">${ICON.edit} Bearbeiten</button>
-                  <a class="btn btn-ghost btn-sm" href="#/ablesung?typ=gas&gruppe=${t.id}">Ablesen</a>
+                  ${ps.some((p) => S.metersOf(p.id).some((m) => m.type === 'gas')) ? `<button type="button" class="btn btn-sm" data-read="tank:${t.id}">${ICON.edit} Ablesen</button>` : ''}
                 </div>`);
             }).join('') || '<p class="muted">Noch keine Gastanks angelegt.</p>'}
             ${(() => { const bt = S.parcelsSorted().filter((p) => p.gas === 'bottle');
@@ -2078,6 +2171,13 @@
       if (nb) nb.onclick = () => Actions.newBox(false);
       if (nt) nt.onclick = () => Actions.newTank(false);
       $$('[data-edit-box]', root).forEach((b) => b.onclick = () => Actions.editBox(b.dataset.editBox));
+      $$('.infra-list [data-goto]', root).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
+      $$('[data-read]', root).forEach((el) => el.onclick = () => {
+        const [kind, id] = el.dataset.read.split(':');
+        if (kind === 'box') { const b = S.box(id); readDialog(`Stromkasten ${h(b.nr)}`, S.metersInBox(id).filter((m) => m.type === 'strom')); }
+        else if (kind === 'tank') { const t = S.tank(id); readDialog(`Gastank ${h(t.nr)}`, S.parcelsOnTank(id).flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'))); }
+        else readDialog('Zähler im Haus', S.data.meters.filter((m) => m.type === 'strom' && m.inHouse));
+      });
       $$('[data-edit-tank]', root).forEach((b) => b.onclick = () => Actions.editTank(b.dataset.editTank));
       $$('[data-place-box]', root).forEach((b) => b.onclick = () => Actions.placeBox(b.dataset.placeBox));
       $$('[data-place-tank]', root).forEach((b) => b.onclick = () => Actions.placeTank(b.dataset.placeTank));
@@ -2495,11 +2595,14 @@
       const plan = S.renamePlan();
       this._rename = plan;
       if (!plan.length) return '';
-      const row = (r) => `<span${r.conflict ? ' class="warn" title="Name schon vergeben – wird ausgelassen"' : ''}>${r.type === 'schacht' ? 'Wasserschacht' : 'Stromkasten'} ${h(r.from)} → <strong>${h(r.to)}</strong>${r.conflict ? ' (schon vergeben)' : ''}</span>`;
-      const ws = plan.filter((r) => r.type === 'schacht'), bs = plan.filter((r) => r.type === 'box');
+      const row = (r) => `<span${r.conflict ? ' class="warn" title="Name schon vergeben – wird ausgelassen"' : ''}>${r.type === 'schacht' ? 'Wasserschacht' : r.type === 'tank' ? 'Gastank' : 'Stromkasten'} ${h(r.from)} → <strong>${h(r.to)}</strong>${r.conflict ? ' (schon vergeben)' : ''}</span>`;
+      const ws = plan.filter((r) => r.type === 'schacht'), bs = plan.filter((r) => r.type === 'box'), ts = plan.filter((r) => r.type === 'tank');
+      const parts = [ws.length ? `<strong>${ws.length} Wasserschächte</strong> von „2-…“ auf „W-…“ (Nummer jeweils eins höher)` : '',
+        bs.length ? `<strong>${bs.length} Stromkästen</strong> von „1-…“ auf „S-…“` : '',
+        ts.length ? `<strong>${ts.length} Gastanks</strong> auf „G-01“, „G-02“ usw.` : ''].filter(Boolean);
       return `<section class="card plan-sync">
-        <h2>Neue Namen für Wasserschächte und Stromkästen</h2>
-        <p style="margin-top:0">${ws.length ? `<strong>${ws.length} Wasserschächte</strong> von „2-…“ auf „W-…“ (Nummer jeweils eins höher)` : ''}${ws.length && bs.length ? ' und ' : ''}${bs.length ? `<strong>${bs.length} Stromkästen</strong> von „1-…“ auf „S-…“` : ''}.
+        <h2>Neue Namen für Wasserschächte, Stromkästen und Gastanks</h2>
+        <p style="margin-top:0">${(parts.length > 1 ? `${parts.slice(0, -1).join(', ')} und ${parts[parts.length - 1]}` : parts[0]).replace(/\.?$/, '.')}
           Zähler, Zählerstände, Hähne, Fotos und To-Dos bleiben erhalten – nur der Name ändert sich.</p>
         <details><summary>Änderungen anzeigen (alt → neu)</summary><div class="sync-list">${plan.map(row).join('')}</div></details>
         <div class="card-actions"><button class="btn" id="d-rename">Jetzt umbenennen</button></div>
@@ -3574,7 +3677,7 @@
             <button type="button" class="btn btn-ghost btn-sm" data-fold-all></button>
             <button class="btn btn-sm" data-ws-new>${ICON.plus} Wasserschacht</button>
           </div>
-          <div class="infra-list">${list.map(fold).join('') || '<p class="muted">Noch keine Wasserschächte. Mit „+ Wasserschacht“ anlegen und auf der Map platzieren.</p>'}</div>
+          <div class="infra-list is-rows">${list.map(fold).join('') || '<p class="muted">Noch keine Wasserschächte. Mit „+ Wasserschacht“ anlegen und auf der Map platzieren.</p>'}</div>
           ${this.sunLegend(list.some((o) => S.hatSommerwasser(o)))}
 
           <div class="page-head section-head">

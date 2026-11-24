@@ -388,7 +388,7 @@
       const b = m && m.boxId && !m.inHouse ? this.box(m.boxId) : null;
       return b && m.number ? `${b.nr}/${m.number}` : (m ? m.number : '');
     },
-    // Einmalige Umbenennung: Schächte „2-01“ → „W-02“ (Nummer +1), Stromkästen „1-01“ → „S-01“
+    // Einmalige Umbenennung: Schächte „2-01“ → „W-02“ (Nummer +1), Stromkästen „1-01“ → „S-01“, Gastanks „G-1“ → „G-01“
     renamePlan() {
       const pad = (n) => String(n).padStart(2, '0');
       const out = [];
@@ -400,10 +400,16 @@
         const m = /^\s*1-(\d+)\s*$/.exec(String(b.nr || ''));
         if (m) out.push({ type: 'box', obj: b, from: b.nr, to: `S-${pad(+m[1])}` });
       });
+      // Gastanks: „G-1“, „G1“ oder „1“ → „G-01“
+      this.data.tanks.forEach((t) => {
+        const m = /^\s*(?:G-?\s*)?(\d+)\s*$/i.exec(String(t.nr || ''));
+        if (m && String(t.nr) !== `G-${pad(+m[1])}`) out.push({ type: 'tank', obj: t, from: t.nr, to: `G-${pad(+m[1])}` });
+      });
       // Ziel schon vergeben (und wird nicht selbst umbenannt)? → auslassen
       const moving = new Set(out.map((r) => r.obj));
       out.forEach((r) => {
-        const pool = r.type === 'schacht' ? this.data.places.filter((o) => o.kind === 'schacht').map((o) => [o, o.name]) : this.data.boxes.map((b) => [b, b.nr]);
+        const pool = r.type === 'schacht' ? this.data.places.filter((o) => o.kind === 'schacht').map((o) => [o, o.name])
+          : r.type === 'tank' ? this.data.tanks.map((t) => [t, t.nr]) : this.data.boxes.map((b) => [b, b.nr]);
         r.conflict = pool.some(([x, n]) => !moving.has(x) && String(n).trim().toLowerCase() === r.to.toLowerCase())
           || out.filter((y) => y.type === r.type && y.to === r.to).length > 1;
       });
