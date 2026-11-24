@@ -185,6 +185,11 @@
     return (prefix || '') + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   }
 
+  // Kennbuchstaben der Absperrhähne: 0 → A, 1 → B … 25 → Z, 26 → AA
+  function kzLetter(i) { return i < 26 ? String.fromCharCode(65 + i) : kzLetter(Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26)); }
+  // Bezeichnung, die nur eine Nummer ist („1“, „Hahn 2“) – wird durch den Buchstaben ersetzt
+  const HAHN_NUM = /^\s*(?:absperr)?(?:hahn)?\s*(\d+)\s*$/i;
+
   function compareNr(a, b) {
     return String(a).localeCompare(String(b), 'de', { numeric: true });
   }
@@ -365,6 +370,48 @@
     // Sommerwasser wird je Absperrhahn festgelegt; ein Schacht zählt, sobald einer seiner Hähne Sommerwasser ist
     swHaehne: (o) => (o && o.wasser ? o.wasser.haehne.filter((x) => x.sommerwasser) : []),
     hatSommerwasser(o) { return this.swHaehne(o).length > 0; },
+    kzLetter,
+    // Absperrhahn: Kennung „W-08/A“, Bezeichnung (ohne reine Nummern) und beides zusammen
+    hahnCode: (o, x) => `${o.name}/${x.kz}`,
+    hahnName: (x) => (x.name && !HAHN_NUM.test(x.name) ? x.name.trim() : ''),
+    hahnLabel(o, x) { const n = this.hahnName(x); return `${this.hahnCode(o, x)}${n ? ` – ${n}` : ''}`; },
+    nextKz(o) { const used = new Set(o.wasser.haehne.map((x) => x.kz)); let i = 0; while (used.has(kzLetter(i))) i++; return kzLetter(i); },
+    // Ortsname für Listen: Wasserschächte wie Stromkästen/Gastanks mit ihrer Art davor
+    placeLabel(o) {
+      if (!o) return '';
+      if (o.kind === 'schacht') return /schacht/i.test(o.name || '') ? o.name : `Wasserschacht ${o.name || ''}`.trim();
+      return o.name || PLACE_KINDS[o.kind].label;
+    },
+    // Zähler im Stromkasten: Anzeige „S-06/55“ (Kasten/Zählernummer) – gespeichert bleibt die Zählernummer
+    meterCode(m) {
+      const b = m && m.boxId && !m.inHouse ? this.box(m.boxId) : null;
+      return b && m.number ? `${b.nr}/${m.number}` : (m ? m.number : '');
+    },
+    // Einmalige Umbenennung: Schächte „2-01“ → „W-02“ (Nummer +1), Stromkästen „1-01“ → „S-01“
+    renamePlan() {
+      const pad = (n) => String(n).padStart(2, '0');
+      const out = [];
+      this.data.places.filter((o) => o.kind === 'schacht').forEach((o) => {
+        const m = /^\s*2-(\d+)\s*$/.exec(o.name || '');
+        if (m) out.push({ type: 'schacht', obj: o, from: o.name, to: `W-${pad(+m[1] + 1)}` });
+      });
+      this.data.boxes.forEach((b) => {
+        const m = /^\s*1-(\d+)\s*$/.exec(String(b.nr || ''));
+        if (m) out.push({ type: 'box', obj: b, from: b.nr, to: `S-${pad(+m[1])}` });
+      });
+      // Ziel schon vergeben (und wird nicht selbst umbenannt)? → auslassen
+      const moving = new Set(out.map((r) => r.obj));
+      out.forEach((r) => {
+        const pool = r.type === 'schacht' ? this.data.places.filter((o) => o.kind === 'schacht').map((o) => [o, o.name]) : this.data.boxes.map((b) => [b, b.nr]);
+        r.conflict = pool.some(([x, n]) => !moving.has(x) && String(n).trim().toLowerCase() === r.to.toLowerCase())
+          || out.filter((y) => y.type === r.type && y.to === r.to).length > 1;
+      });
+      return out;
+    },
+    applyRename(plan) {
+      plan.filter((r) => !r.conflict).forEach((r) => { if (r.type === 'schacht') r.obj.name = r.to; else r.obj.nr = r.to; });
+      this.save();
+    },
     schaechte() { return this.data.places.filter((o) => o.kind === 'schacht').sort((a, b) => a.name.localeCompare(b.name, 'de', { numeric: true })); },
     // Sommerwasser-Saison: ab 1. Juli bis 30. Juni des Folgejahres
     wasserSaison(d = new Date()) { const y = d.getFullYear(); return d.getMonth() >= 6 ? y : y - 1; },
@@ -433,6 +480,7 @@
         console.warn('Konnte Daten nicht laden', e);
       }
       this.data = seed();
+      this._normalize();
       this.save();
     },
 
@@ -494,8 +542,17 @@
         // früher: „abgestellt“ am Schacht (diesen Winter) → als „abgedreht“ auf die Sommerwasser-Hähne übertragen
         const now = new Date(), saison = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
         const altZu = w.abgestellt && w.abgestellt >= `${saison}-07-01` ? w.abgestellt : '';
+        // Kennbuchstabe je Hahn (A, B, C …): aus „1“/„Hahn 2“ übernehmen, sonst der Reihe nach
+        const used = new Set(hs.map((x) => x.kz).filter(Boolean));
+        hs.forEach((x) => {
+          if (x.kz) return;
+          const m = HAHN_NUM.exec(x.name || '');
+          let kz = m && +m[1] > 0 ? kzLetter(+m[1] - 1) : '';
+          if (!kz || used.has(kz)) { let i = 0; while (used.has(kzLetter(i))) i++; kz = kzLetter(i); }
+          x.kz = kz; used.add(kz);
+        });
         o.wasser = {
-          haehne: hs.map((x) => ({ id: x.id || uid('h'), name: x.name || '', info: x.info || '',
+          haehne: hs.map((x) => ({ id: x.id || uid('h'), kz: x.kz, name: x.name || '', info: x.info || '',
             area: Array.isArray(x.area) && x.area.length >= 3 ? x.area : null, foto: Array.isArray(x.foto) ? x.foto : null,
             sommerwasser: alt || !!x.sommerwasser,
             zu: typeof x.zu === 'string' ? x.zu : (altZu && (alt || x.sommerwasser) ? altZu : '') })),   // abgedreht seit (Datum) oder ''
@@ -568,7 +625,7 @@
 
     onChange(fn) { this.listeners.push(fn); },
 
-    reset() { this.data = seed(); this.save(); },
+    reset() { this.data = seed(); this._normalize(); this.save(); },
 
     // Alle Daten durch die leeren Parzellen aus dem Lageplan ersetzen
     /*
@@ -687,7 +744,7 @@
         if (t.targetType === 'parcel') return `Parzelle ${o.nr}`;
         if (t.targetType === 'box') return `Stromkasten ${o.nr}`;
         if (t.targetType === 'tank') return `Gastank ${o.nr}`;
-        if (t.targetType === 'place') return o.name || PLACE_KINDS[o.kind].label;
+        if (t.targetType === 'place') return this.placeLabel(o);
         if (t.targetType === 'termin') return `${o.title || 'Reservierung / VA'} (${o.start.split('-').reverse().join('.')})`;
       }
       return t.location || 'Allgemein';

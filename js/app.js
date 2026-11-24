@@ -527,7 +527,7 @@
         if (!q) { box.hidden = true; return; }
         const res = [];
         S.parcelsSorted().forEach((p) => {
-          const meterNos = S.metersOf(p.id).map((m) => m.number.toLowerCase());
+          const meterNos = S.metersOf(p.id).flatMap((m) => [m.number.toLowerCase(), S.meterCode(m).toLowerCase()]);
           if (String(p.nr).toLowerCase() === q || String(p.nr).toLowerCase().startsWith(q) ||
               p.tenant.name.toLowerCase().includes(q) || meterNos.some((n) => n.includes(q))) {
             res.push({ type: 'parcel', id: p.id, html: `${nrBadge(p, 'nr-sm')}<span><strong>Parzelle ${h(p.nr)}</strong><br><span class="muted small">${h(tenantName(p))}</span></span>` });
@@ -547,7 +547,7 @@
         // Wasserschächte: Name, Hähne, Zählernummern
         S.schaechte().forEach((o) => {
           const w = o.wasser || { haehne: [], zaehler: [] };
-          const hay = [Wasser.title(o), ...w.haehne.map((x) => x.name), ...w.zaehler.map((z) => z.nr)].join(' ').toLowerCase();
+          const hay = [Wasser.title(o), ...w.haehne.map((x) => S.hahnLabel(o, x)), ...w.zaehler.map((z) => z.nr)].join(' ').toLowerCase();
           if (!hay.includes(q)) return;
           const sub = [w.haehne.length ? `${w.haehne.length} ${w.haehne.length === 1 ? 'Hahn' : 'Hähne'}` : '', w.zaehler.length ? `Zähler ${w.zaehler.map((z) => z.nr).filter(Boolean).join(', ')}` : ''].filter(Boolean).join(' · ');
           res.push({ type: 'place', id: o.id, html: `<span class="pin pin-place pin-wasser" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i><span>${h(o.name)}</span></span><span><strong>${h(Wasser.title(o))}</strong><br><span class="muted small">${h(sub || 'Wasserschacht')}</span></span>` });
@@ -654,7 +654,7 @@
             + (S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : '')
           : h(m.location || 'Ort nicht angegeben');
         return `<li class="meter-item">${ICON[m.type]}<div class="body">
-          <div class="line1">${m.type === 'strom' ? 'Strom' : 'Gas'} · <span class="mono">${h(m.number || '—')}</span></div>
+          <div class="line1">${m.type === 'strom' ? 'Strom' : 'Gas'} · <span class="mono">${h(S.meterCode(m) || '—')}</span></div>
           <div class="line2">${where} · ${lastTxt}</div></div></li>`;
       }
       // im Kasten / Tank: Parzelle im Vordergrund
@@ -663,14 +663,14 @@
         return `<li class="meter-item">${free ? '<span class="nr nr-sm nr-free" title="Freier Zähler">F</span>' : serviceBadge()}
           <div class="body">
             <div class="line1">${h(S.purposeText(m))} <span class="badge">${free ? 'frei' : 'Betrieb'}</span></div>
-            <div class="line2"><span class="mono">${h(m.number || '—')}</span>${context === 'service' ? ` · ${h(S.meterPlace(m) || 'ohne Kasten')}` : ''}${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
+            <div class="line2"><span class="mono">${h(S.meterCode(m) || '—')}</span>${context === 'service' ? ` · ${h(S.meterPlace(m) || 'ohne Kasten')}` : ''}${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
           </div></li>`;
       }
       return `<li class="meter-item is-link" data-goto="#/karte/parcel/${p.id}" tabindex="0">
         ${nrBadge(p, 'nr-sm')}
         <div class="body">
           <div class="line1">${h(tenantName(p))}</div>
-          <div class="line2"><span class="mono">${h(m.number || '—')}</span>${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
+          <div class="line2"><span class="mono">${h(S.meterCode(m) || '—')}</span>${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
         </div></li>`;
     },
 
@@ -1282,7 +1282,7 @@
           <thead><tr>${full ? `<th>Zählerort</th><th>Zählernummer</th>${fuses ? '<th>Sicherung</th>' : ''}` : ''}<th>Datum</th><th class="num">Stand</th><th class="num">Verbrauch</th></tr></thead>
           <tbody>${rows.map(({ m, r, diff }) => `<tr>
             ${full ? `<td data-label="Zählerort">${meterPlaceHtml(m)}</td>
-            <td data-label="Zählernummer" class="mono">${h(m.number || '—')}</td>
+            <td data-label="Zählernummer" class="mono">${h(S.meterCode(m) || '—')}</td>
             ${fuses ? `<td data-label="Sicherung">${h(S.fusesText(m) || '–')}</td>` : ''}` : ''}
             <td data-label="Datum">${r ? fmtDate(r.date) : '–'}</td>
             <td data-label="Stand" class="num">${r ? `${fmtNum(r.value)} ${unit(m.type)}` : '–'}</td>
@@ -1965,7 +1965,7 @@
           <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <div class="if-body">${body}</div></details>`;
       const cnt = (n, one, many, cls = '') => (n ? `<span class="if-c${cls ? ' ' + cls : ''}">${n} ${n === 1 ? one : many}</span>` : '');
-      const otherRows = (ms) => (ms.length ? `<ul class="tenant-rows">${ms.map((m) => `<li><span class="tr-static">${S.isFreeMeter(m) ? '<span class="nr nr-sm nr-free">F</span>' : serviceBadge()}<span>${h(S.purposeText(m))}${m.number ? ` <span class="mono muted small">${h(m.number)}</span>` : ''}</span></span></li>`).join('')}</ul>` : '');
+      const otherRows = (ms) => (ms.length ? `<ul class="tenant-rows">${ms.map((m) => `<li><span class="tr-static">${S.isFreeMeter(m) ? '<span class="nr nr-sm nr-free">F</span>' : serviceBadge()}<span>${h(S.purposeText(m))}${m.number ? ` <span class="mono muted small">${h(S.meterCode(m))}</span>` : ''}</span></span></li>`).join('')}</ul>` : '');
 
       root.innerHTML = `
         <div class="page">
@@ -2174,7 +2174,7 @@
       const st = this.rowState(m);
       return `<div class="reading-row${st.warn ? ' is-warn' : st.saved ? ' is-done' : ''}">
         ${p ? nrBadge(p, 'nr-sm') : serviceBadge()}
-        <div class="who"><strong>${p ? h(tenantName(p)) : h(S.purposeText(m))}</strong><span class="mono muted small">${h(m.number || 'ohne Nr.')}</span></div>
+        <div class="who"><strong>${p ? h(tenantName(p)) : h(S.purposeText(m))}</strong><span class="mono muted small">${h(S.meterCode(m) || 'ohne Nr.')}</span></div>
         <div class="prev">${st.prev ? `Vorher: <strong class="mono">${fmtNum(st.prev.value)}</strong> (${fmtDate(st.prev.date)})` : 'kein vorheriger Stand'}</div>
         <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="Neuer Stand" aria-label="Zählerstand ${p ? 'Parzelle ' + h(p.nr) : h(S.purposeText(m))}">
         <div class="diff">${this.diffHtml(m, st)}</div>
@@ -2289,7 +2289,7 @@
                 ${rows.map((r) => `<tr>
                   <td data-label="Parzelle">${r.p ? `<a href="#/parzelle/${r.p.id}"><strong>${h(r.p.nr)}</strong></a>` : '<span class="badge badge-service">Betrieb</span>'}</td>
                   <td data-label="Name">${r.p ? h(tenantName(r.p)) : h(S.purposeText(r.m))}</td>
-                  <td data-label="Zähler-Nr." class="mono">${h(r.m.number)}</td>
+                  <td data-label="Zähler-Nr." class="mono">${h(S.meterCode(r.m))}</td>
                   <td data-label="Zählerschrank">${h(this.place(r.m))}</td>
                   <td data-label="Letzter Stand" class="num">${reading(r.a)}</td>
                   <td data-label="Aktueller Stand" class="num">${reading(r.b)}</td>
@@ -2444,6 +2444,22 @@
       </section>`;
     },
 
+    // Einmalige Umbenennung (Schächte 2-xx → W-xx, Stromkästen 1-xx → S-xx) mit Vorschau
+    renameCard() {
+      const plan = S.renamePlan();
+      this._rename = plan;
+      if (!plan.length) return '';
+      const row = (r) => `<span${r.conflict ? ' class="warn" title="Name schon vergeben – wird ausgelassen"' : ''}>${r.type === 'schacht' ? 'Wasserschacht' : 'Stromkasten'} ${h(r.from)} → <strong>${h(r.to)}</strong>${r.conflict ? ' (schon vergeben)' : ''}</span>`;
+      const ws = plan.filter((r) => r.type === 'schacht'), bs = plan.filter((r) => r.type === 'box');
+      return `<section class="card plan-sync">
+        <h2>Neue Namen für Wasserschächte und Stromkästen</h2>
+        <p style="margin-top:0">${ws.length ? `<strong>${ws.length} Wasserschächte</strong> von „2-…“ auf „W-…“ (Nummer jeweils eins höher)` : ''}${ws.length && bs.length ? ' und ' : ''}${bs.length ? `<strong>${bs.length} Stromkästen</strong> von „1-…“ auf „S-…“` : ''}.
+          Zähler, Zählerstände, Hähne, Fotos und To-Dos bleiben erhalten – nur der Name ändert sich.</p>
+        <details><summary>Änderungen anzeigen (alt → neu)</summary><div class="sync-list">${plan.map(row).join('')}</div></details>
+        <div class="card-actions"><button class="btn" id="d-rename">Jetzt umbenennen</button></div>
+      </section>`;
+    },
+
     render(root) {
       const d = S.data;
       root.innerHTML = `
@@ -2457,6 +2473,7 @@
             <div class="stat"><div class="v">${d.readings.length}</div><div class="l">Ablesungen</div></div>
           </div>
           ${this.planDiff()}
+          ${this.renameCard()}
           ${d.demo && S.mode === 'local' ? '<p class="notice"><strong>Demo-Daten:</strong> Alle Namen, Nummern und Zählerstände sind erfunden und dienen nur zum Ausprobieren.</p>' : ''}
           <div class="cards cards-2">
             <section class="card">
@@ -2515,6 +2532,15 @@
 
       if (window.Waechter) Waechter.bind(root, {}, toast);
       if (window.MsTodo) MsTodo.bind(root, toast, () => this.render(root));
+      const rn = $('#d-rename', root);
+      if (rn) rn.onclick = () => {
+        if (blockIfMissing()) return;
+        const plan = this._rename.filter((r) => !r.conflict);
+        if (!confirm(`${plan.length} Namen jetzt ändern?\n\n${plan.slice(0, 15).map((r) => `${r.from} → ${r.to}`).join('\n')}${plan.length > 15 ? '\n…' : ''}`)) return;
+        S.applyRename(this._rename);
+        toast(`${plan.length} Namen geändert`);
+        this.render(root);
+      };
       $('#d-export', root).onclick = () => download(`platzverwaltung-sicherung-${today()}.json`, JSON.stringify(S.data, null, 2), 'application/json');
       $('#d-import', root).onchange = (e) => {
         const file = e.target.files[0];
@@ -2680,10 +2706,11 @@
     const opt = (v, l) => `<option value="${h(v)}"${v === cur ? ' selected' : ''}>${h(l)}</option>`;
     const group = (label, items) => (items.length ? `<optgroup label="${h(label)}">${items.join('')}</optgroup>` : '');
     return opt('', 'Allgemein / anderer Ort')
-      + group('Orte auf dem Platz', S.placesSorted().map((o) => opt(`place:${o.id}`, o.name || S.PLACE_KINDS[o.kind].label)))
+      + group('Orte auf dem Platz', S.placesSorted().filter((o) => !S.isSchacht(o)).map((o) => opt(`place:${o.id}`, S.placeLabel(o))))
       + group('Parzellen', S.parcelsSorted().map((p) => opt(`parcel:${p.id}`, `Parzelle ${p.nr}${p.tenant.name ? ' – ' + p.tenant.name : ''}`)))
       + group('Stromkästen', S.boxesSorted().map((b) => opt(`box:${b.id}`, `Stromkasten ${b.nr}${b.location ? ' – ' + b.location : ''}`)))
       + group('Gastanks', S.tanksSorted().map((t) => opt(`tank:${t.id}`, `Gastank ${t.nr}`)))
+      + group('Wasserschächte', S.schaechte().map((o) => opt(`place:${o.id}`, S.placeLabel(o))))
       + group('Reservierungen / VA', noTermine ? [] : S.data.termine.filter((k) => k.kind === 'reservierung' && (k.end >= today() || `termin:${k.id}` === cur))
         .sort((a, b) => a.start.localeCompare(b.start)).map((k) => opt(`termin:${k.id}`, S.todoTargetText({ targetType: 'termin', targetId: k.id }))));
   }
@@ -3087,20 +3114,20 @@
       if (!x || this.guard()) return;
       x.zu = on ? today() : '';
       S.save();
-      toast(`${x.name || 'Absperrhahn'}: ${on ? 'abgedreht' : 'wieder offen'}`);
+      toast(`${S.hahnLabel(o, x)}: ${on ? 'abgedreht' : 'wieder offen'}`);
       sommerwasserCheck();
       renderAlarms();
     },
     sunHtml(x) { return x.sommerwasser ? `<span class="ws-sun" aria-label="Sommerwasser">${WICO.sun}</span>` : ''; },
     sunLegend(show) { return show ? `<p class="ws-legend"><span class="ws-sun">${WICO.sun}</span> = Sommerwasser</p>` : ''; },
     // „Wasserschacht 1.01“ – außer der Name sagt es schon
-    title(o) { const n = o.name || ''; return /schacht/i.test(n) ? n : `Wasserschacht ${n}`.trim(); },
+    title(o) { return S.placeLabel(o); },
     editing: null,   // Schacht, dessen Fenster gerade im Bearbeiten-Modus ist
     // Kurzinfo beim Überfahren des Schachts auf der Map
     tipHtml(o) {
       const w = o.wasser;
       return `<div class="st-title">${h(this.title(o))}</div>
-        ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}</li>`).join('')}</ul>` : '<div class="st-none">keine Absperrhähne</div>'}
+        ${w.haehne.length ? `<ul>${w.haehne.map((x) => `<li>${h(S.hahnLabel(o, x))}${this.sunHtml(x)}</li>`).join('')}</ul>` : '<div class="st-none">keine Absperrhähne</div>'}
         ${w.zaehler.length ? `<div class="schacht-tip-z">${WICO.meter}<span>Zähler ${w.zaehler.map((z) => h(z.nr || 'ohne Nummer')).join(', ')}</span></div>` : ''}`;
     },
     readingsHtml(z, opts = {}) {
@@ -3114,10 +3141,10 @@
       }).join('')}</tbody></table>`;
     },
 
-    // Foto mit Markierungen: Hähne als Kreis mit Nummer, Zähler als Kästchen „Z1“ (Reihenfolge wie in der Liste)
+    // Foto mit Markierungen: Hähne als Kreis mit ihrem Buchstaben, Zähler als Kästchen „Z1“
     photoHtml(o, url, cls = '') {
       const mk = (x, label, title, extra) => (x.foto ? `<span class="ws-mark${extra}${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%" title="${h(title)}">${label}</span>` : '');
-      const marks = o.wasser.haehne.map((x, i) => mk(x, i + 1, x.name || 'Absperrhahn', '')).join('')
+      const marks = o.wasser.haehne.map((x) => mk(x, h(x.kz), S.hahnLabel(o, x), '')).join('')
         + (o.wasser.zaehler || []).map((z, i) => mk(z, `Z${i + 1}`, `Zähler ${z.nr || ''}`, ' is-meter')).join('');
       return `<div class="ws-photo ${cls}"><img src="${h(url)}" alt="" draggable="false" onerror="window.reloadPlacePhotos && window.reloadPlacePhotos()">${marks}</div>`;
     },
@@ -3148,13 +3175,14 @@
           <div class="section-title">Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
           ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
-              ${x.foto && o.photo ? `<span class="ws-no" title="Nummer auf dem Foto">${i + 1}</span>` : ''}
-              <span class="ws-h-main"><strong>${h(x.name || 'Absperrhahn')}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
-                ${x.info ? `<span class="small">${h(x.info)}</span>` : ''}</span>
+              ${x.foto && o.photo ? `<span class="ws-no" title="Markierung auf dem Foto">${h(x.kz)}</span>` : ''}
+              <span class="ws-h-main"><strong>Absperrhahn ${h(S.hahnCode(o, x))}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
+                ${S.hahnName(x) ? `<span class="small">${h(S.hahnName(x))}</span>` : ''}
+                ${x.info ? `<span class="small muted">${h(x.info)}</span>` : ''}</span>
               <label class="ws-zu${x.zu ? ' is-zu' : ''}" title="${x.zu ? `abgedreht am ${fmtDate(x.zu)}` : 'Hahn ist offen'}"><input type="checkbox" data-hahn-zu="${x.id}"${x.zu ? ' checked' : ''}> zu</label>
-              ${ed ? `<select class="ws-h-act" data-hahn-act="${x.id}" aria-label="Aktionen für ${h(x.name || 'Absperrhahn')}" title="Bearbeiten, Bereich zeichnen …">
+              ${ed ? `<select class="ws-h-act" data-hahn-act="${x.id}" aria-label="Aktionen für ${h(S.hahnLabel(o, x))}" title="Bearbeiten, Bereich zeichnen …">
                 <option value="">…</option>
-                <option value="edit">Name / Info / Sommerwasser</option>
+                <option value="edit">Bezeichnung / Info / Sommerwasser</option>
                 <option value="area">${x.area ? 'Bereich neu zeichnen' : 'Bereich auf Map zeichnen'}</option>
                 ${x.area ? '<option value="noarea">Bereich entfernen</option>' : ''}
                 ${o.photo ? `<option value="foto">${x.foto ? 'Auf Foto neu markieren' : 'Auf Foto markieren'}</option>` : ''}
@@ -3212,7 +3240,7 @@
         if (act === 'foto') this.markPhoto(o, hid);
         if (act === 'del') {
           const x = this.hahn(o, hid);
-          if (!confirm(`Absperrhahn „${x.name || 'ohne Namen'}“ löschen?`)) return;
+          if (!confirm(`Absperrhahn ${S.hahnLabel(o, x)} löschen?`)) return;
           o.wasser.haehne = o.wasser.haehne.filter((y) => y.id !== hid);
           if (MapView.selHahn === hid) MapView.selHahn = null;
           S.save();
@@ -3264,7 +3292,7 @@
       formDialog({
         title: o ? `${o.name} bearbeiten` : 'Neuer Wasserschacht',
         fields: [
-          { name: 'name', label: 'Name', value: o ? o.name : (() => { let n = S.schaechte().length + 1; while (this.nameTaken(`Wasserschacht ${n}`)) n++; return `Wasserschacht ${n}`; })(), required: true, placeholder: 'z. B. Schacht Hauptweg' },
+          { name: 'name', label: 'Name', value: o ? o.name : (() => { let n = S.schaechte().length + 1; while (this.nameTaken(`W-${String(n).padStart(2, '0')}`)) n++; return `W-${String(n).padStart(2, '0')}`; })(), required: true, placeholder: 'z. B. W-05' },
           { name: 'notes', label: 'Infotext', type: 'textarea', value: o ? o.notes : '', placeholder: 'z. B. Lage, Deckel, Werkzeug …' },
           { name: 'abstell', label: 'Infos zum Abstellen (Sommerwasser)', type: 'textarea', value: w ? w.abstellInfo : '', placeholder: 'z. B. welche Hähne zu, wo entleeren …' },
         ],
@@ -3321,20 +3349,20 @@
       if (this.guard()) return;
       const x = hid ? this.hahn(o, hid) : null;
       formDialog({
-        title: x ? 'Absperrhahn bearbeiten' : `Neuer Absperrhahn in ${o.name}`,
+        title: x ? `Absperrhahn ${S.hahnCode(o, x)}` : `Neuer Absperrhahn ${o.name}/${S.nextKz(o)}`,
         fields: [
-          { name: 'name', label: 'Name / Bereich', value: x ? x.name : `Hahn ${o.wasser.haehne.length + 1}`, required: true, placeholder: 'z. B. Hahn 2 – Sanitärgebäude' },
+          { name: 'name', label: 'Bezeichnung (optional)', value: x ? S.hahnName(x) : '', placeholder: 'z. B. Sanitärgebäude, Platz 2 links' },
           { name: 'info', label: 'Info (optional)', value: x ? x.info : '', placeholder: 'z. B. blauer Griff, Linksgewinde …' },
           { name: 'sommer', label: 'Sommerwasser (vor dem ersten Frost abstellen)', type: 'select', value: x && x.sommerwasser ? '1' : '0', options: [['0', 'nein'], ['1', 'ja']] },
         ],
         submitLabel: x ? 'Speichern' : 'Anlegen',
         onSubmit: (v) => {
           if (x) { x.name = v.name.trim(); x.info = v.info.trim(); x.sommerwasser = v.sommer === '1'; S.save(); toast('Gespeichert'); sommerwasserCheck(); return; }
-          const neu = { id: S.uid('h'), name: v.name.trim(), info: v.info.trim(), area: null, foto: null, sommerwasser: v.sommer === '1' };
+          const neu = { id: S.uid('h'), kz: S.nextKz(o), name: v.name.trim(), info: v.info.trim(), area: null, foto: null, sommerwasser: v.sommer === '1', zu: '' };
           o.wasser.haehne.push(neu);
           MapView.selHahn = neu.id;
           S.save();
-          setTimeout(() => { if (confirm(`Bereich für „${neu.name}“ jetzt auf der Map zeichnen?`)) this.drawArea(o, neu.id); }, 200);
+          setTimeout(() => { if (confirm(`Bereich für Absperrhahn ${S.hahnCode(o, neu)} jetzt auf der Map zeichnen?`)) this.drawArea(o, neu.id); }, 200);
         },
       });
     },
@@ -3353,9 +3381,9 @@
           S.save();
           go(`#/karte/place/${o.id}`);
           MapUI.showPanel('place', o.id);
-          toast(`Bereich für „${x.name}“ gespeichert`);
+          toast(`Bereich für ${S.hahnCode(o, x)} gespeichert`);
         }, () => { go(`#/karte/place/${o.id}`); MapUI.showPanel('place', o.id); }, { ortho: true, color: '#3cc8d0' });
-        MapView.mode.label = `Bereich für „${x.name || 'Absperrhahn'}“`;
+        MapView.mode.label = `Bereich für „${S.hahnLabel(o, x)}“`;
         MapUI.renderModebar();
       }, 50);
     },
@@ -3385,7 +3413,7 @@
       const isMeter = !this.hahn(o, hid);
       const dlg = $('#dialog');
       let pos = x.foto ? x.foto.slice() : null;
-      dlg.innerHTML = `<div class="ws-lightbox"><p class="ws-lb-hint">Auf dem Foto antippen, wo ${isMeter ? `der Zähler ${h(x.nr || '')}` : `„${h(x.name || 'Absperrhahn')}“`} sitzt.</p>
+      dlg.innerHTML = `<div class="ws-lightbox"><p class="ws-lb-hint">Auf dem Foto antippen, wo ${isMeter ? `der Zähler ${h(x.nr || '')}` : `„${h(S.hahnLabel(o, x))}“`} sitzt.</p>
         <div class="ws-lb-img is-mark"></div>
         <div class="lightbox-bar"><span class="grow"></span><button type="button" class="btn btn-ghost btn-sm" data-cancel>Abbrechen</button>
         <button type="button" class="btn btn-sm" data-save>Speichern</button></div></div>`;
@@ -3471,7 +3499,7 @@
             <span class="if-main"><span class="if-t">${h(o.name)}</span>${o.notes ? `<span class="if-loc">${h(o.notes)}</span>` : (o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>')}</span>
             <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="if-body">
-            ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li><strong>${h(x.name || 'Absperrhahn')}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
+            ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li><strong>${h(S.hahnLabel(o, x))}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
             ${w.zaehler.map((z) => { const last = z.ablesungen[z.ablesungen.length - 1]; return `<p class="small ws-tech-z">${WICO.meter} Zähler <span class="mono">${h(z.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}
               <button type="button" class="link-btn small" data-ws-read="${o.id}:${z.id}">${ICON.plus} Stand</button></p>`; }).join('')}
             <div class="card-actions">
@@ -3502,7 +3530,7 @@
             <li class="${S.isAbgestellt(o) ? 'is-done' : ''}">
               <strong>${h(this.title(o))}</strong>
               ${S.swHaehne(o).map((x) => `<label class="ws-check-box"><input type="checkbox" data-ws-zu="${o.id}:${x.id}"${x.zu ? ' checked' : ''}>
-                <span>${h(x.name || 'Absperrhahn')}${x.zu ? ` <span class="ok small">abgedreht am ${fmtDate(x.zu)}</span>` : frost ? ` ${this.warnIco}` : ''}</span></label>`).join('')}
+                <span>${h(S.hahnLabel(o, x))}${x.zu ? ` <span class="ok small">abgedreht am ${fmtDate(x.zu)}</span>` : frost ? ` ${this.warnIco}` : ''}</span></label>`).join('')}
               ${o.wasser.abstellInfo ? `<p class="small" style="white-space:pre-line">${h(o.wasser.abstellInfo)}</p>` : ''}
             </li>`).join('')}</ul>
             <p class="small muted">Sobald in der 7-Tage-Wettervorhersage Frost angekündigt ist, erscheint automatisch das To-Do „Sommerwasser abstellen“ (fällig am Frosttag). Sind alle abgehakt, ist es erledigt.</p>`
@@ -3538,7 +3566,7 @@
     S.data.todos.push({
       id, title: 'Sommerwasser abstellen', status: 'offen', targetType: '', targetId: '', location: 'Wasserschächte',
       deadline: frost.date, appointment: '', assignee: '', photos: [], calendar: '', doneAt: '', createdAt: new Date().toISOString(),
-      description: `Frost angekündigt für ${fmtDate(frost.date)} (${Math.round(frost.min)} °C).\n\n${pend.map((o) => `• ${o.name} (${S.swHaehne(o).map((x) => x.name || 'Absperrhahn').join(', ')})${o.wasser.abstellInfo ? `: ${o.wasser.abstellInfo}` : ''}`).join('\n')}\n\nAbhaken unter Infrastruktur → Wasser → Sommerwasser-Checkliste.`,
+      description: `Frost angekündigt für ${fmtDate(frost.date)} (${Math.round(frost.min)} °C).\n\n${pend.map((o) => `• ${o.name} (${S.swHaehne(o).map((x) => S.hahnLabel(o, x)).join(', ')})${o.wasser.abstellInfo ? `: ${o.wasser.abstellInfo}` : ''}`).join('\n')}\n\nAbhaken unter Infrastruktur → Wasser → Sommerwasser-Checkliste.`,
     });
     S.save();
     toast('Frost angekündigt – To-Do „Sommerwasser abstellen“ angelegt');
@@ -4159,7 +4187,7 @@
     const offen = frost && S.data ? S.schaechte().filter((o) => Wasser.frostOpen(o).length) : [];
     if (offen.length) {
       list.push({ id: offen[0].id, key: `frost:${frost.date}`, level: 'warn', name: `Frost am ${fmtDate(frost.date)} (${Math.round(frost.min)} °C)`, href: '#/technik/wasser',
-        text: `Sommerwasser abdrehen – noch offen: ${offen.map((o) => `${Wasser.title(o)} (${Wasser.frostOpen(o).map((x) => x.name || 'Absperrhahn').join(', ')})`).join('; ')}` });
+        text: `Sommerwasser abdrehen – noch offen: ${offen.map((o) => `${Wasser.title(o)} (${Wasser.frostOpen(o).map((x) => S.hahnLabel(o, x)).join(', ')})`).join('; ')}` });
     }
     bar.hidden = !list.length;
     bar.className = `wd-alarm${list.some((a) => a.level === 'alarm') ? ' is-alarm' : ''}`;

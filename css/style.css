@@ -1404,3 +1404,13 @@ svg.pk-ico.pk-solid { fill: currentColor !important; stroke: none !important; }
 /* Warnhinweis unter einem Eingabefeld (z. B. doppelter Schachtname) */
 .field-warn { margin: 4px 0 0; color: var(--gefahr); font-size: .85rem; font-weight: 600; }
 input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px rgba(179,64,46,.15); }
+
+/* Schacht-Foto: Rahmen genau so groß wie das Bild, damit Markierungen in Vorschau und Vollbild gleich sitzen */
+.ws-photo-btn, .ws-lb-img { display: flex; justify-content: center; }
+.ws-photo:not(.is-empty) { display: block; width: fit-content; max-width: 100%; margin: 0 auto; background: none; }
+.ws-photo:not(.is-empty) img { width: auto; max-width: 100%; height: auto; max-height: 220px; object-fit: fill; }
+.ws-photo.is-big:not(.is-empty) img { max-height: 70vh; }
+/* Wasser-Schildchen auf der Map: kräftigeres Türkis, dunkle Schrift wie bei den Stromkästen */
+.pin.pin-place.pin-wasser { background: #7fd3db; color: #0d2a3a; border-color: #fff; }
+.pin.pin-place.pin-wasser i svg, .pin.pin-place.pin-wasser svg.pk-ico { color: #0d2a3a; }
+.pin.pin-place.pin-wasser.is-selected { border-color: #0d2a3a; }
