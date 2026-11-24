@@ -1571,3 +1571,7 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
   .bx-meter.rd-row > .rd-in input { width: 100%; }
   .bx-meter.rd-row > .rd-diff, .bx-meter.rd-row .rd-diff { text-align: right; }
 }
+
+/* Map-Schnellansicht Stromkasten: nur Zähler + Sicherung, ohne Stände */
+.bx-meters.is-compact .bx-group .bx-meter { padding-top: 4px; }
+.bx-meters.is-compact .bx-group .bx-meter + .bx-meter { margin-top: 4px; }

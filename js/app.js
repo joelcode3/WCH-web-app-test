@@ -692,7 +692,7 @@
 
     // Stromkasten: Zähler nach Parzelle gruppiert – Parzelle (Nummer + Mieter) oben, darunter ihre Zähler
     // mit Sicherung und den letzten Ständen. Unveränderter Stand seit der letzten Ablesung → „inaktiv“ (ausgegraut).
-    boxMeterGroups(meters) {
+    boxMeterGroups(meters, opts = {}) {
       const groups = [];
       const byKey = new Map();
       meters.forEach((m) => {
@@ -706,7 +706,7 @@
           : `<span class="nr nr-xs nr-free">${S.isFreeMeter(m0) ? 'F' : 'B'}</span><strong>${h(S.purposeText(m0))}</strong> <span class="muted">· ${S.isFreeMeter(m0) ? 'frei' : 'Betrieb'}</span>`;
         return `<li class="bx-group${g.p ? ' is-link' : ''}"${g.p ? ` data-goto="#/karte/parcel/${g.p.id}" tabindex="0"` : ''}>
           <div class="bx-head">${head}</div>
-          ${g.meters.map((m) => this.boxMeterItem(m)).join('')}
+          ${g.meters.map((m) => this.boxMeterItem(m, opts)).join('')}
         </li>`;
       }).join('');
     },
@@ -724,7 +724,8 @@
         return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
       const last = all[all.length - 1];
-      const body = n === 0
+      const body = opts.reads === false ? ''
+        : n === 0
         ? `<div class="bx-info bx-lastline">${last ? `<strong>${fmtNum(last.value)} ${unit(m.type)}</strong> <span class="muted">· ${fmtDate(last.date)}</span>` : '<span class="muted">Noch kein Zählerstand.</span>'}</div>`
         : reads + (older.length ? `<details class="bx-more"><summary>Ältere Stände (${older.length})</summary><table class="ws-read"><tbody>${older.map((r) => {
           const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
@@ -747,7 +748,7 @@
         </div>
         <div class="panel-body">
           <div class="section-title ws-st is-strom">${BICO.meter}Stromzähler${meters.length ? ` · ${meters.length}` : ''}</div>
-          ${meters.length ? `<ul class="bx-meters">${this.boxMeterGroups(meters)}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
+          ${meters.length ? `<ul class="bx-meters is-compact">${this.boxMeterGroups(meters, { reads: false })}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
           ${todoSection('box', b.id)}
         </div>
         <div class="panel-actions">
