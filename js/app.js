@@ -3672,7 +3672,7 @@
             <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="if-body">
             ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li>${WICO.valve}<strong>${h(S.hahnLabel(o, x))}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
-            ${w.zaehler.map((z) => { const last = z.ablesungen[z.ablesungen.length - 1]; return `<p class="small ws-tech-z">${WICO.meter} Z${z.znr} · Zähler <span class="mono">${h(z.nr || '–')}</span>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}
+            ${w.zaehler.map((z) => { const last = z.ablesungen[z.ablesungen.length - 1]; return `<p class="small ws-tech-z">${WICO.meter} <strong>Z${z.znr}</strong> · Zähler <strong class="mono">${h(z.nr || '–')}</strong>${last ? ` · ${fmtNum(last.stand)} m³ am ${fmtDate(last.datum)}` : ' · noch kein Stand'}
               <button type="button" class="link-btn small" data-ws-read="${o.id}:${z.id}">${ICON.plus} Stand</button></p>`; }).join('')}
             <div class="card-actions">
               ${o.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/place/${o.id}">${ICON.map} Map</a>` : `<button type="button" class="btn btn-sm" data-ws-place="${o.id}">${ICON.map} Auf Map platzieren</button>`}
