@@ -3145,8 +3145,8 @@
     // Foto mit Markierungen: Hähne als Kreis mit ihrem Buchstaben, Zähler als Kästchen „Z1“
     photoHtml(o, url, cls = '') {
       const mk = (x, label, title, extra) => (x.foto ? `<span class="ws-mark${extra}${MapView.selHahn === x.id ? ' is-sel' : ''}" style="left:${x.foto[0]}%;top:${x.foto[1]}%" title="${h(title)}">${label}</span>` : '');
-      const marks = o.wasser.haehne.map((x) => mk(x, h(x.kz), S.hahnLabel(o, x), '')).join('')
-        + (o.wasser.zaehler || []).map((z) => mk(z, `Z${z.znr}`, `Zähler ${z.nr || ''}`, ' is-meter')).join('');
+      const marks = o.wasser.haehne.map((x) => mk(x, h(x.kz), S.hahnLabel(o, x), x.kz.length > 1 ? ' is-long' : '')).join('')
+        + (o.wasser.zaehler || []).map((z) => mk(z, `Z${z.znr}`, `Zähler ${z.nr || ''}`, z.znr >= 10 ? ' is-meter is-long' : ' is-meter')).join('');
       return `<div class="ws-photo ${cls}"><img src="${h(url)}" alt="" draggable="false" onerror="window.reloadPlacePhotos && window.reloadPlacePhotos()">${marks}</div>`;
     },
 
@@ -3176,7 +3176,7 @@
           <div class="section-title ws-st">${WICO.valve}Absperrhähne${w.haehne.length ? ` · ${w.haehne.length}` : ''}</div>
           ${w.haehne.length ? `<ul class="ws-haehne">${w.haehne.map((x, i) => `
             <li class="${MapView.selHahn === x.id ? 'is-sel' : ''}" data-hahn="${x.id}" tabindex="0" title="Bereich auf der Map hervorheben">
-              <span class="ws-ic" title="Absperrhahn ${h(S.hahnCode(o, x))}">${h(x.kz)}</span>
+              <span class="ws-ic${x.kz.length > 1 ? ' is-long' : ''}" title="Absperrhahn ${h(S.hahnCode(o, x))}">${h(x.kz)}</span>
               <span class="ws-h-main"><strong>${h(S.hahnCode(o, x))}${this.sunHtml(x)}${x.sommerwasser && !x.zu && this.frostDay() ? this.warnIco : ''}</strong>
                 ${S.hahnName(x) ? `<span class="small">${h(S.hahnName(x))}</span>` : ''}
                 ${x.info ? `<span class="small muted">${h(x.info)}</span>` : ''}</span>
@@ -3196,7 +3196,7 @@
           ${w.zaehler.length || ed ? `<div class="section-title ws-st is-meter">${WICO.meter}Wasserzähler${w.zaehler.length > 1 ? ` · ${w.zaehler.length}` : ''}</div>` : ''}
           ${w.zaehler.map((z, i) => `<div class="ws-zbox${MapView.selHahn === z.id ? ' is-sel' : ''}">
             <div class="ws-meter" data-meter="${z.id}" title="Auf dem Foto hervorheben">
-              <span><span class="ws-ic is-meter" title="Wasserzähler Z${z.znr}">Z${z.znr}</span><strong>Zähler <span class="mono">${h(z.nr || 'ohne Nummer')}</span></strong></span>
+              <span><span class="ws-ic is-meter${z.znr >= 10 ? ' is-long' : ''}" title="Wasserzähler Z${z.znr}">Z${z.znr}</span><strong>Zähler <span class="mono">${h(z.nr || 'ohne Nummer')}</span></strong></span>
               ${ed ? `<select class="ws-h-act" data-meter-act="${z.id}" aria-label="Aktionen für Zähler ${h(z.nr || '')}">
                 <option value="">…</option>
                 <option value="edit">Zählernummer ändern</option>
