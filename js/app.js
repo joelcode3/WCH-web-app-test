@@ -1914,18 +1914,18 @@
       const fuseText = (m) => (m.fuses || []).map((f) => f.nr).filter(Boolean).join(', ');
 
       const renderRows = () => {
-        list.innerHTML = meters.length ? `<div class="mx-head"><span>Zähler-Nr.</span><span>Zuordnung (Parzelle, Mieter oder Betrieb)</span><span>Sicherung</span><span></span></div>`
+        list.innerHTML = meters.length ? `<div class="mx-head"><span>Zähler-Nr.</span><span>Sicherung</span><span>Zuordnung (Parzelle, Mieter oder Betrieb)</span><span></span></div>`
           + meters.map((m, i) => {
           const a = assignOf(m);
           const isService = a.startsWith('s:');
           return `
           <div class="mx-row" data-i="${i}">
             <input type="text" class="mx-nr" data-k="number" value="${h(m.number)}" autocomplete="off" placeholder="Nr." aria-label="Zählernummer">
+            <input type="text" class="mx-fuse" data-fuse value="${h(fuseText(m))}" autocomplete="off" placeholder="Sich." title="Sicherung, mehrere mit Komma (z. B. F3, F4)" aria-label="Sicherung" ${fusesMissing() ? 'disabled title="erst nach Datenbank-Update"' : ''}>
             <div class="mx-assign">
               <input type="text" data-assign value="${h(choiceLabel(a))}" placeholder="Name oder Parzelle suchen …" autocomplete="off" aria-label="Zuordnung">
               <ul class="mx-list" hidden></ul>
             </div>
-            <input type="text" class="mx-fuse" data-fuse value="${h(fuseText(m))}" autocomplete="off" placeholder="Sicherung" title="Sicherung, mehrere mit Komma (z. B. F3, F4)" aria-label="Sicherung" ${fusesMissing() ? 'disabled title="erst nach Datenbank-Update"' : ''}>
             <button type="button" class="close meter-remove" data-remove="${i}" aria-label="Zähler entfernen" title="Zähler entfernen">${ICON.trash}</button>
             ${isService ? `<input type="text" class="mx-label" data-k="label" value="${h(m.label)}" placeholder="Bezeichnung (optional), z. B. Sanitärgebäude Nord" aria-label="Bezeichnung">` : ''}
             <p class="dup-warn" hidden></p>
