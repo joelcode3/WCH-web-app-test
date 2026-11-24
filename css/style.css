@@ -1575,3 +1575,13 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 /* Map-Schnellansicht Stromkasten: nur Zähler + Sicherung, ohne Stände */
 .bx-meters.is-compact .bx-group .bx-meter { padding-top: 4px; }
 .bx-meters.is-compact .bx-group .bx-meter + .bx-meter { margin-top: 4px; }
+
+/* Zählerkennung: Kasten-Teil dunkelgrau, Zählernummer schwarz (Variante A) */
+.mc-pre { color: #6b746d; }
+.mc-nr { color: #111; }
+.bx-meter.is-inaktiv .mc-nr { color: inherit; }
+/* Infrastruktur: Titelzeile einzeilig (Gastank mit Liter/Notiz) */
+.if-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.if-inl { font-weight: 500; color: var(--text-leise); margin-left: 6px; }
+/* Seiten mit Unterreitern: Scrollleiste immer, damit nichts seitlich springt */
+html:has(.tabs) { overflow-y: scroll; }

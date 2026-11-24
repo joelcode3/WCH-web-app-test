@@ -104,6 +104,15 @@
     return '﻿' + rows.map((r) => r.map(cell).join(';')).join('\r\n');
   }
 
+  /* Zählerkennung „S-02/55“: Kasten-Teil dunkelgrau, Zählernummer schwarz */
+  function meterCodeHtml(m, empty = '—') {
+    const code = S.meterCode(m);
+    if (!code) return h(empty);
+    const b = m.boxId && !m.inHouse ? S.box(m.boxId) : null;
+    if (b && m.number && code.startsWith(`${b.nr}/`)) return `<span class="mc-pre">${h(b.nr)}/</span><span class="mc-nr">${h(m.number)}</span>`;
+    return `<span class="mc-nr">${h(code)}</span>`;
+  }
+
   /* Formular-Dialog: fields = [{name,label,type,value,options,required,full}] */
   function formDialog({ title, fields, submitLabel = 'Speichern', onSubmit, extra = '' }) {
     const dlg = $('#dialog');
@@ -670,7 +679,7 @@
             + (S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : '')
           : h(m.location || 'Ort nicht angegeben');
         return `<li class="meter-item">${ICON[m.type]}<div class="body">
-          <div class="line1">${m.type === 'strom' ? 'Strom' : 'Gas'} · <span class="mono">${h(S.meterCode(m) || '—')}</span></div>
+          <div class="line1">${m.type === 'strom' ? 'Strom' : 'Gas'} · <span class="mono">${meterCodeHtml(m)}</span></div>
           <div class="line2">${where} · ${lastTxt}</div></div></li>`;
       }
       // im Kasten / Tank: Parzelle im Vordergrund
@@ -679,14 +688,14 @@
         return `<li class="meter-item">${free ? '<span class="nr nr-sm nr-free" title="Freier Zähler">F</span>' : serviceBadge()}
           <div class="body">
             <div class="line1">${h(S.purposeText(m))} <span class="badge">${free ? 'frei' : 'Betrieb'}</span></div>
-            <div class="line2"><span class="mono">${h(S.meterCode(m) || '—')}</span>${context === 'service' ? ` · ${h(S.meterPlace(m) || 'ohne Kasten')}` : ''}${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
+            <div class="line2"><span class="mono">${meterCodeHtml(m)}</span>${context === 'service' ? ` · ${h(S.meterPlace(m) || 'ohne Kasten')}` : ''}${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
           </div></li>`;
       }
       return `<li class="meter-item is-link" data-goto="#/karte/parcel/${p.id}" tabindex="0">
         ${nrBadge(p, 'nr-sm')}
         <div class="body">
           <div class="line1">${h(tenantName(p))}</div>
-          <div class="line2"><span class="mono">${h(S.meterCode(m) || '—')}</span>${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
+          <div class="line2"><span class="mono">${meterCodeHtml(m)}</span>${S.fusesText(m) ? ` · Sich. ${h(S.fusesText(m))}` : ''} · ${lastTxt}</div>
         </div></li>`;
     },
 
@@ -736,7 +745,7 @@
           return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
         }).join('')}</tbody></table></details>` : '');
       return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}" data-mid="${m.id}">
-        <div class="bx-code">${BICO.meter}<strong class="mono">${h(S.meterCode(m) || 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
+        <div class="bx-code">${BICO.meter}<strong class="mono">${meterCodeHtml(m, 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
         ${body}
       </div>`;
     },
@@ -2148,9 +2157,9 @@
           <div class="infra-list is-rows">
             ${tanks.map((t) => {
               const ps = S.parcelsOnTank(t.id);
-              const info = [t.capacity, t.notes].filter(Boolean).join(' · ');
+              const info = [t.capacity, t.notes].filter(Boolean).map((x) => `<span class="if-inl">· ${h(x)}</span>`).join('');
               return fold(`tank:${t.id}`, `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span>`,
-                [`Gastank ${h(t.nr)}`, info || (t.pos ? '' : 'noch nicht auf der Map')],
+                [`Gastank ${h(t.nr)}${info}`, t.pos ? '' : 'noch nicht auf der Map'],
                 cnt(ps.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine Parzellen</span>',
                 `${(() => {
                   const gm = ps.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
@@ -2166,7 +2175,7 @@
                 </div>`);
             }).join('') || '<p class="muted">Noch keine Gastanks angelegt.</p>'}
             ${(() => { const bt = S.parcelsSorted().filter((p) => p.gas === 'bottle');
-              return fold('flaschen', `<span class="pin pin-tank pin-house" style="transform:none">${ICON.gas}</span>`, ['Gasflaschen', 'kein Zähler'],
+              return fold('flaschen', `<span class="pin pin-tank pin-house" style="transform:none">${ICON.gas}</span>`, ['Gasflaschen<span class="if-inl">· kein Zähler</span>', ''],
                 cnt(bt.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine</span>', rows(bt) || '<p class="muted small">–</p>'); })()}
           </div>
           `}
@@ -2324,7 +2333,7 @@
       const st = this.rowState(m);
       return `<div class="reading-row${st.warn ? ' is-warn' : st.saved ? ' is-done' : ''}">
         ${p ? nrBadge(p, 'nr-sm') : serviceBadge()}
-        <div class="who"><strong>${p ? h(tenantName(p)) : h(S.purposeText(m))}</strong><span class="mono muted small">${h(S.meterCode(m) || 'ohne Nr.')}</span></div>
+        <div class="who"><strong>${p ? h(tenantName(p)) : h(S.purposeText(m))}</strong><span class="mono small">${meterCodeHtml(m, 'ohne Nr.')}</span></div>
         <div class="prev">${st.prev ? `Vorher: <strong class="mono">${fmtNum(st.prev.value)}</strong> (${fmtDate(st.prev.date)})` : 'kein vorheriger Stand'}</div>
         <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="Neuer Stand" aria-label="Zählerstand ${p ? 'Parzelle ' + h(p.nr) : h(S.purposeText(m))}">
         <div class="diff">${this.diffHtml(m, st)}</div>
@@ -3657,8 +3666,8 @@
         const counts = [`<span class="if-c">${w.haehne.length} ${w.haehne.length === 1 ? 'Hahn' : 'Hähne'}</span>`,
           w.zaehler.length ? `<span class="if-c">${w.zaehler.length} Zähler</span>` : '', S.hatSommerwasser(o) ? `<span class="if-c${S.isAbgestellt(o) ? ' is-free' : ''}">Sommerwasser${S.isAbgestellt(o) ? ' aus' : ''}</span>` : ''].join('');
         return `<details class="infra-fold" data-fold="${o.id}"${this.openIds.has(o.id) ? ' open' : ''}>
-          <summary><span class="pin pin-place pin-wasser pin-house" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i></span>
-            <span class="if-main"><span class="if-t">${h(o.name)}</span>${o.notes ? `<span class="if-loc">${h(o.notes)}</span>` : (o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>')}</span>
+          <summary><span class="pin pin-place pin-wasser" style="transform:none"><i>${S.PLACE_KINDS.schacht.icon}</i><span>${h(o.name)}</span></span>
+            <span class="if-main"><span class="if-t">${h(this.title(o))}</span>${o.notes ? `<span class="if-loc">${h(o.notes)}</span>` : (o.pos ? '' : '<span class="if-loc">noch nicht auf der Map</span>')}</span>
             <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
           <div class="if-body">
             ${w.haehne.length ? `<ul class="ws-tech-h">${w.haehne.map((x) => `<li>${WICO.valve}<strong>${h(S.hahnLabel(o, x))}</strong>${this.sunHtml(x)}${x.info ? ` <span class="muted small">· ${h(x.info)}</span>` : ''}${x.area ? '' : ' <span class="warn small">· kein Bereich</span>'}</li>`).join('')}</ul>` : '<p class="muted small">Noch keine Absperrhähne.</p>'}
