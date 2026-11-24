@@ -1906,40 +1906,83 @@
       const form = $('#box-form', root);
       const list = $('#box-meters', root);
 
+      // Auswahl für die Zuordnung: Frei, Betriebsstrom, Parzellen (mit Mieter) – durchsuchbar
+      const choices = [['f:frei', 'Frei (nicht zugeordnet)', 'frei'],
+        ...purposeOpts.map(([v, l]) => [v, `${l} (Betrieb)`, `${l} betrieb`]),
+        ...S.parcelsSorted().map((p) => [`p:${p.id}`, `${p.nr}${p.tenant.name ? ' – ' + p.tenant.name : ' – frei'}`, `${p.nr} ${p.tenant.name || ''} ${p.tenant.name2 || ''}`])];
+      const choiceLabel = (v) => (choices.find((c) => c[0] === v) || [, ''])[1];
+      const fuseText = (m) => (m.fuses || []).map((f) => f.nr).filter(Boolean).join(', ');
+
       const renderRows = () => {
-        list.innerHTML = meters.length ? meters.map((m, i) => {
+        list.innerHTML = meters.length ? `<div class="mx-head"><span>Zähler-Nr.</span><span>Zuordnung (Parzelle, Mieter oder Betrieb)</span><span>Sicherung</span><span></span></div>`
+          + meters.map((m, i) => {
           const a = assignOf(m);
           const isService = a.startsWith('s:');
           return `
-          <div class="meter-edit meter-edit-box" data-i="${i}">
-            <label class="field"><span>Zähler-Nr.</span><input type="text" data-k="number" value="${h(m.number)}" autocomplete="off"></label>
-            <label class="field"><span>Zuordnung</span>
-              <select data-k="assign">
-                <option value=""${a ? '' : ' selected'}>– bitte wählen –</option>
-                <option value="f:frei"${a === 'f:frei' ? ' selected' : ''}>Frei (nicht zugeordnet)</option>
-                <optgroup label="Betriebsstrom">${purposeOpts.map(([v, l]) => `<option value="${v}"${v === a ? ' selected' : ''}>${h(l)}</option>`).join('')}</optgroup>
-                <optgroup label="Parzelle">${parcelOpts.map(([v, l]) => `<option value="${v}"${v === a ? ' selected' : ''}>${h(l)}</option>`).join('')}</optgroup>
-              </select></label>
-            <label class="field"${isService ? '' : ' hidden'}><span>Bezeichnung (optional)</span><input type="text" data-k="label" value="${h(m.label)}" placeholder="z. B. Sanitärgebäude Nord"></label>
+          <div class="mx-row" data-i="${i}">
+            <input type="text" class="mx-nr" data-k="number" value="${h(m.number)}" autocomplete="off" placeholder="Nr." aria-label="Zählernummer">
+            <div class="mx-assign">
+              <input type="text" data-assign value="${h(choiceLabel(a))}" placeholder="Name oder Parzelle suchen …" autocomplete="off" aria-label="Zuordnung">
+              <ul class="mx-list" hidden></ul>
+            </div>
+            <input type="text" class="mx-fuse" data-fuse value="${h(fuseText(m))}" autocomplete="off" placeholder="Sicherung" title="Sicherung, mehrere mit Komma (z. B. F3, F4)" aria-label="Sicherung" ${fusesMissing() ? 'disabled title="erst nach Datenbank-Update"' : ''}>
             <button type="button" class="close meter-remove" data-remove="${i}" aria-label="Zähler entfernen" title="Zähler entfernen">${ICON.trash}</button>
-            ${fuseEditor(m, null)}
+            ${isService ? `<input type="text" class="mx-label" data-k="label" value="${h(m.label)}" placeholder="Bezeichnung (optional), z. B. Sanitärgebäude Nord" aria-label="Bezeichnung">` : ''}
             <p class="dup-warn" hidden></p>
           </div>`;
         }).join('') : '<p class="muted small">Noch keine Zähler in diesem Kasten.</p>';
-        bindFuseEditors(list, meters, renderRows, () => showMeterWarnings(list, meters, removed));
 
         $$('[data-k]', list).forEach((inp) => inp.addEventListener('input', () => {
           const m = meters[+inp.closest('[data-i]').dataset.i];
-          if (inp.dataset.k === 'assign') {
-            const [kind, val] = [inp.value.slice(0, 1), inp.value.slice(2)];
-            m.parcelId = kind === 'p' ? val : '';
-            m.purpose = kind === 's' ? val : kind === 'f' ? 'frei' : '';
-            renderRows();
-            return;
-          }
           m[inp.dataset.k] = inp.value;
           if (inp.dataset.k === 'number') showMeterWarnings(list, meters, removed);
         }));
+        // Sicherungen: eine oder mehrere Nummern, mit Komma getrennt (Bezeichnungen bleiben erhalten)
+        $$('[data-fuse]', list).forEach((inp) => inp.addEventListener('input', () => {
+          const m = meters[+inp.closest('[data-i]').dataset.i];
+          const old = m.fuses || [];
+          m.fuses = inp.value.split(/[,;]+/).map((x) => x.trim()).filter(Boolean).map((nr, j) => ({ nr, label: (old[j] && old[j].label) || '' }));
+        }));
+        // Zuordnung: tippen filtert, Pfeiltasten + Enter oder Klick wählt
+        $$('.mx-assign', list).forEach((wrap) => {
+          const inp = $('input', wrap), ul = $('.mx-list', wrap);
+          const m = meters[+wrap.closest('[data-i]').dataset.i];
+          let hits = [], sel = 0;
+          const show = (all) => {
+            const q = all ? '' : inp.value.trim().toLowerCase();
+            const words = q.split(/\s+/).filter(Boolean);
+            hits = choices.filter((c) => words.every((w) => c[2].toLowerCase().includes(w) || c[1].toLowerCase().includes(w))).slice(0, 40);
+            sel = Math.max(0, hits.findIndex((c) => c[0] === assignOf(m)));
+            ul.innerHTML = hits.length ? hits.map((c, k) => `<li data-v="${h(c[0])}" class="${k === sel ? 'is-sel' : ''}${c[0] === assignOf(m) ? ' is-cur' : ''}">${h(c[1])}</li>`).join('') : '<li class="muted">nichts gefunden</li>';
+            ul.hidden = false;
+            const cur = $('.is-sel', ul); if (cur) cur.scrollIntoView({ block: 'nearest' });
+          };
+          const pick = (v) => {
+            const [kind, val] = [v.slice(0, 1), v.slice(2)];
+            const wasService = assignOf(m).startsWith('s:');
+            m.parcelId = kind === 'p' ? val : '';
+            m.purpose = kind === 's' ? val : kind === 'f' ? 'frei' : '';
+            ul.hidden = true;
+            if (wasService !== (kind === 's')) { renderRows(); return; }
+            inp.value = choiceLabel(v);
+          };
+          inp.addEventListener('focus', () => { inp.select(); show(true); });
+          inp.addEventListener('input', () => show(false));
+          inp.addEventListener('keydown', (e) => {
+            if (ul.hidden) return;
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              sel = Math.min(hits.length - 1, Math.max(0, sel + (e.key === 'ArrowDown' ? 1 : -1)));
+              $$('li', ul).forEach((li, k) => li.classList.toggle('is-sel', k === sel));
+              const cur = $('.is-sel', ul); if (cur) cur.scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              if (hits[sel]) pick(hits[sel][0]);
+            } else if (e.key === 'Escape') { ul.hidden = true; inp.value = choiceLabel(assignOf(m)); }
+          });
+          ul.addEventListener('mousedown', (e) => { const li = e.target.closest('[data-v]'); if (li) { e.preventDefault(); pick(li.dataset.v); } });
+          inp.addEventListener('blur', () => setTimeout(() => { ul.hidden = true; if (inp.isConnected) inp.value = choiceLabel(assignOf(m)); }, 120));
+        });
         $$('[data-remove]', list).forEach((btn) => btn.onclick = () => {
           const m = meters[+btn.dataset.remove];
           if (m.id && S.readingsOf(m.id).length && !confirm('Für diesen Zähler gibt es bereits Ablesungen. Zähler samt Ablesungen entfernen?')) return;
