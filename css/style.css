@@ -1532,3 +1532,10 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .infra-pin .pin { transform: none; }
 .infra-pin:hover span:last-child { text-decoration: underline; }
 .infra-plain { font-weight: 600; color: var(--text); }
+
+/* Infrastruktur → Strom: Kästen als breite Zeilen untereinander */
+.infra-list.is-rows { grid-template-columns: 1fr; }
+.infra-list.is-rows .bx-meters { max-width: 760px; }
+
+/* Wasser: Sommerwasser-Checkliste ebenfalls untereinander */
+.ws-check { grid-template-columns: 1fr; max-width: 760px; }

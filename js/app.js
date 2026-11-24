@@ -1327,7 +1327,7 @@
       const stromOrte = [...new Set(strom.map((m) => (m.inHouse || !S.box(m.boxId) ? '' : m.boxId)))].map((bid) => {
         if (!bid) return '<span class="infra-plain">im Haus</span>';
         const bx = S.box(bid);
-        return `<a class="infra-pin" href="#/karte/box/${bx.id}" title="Auf der Map zeigen"><span class="pin pin-box">${ICON.strom}<span>${h(bx.nr)}</span></span><span>Stromkasten ${h(bx.nr)}</span></a>`;
+        return `<a class="infra-pin" href="#/karte/box/${bx.id}" title="Auf der Map zeigen"><span>Stromkasten</span><span class="pin pin-box">${ICON.strom}<span>${h(bx.nr)}</span></span></a>`;
       }).join('');
       const infraMeters = (list) => `<div class="bx-grid">${list.map((m) => `<div class="bx-card">${MapUI.boxMeterItem(m, { n: 3, more: true })}</div>`).join('')}</div>`;
 
@@ -1374,7 +1374,7 @@
               <h3 class="infra-h ws-st is-strom"><span class="h-ico pin-box">${ICON.strom}</span> Strom</h3>
               ${strom.length ? `<div class="infra-where">${stromOrte}</div>${infraMeters(strom)}` : '<p class="muted">Kein Stromzähler hinterlegt.</p>'}
               <h3 class="infra-h ws-st is-gas"><span class="h-ico pin-tank">${ICON.gas}</span> Gas</h3>
-              <div class="infra-where">${tank ? `<a class="infra-pin" href="#/karte/tank/${tank.id}" title="Auf der Map zeigen"><span class="pin pin-tank">${ICON.gas}<span>${h(tank.nr)}</span></span><span>Gastank ${h(tank.nr)}</span></a>`
+              <div class="infra-where">${tank ? `<a class="infra-pin" href="#/karte/tank/${tank.id}" title="Auf der Map zeigen"><span>Gastank</span><span class="pin pin-tank">${ICON.gas}<span>${h(tank.nr)}</span></span></a>`
                 : `<span class="infra-plain">${p.gas === 'bottle' ? 'Gasflaschen' : gasText(p)}</span>`}</div>
               ${gas.length ? infraMeters(gas) : p.gas === 'tank' ? '<p class="warn small">Gastank-Anschluss, aber kein Gaszähler hinterlegt.</p>' : ''}
             </section>
@@ -2004,7 +2004,6 @@
           <span class="if-counts">${counts}</span><svg class="if-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
         <div class="if-body">${body}</div></details>`;
       const cnt = (n, one, many, cls = '') => (n ? `<span class="if-c${cls ? ' ' + cls : ''}">${n} ${n === 1 ? one : many}</span>` : '');
-      const otherRows = (ms) => (ms.length ? `<ul class="tenant-rows">${ms.map((m) => `<li><span class="tr-static">${S.isFreeMeter(m) ? '<span class="nr nr-sm nr-free">F</span>' : serviceBadge()}<span>${h(S.purposeText(m))}${m.number ? ` <span class="mono muted small">${h(S.meterCode(m))}</span>` : ''}</span></span></li>`).join('')}</ul>` : '');
 
       root.innerHTML = `
         <div class="page">
@@ -2017,7 +2016,7 @@
             <button type="button" class="btn btn-ghost btn-sm" data-fold-all></button>
             <button class="btn btn-sm" data-new="box">${ICON.plus} Stromkasten</button>
           </div>
-          <div class="infra-list">
+          <div class="infra-list is-rows">
             ${boxes.map((b) => {
               const ms = S.metersInBox(b.id);
               const svc = ms.filter((m) => S.isService(m) && !S.isFreeMeter(m));
@@ -2026,8 +2025,7 @@
               return fold(`box:${b.id}`, `<span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(b.nr)}</span></span>`,
                 [`Stromkasten ${h(b.nr)}`, b.location || (b.pos ? '' : 'noch nicht auf der Map')],
                 (cnt(ps, 'Parzelle', 'Parzellen') + cnt(svc.length, 'Betrieb', 'Betrieb') + cnt(free.length, 'frei', 'frei', 'is-free')) || '<span class="if-c muted">keine Zähler</span>',
-                `${rows(ms.map((m) => S.parcel(m.parcelId))) || (svc.length || free.length ? '' : '<p class="muted small">Noch keine Zähler.</p>')}
-                ${otherRows(ms.filter((m) => S.isService(m)))}
+                `${ms.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(ms)}</ul>` : '<p class="muted small">Noch keine Zähler.</p>'}
                 <div class="card-actions">
                   ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-box="${b.id}">${ICON.edit} Bearbeiten</button>
@@ -2036,7 +2034,7 @@
             }).join('') || '<p class="muted">Noch keine Stromkästen angelegt.</p>'}
             ${fold('haus', `<span class="pin pin-box pin-house" style="transform:none">${ICON.house}</span>`, ['Zähler im Haus', 'beim Mieter, kein Kasten'],
               cnt(inHouse.length, 'Zähler', 'Zähler') || '<span class="if-c muted">keine</span>',
-              rows(inHouse.map((m) => S.parcel(m.parcelId))) || '<p class="muted small">–</p>')}
+              inHouse.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(inHouse)}</ul>` : '<p class="muted small">–</p>')}
           </div>
 
           ` : `
@@ -2045,14 +2043,20 @@
             <button type="button" class="btn btn-ghost btn-sm" data-fold-all></button>
             <button class="btn btn-sm" data-new="tank">${ICON.plus} Gastank</button>
           </div>
-          <div class="infra-list">
+          <div class="infra-list is-rows">
             ${tanks.map((t) => {
               const ps = S.parcelsOnTank(t.id);
               const info = [t.capacity, t.notes].filter(Boolean).join(' · ');
               return fold(`tank:${t.id}`, `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span>`,
                 [`Gastank ${h(t.nr)}`, info || (t.pos ? '' : 'noch nicht auf der Map')],
                 cnt(ps.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine Parzellen</span>',
-                `${rows(ps) || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
+                `${(() => {
+                  const gm = ps.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
+                  const ohne = ps.filter((p) => !S.metersOf(p.id).some((m) => m.type === 'gas'));
+                  return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm)}</ul>` : '')
+                    + (ohne.length ? `<p class="small muted" style="margin:8px 0 0">Ohne Gaszähler: ${ohne.map((p) => h(p.nr)).join(', ')}</p>` : '')
+                    || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>';
+                })()}
                 <div class="card-actions">
                   ${t.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/tank/${t.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-tank="${t.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-tank="${t.id}">${ICON.edit} Bearbeiten</button>
@@ -2071,6 +2075,7 @@
       if (nb) nb.onclick = () => Actions.newBox(false);
       if (nt) nt.onclick = () => Actions.newTank(false);
       $$('[data-edit-box]', root).forEach((b) => b.onclick = () => Actions.editBox(b.dataset.editBox));
+      $$('.infra-list [data-goto]', root).forEach((el) => el.addEventListener('click', () => { location.hash = el.dataset.goto; }));
       $$('[data-edit-tank]', root).forEach((b) => b.onclick = () => Actions.editTank(b.dataset.editTank));
       $$('[data-place-box]', root).forEach((b) => b.onclick = () => Actions.placeBox(b.dataset.placeBox));
       $$('[data-place-tank]', root).forEach((b) => b.onclick = () => Actions.placeTank(b.dataset.placeTank));
@@ -3567,7 +3572,7 @@
             <button type="button" class="btn btn-ghost btn-sm" data-fold-all></button>
             <button class="btn btn-sm" data-ws-new>${ICON.plus} Wasserschacht</button>
           </div>
-          <div class="infra-list">${list.map(fold).join('') || '<p class="muted">Noch keine Wasserschächte. Mit „+ Wasserschacht“ anlegen und auf der Map platzieren.</p>'}</div>
+          <div class="infra-list is-rows">${list.map(fold).join('') || '<p class="muted">Noch keine Wasserschächte. Mit „+ Wasserschacht“ anlegen und auf der Map platzieren.</p>'}</div>
           ${this.sunLegend(list.some((o) => S.hatSommerwasser(o)))}
 
           <div class="page-head section-head">
