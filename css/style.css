@@ -1583,8 +1583,8 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 /* Infrastruktur: Titelzeile einzeilig (Gastank mit Liter/Notiz) */
 .if-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .if-inl { font-weight: 500; color: var(--text-leise); margin-left: 6px; }
-/* Seiten mit Unterreitern: Scrollleiste immer, damit nichts seitlich springt */
-html:has(.tabs) { overflow-y: scroll; }
+/* Seiten: Scrollleiste immer (die Seite scrollt in .view-page, nicht im html), damit kurze Seiten wie Gas nicht seitlich springen */
+.view-page { overflow-y: scroll; }
 /* Infrastruktur: Knöpfe (Map, Bearbeiten …) im aufgeklappten Eintrag rechts */
 .infra-fold .if-body > .card-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 /* Stände-Tabellen gleich ausgerichtet (Datum | Stand | Verbrauch), auch bei inaktiven Zählern */
