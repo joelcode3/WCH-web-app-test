@@ -3129,7 +3129,7 @@
       const w = o.wasser;
       return `<div class="st-title">${h(this.title(o))}</div>
         ${w.haehne.length ? w.haehne.map((x) => `<div class="st-row">${WICO.valve}<span>${h(S.hahnLabel(o, x))}${this.sunHtml(x)}</span></div>`).join('') : '<div class="st-none">keine Absperrhähne</div>'}
-        ${w.zaehler.length ? `<div class="st-zs">${w.zaehler.map((z) => `<div class="st-row is-meter">${WICO.meter}<span>Z${z.znr}${z.nr ? ` · ${h(z.nr)}` : ''}</span></div>`).join('')}</div>` : ''}`;
+        ${w.zaehler.length ? `<div class="st-zs">${w.zaehler.map((z) => `<div class="st-row is-meter">${WICO.meter}<span>${h(z.nr || 'ohne Nummer')}</span></div>`).join('')}</div>` : ''}`;
     },
     readingsHtml(z, opts = {}) {
       const rs = z.ablesungen.slice(-(opts.n || 3)).reverse();
