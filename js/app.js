@@ -622,8 +622,10 @@
       const block = (type, label) => {
         const ms = meters.filter((m) => m.type === type);
         if (!ms.length) return '';
+        const kurz = type === 'strom';   // Strom: nur Zähler + Sicherung, dazu der Durchschnitt; alles weitere unter „Details öffnen“
         return `<div class="section-title ws-st ${type === 'gas' ? 'is-gas' : 'is-strom'}">${BICO.meter}${label} · ${ms.length}</div>
-          <div class="bx-group bx-plain">${ms.map((m) => this.boxMeterItem(m)).join('')}</div>`;
+          <div class="bx-group bx-plain">${ms.map((m) => this.boxMeterItem(m, kurz ? { reads: false } : {})).join('')}
+          ${kurz ? `<div class="bx-avgline">${this.groupAvgHtml(ms)}</div>` : ''}</div>`;
       };
       return block('strom', 'Stromzähler') + block('gas', 'Gaszähler');
     },
@@ -714,12 +716,12 @@
       if (fr) { groups.splice(groups.indexOf(fr), 1); groups.push(fr); }
       return groups.map((g) => {
         const m0 = g.meters[0];
-        const avg = opts.avg ? this.groupAvgHtml(g.meters) : '';
+        const avg = opts.avg ? `<div class="bx-avgcol">${this.groupAvgHtml(g.meters)}</div>` : '';
         const head = g.p ? `${nrBadge(g.p, 'nr-xs')}<strong>${h(tenantName(g.p))}</strong>`
           : S.isFreeMeter(m0) ? `<span class="nr nr-xs nr-free">F</span><strong>Frei – nicht zugeordnet</strong>`
             : `<span class="nr nr-xs nr-free">B</span><strong>${h(S.purposeText(m0))} <span class="muted" style="font-weight:400">· Betrieb</span></strong>`;
-        return `<li class="bx-group${g.p ? ' is-link' : ''}"${g.p ? ` data-goto="#/karte/parcel/${g.p.id}" tabindex="0"` : ''}>
-          <div class="bx-head">${head}${avg}</div>
+        return `<li class="bx-group${g.p ? ' is-link' : ''}${avg ? ' has-avg' : ''}"${g.p ? ` data-goto="#/karte/parcel/${g.p.id}" tabindex="0"` : ''}>
+          <div class="bx-head">${head}</div>${avg}
           ${g.meters.map((m) => this.boxMeterItem(m, opts)).join('')}
         </li>`;
       }).join('');
@@ -735,20 +737,27 @@
       return { value: (b.value - a.value) / (days / 30.44), from: a.date, to: b.date };
     },
     // Parzelle mit mehreren Zählern: Summe der Monatsdurchschnitte aller Zähler
-    groupAvgHtml(meters) {
+    groupAvg(meters) {
       const avgs = meters.map((m) => this.monthlyAvg(m)).filter(Boolean);
-      if (!avgs.length) return `<span class="bx-avg is-none" title="Erst ab zwei Ablesungen">Ø – / Monat</span>`;
-      const sum = avgs.reduce((t, a) => t + a.value, 0);
-      const u = unit(meters[0].type);
-      const tip = avgs.length > 1 ? `Summe aus ${avgs.length} Zählern, je zwischen den beiden letzten Ablesungen`
-        : `zwischen ${fmtDate(avgs[0].from)} und ${fmtDate(avgs[0].to)}`;
-      return `<span class="bx-avg" title="${h(tip)}"><span class="muted">Ø</span> <strong>${fmtNum(Math.round(sum))} ${u}</strong><span class="muted"> / Monat</span></span>`;
+      if (!avgs.length) return null;
+      return {
+        value: avgs.reduce((t, a) => t + a.value, 0), n: avgs.length,
+        from: avgs.map((a) => a.from).sort()[0], to: avgs.map((a) => a.to).sort().pop(),
+      };
+    },
+    groupAvgHtml(meters) {
+      const a = this.groupAvg(meters);
+      if (!a) return `<span class="bx-avg is-none" title="Erst ab zwei Ablesungen">Ø – / Monat</span>`;
+      const tip = a.n > 1 ? `Summe aus ${a.n} Zählern, je zwischen den beiden letzten Ablesungen` : 'zwischen den beiden letzten Ablesungen';
+      return `<span class="bx-avg" title="${h(tip)}"><span class="muted">Ø</span> <strong>${fmtNum(Math.round(a.value))} ${unit(meters[0].type)}</strong><span class="muted"> / Monat</span></span>
+        <span class="bx-avg-per">${fmtDate(a.from)} – ${fmtDate(a.to)}</span>`;
     },
     // opts.n: Anzahl Stände (0 = nur der letzte, ohne Tabelle);
     // opts.more: restliche Stände zum Aufklappen
     boxMeterItem(m, opts = {}) {
       const fuse = S.fusesText(m);
       const all = S.readingsOf(m.id);
+      const inaktivTag = (cls) => `<span class="bx-inaktiv ${cls}" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>`;
       const inaktiv = all.length >= 2 && all[all.length - 1].value === all[all.length - 2].value;
       // inaktiv: nur der letzte Stand, ohne Verbrauch und ohne ältere Stände (eine Zeile)
       const n = inaktiv ? 1 : opts.n === undefined ? 3 : opts.n;
@@ -758,7 +767,7 @@
       const tcls = `ws-read${opts.edit ? ' is-edit' : ''}`;
       const reads = rs.length ? `<table class="${tcls}"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev && !inaktiv ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
+        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${inaktiv ? inaktivTag('in-table') : prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
       const last = all[all.length - 1];
       const body = opts.reads === false ? ''
@@ -769,7 +778,7 @@
           return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
         }).join('')}</tbody></table></details>` : '');
       return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}" data-mid="${m.id}">
-        <div class="bx-code">${BICO.meter}<strong class="mono">${meterCodeHtml(m, 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
+        <div class="bx-code">${BICO.meter}<strong class="mono">${meterCodeHtml(m, 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? inaktivTag(opts.reads !== false && n !== 0 ? 'has-tbl' : '') : ''}</div>
         ${body}
       </div>`;
     },
@@ -785,7 +794,8 @@
         </div>
         <div class="panel-body">
           <div class="section-title ws-st is-strom">${BICO.meter}Stromzähler${meters.length ? ` · ${meters.length}` : ''}</div>
-          ${meters.length ? `<ul class="bx-meters is-compact">${this.boxMeterGroups(meters, { reads: false })}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
+          ${meters.length ? `<div class="bx-total"><span class="bx-total-l">Gesamt über den Kasten</span>${this.groupAvgHtml(meters)}</div>
+          <ul class="bx-meters is-compact">${this.boxMeterGroups(meters, { reads: false })}</ul>` : '<p class="muted small">Diesem Kasten sind noch keine Zähler zugeordnet.</p>'}
           ${todoSection('box', b.id)}
         </div>
         <div class="panel-actions">
