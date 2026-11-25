@@ -113,6 +113,9 @@
     return `<span class="mc-nr">${h(code)}</span>`;
   }
 
+  // Verbrauch mit Vorzeichen: +1.234 kWh bzw. −50 kWh (rückwärts gelaufen, rot)
+  const fmtDiff = (d, type) => (d < 0 ? `<span class="warn">−${fmtNum(-d)} ${unit(type)}</span>` : `+${fmtNum(d)} ${unit(type)}`);
+
   /* Formular-Dialog: fields = [{name,label,type,value,options,required,full}] */
   function formDialog({ title, fields, submitLabel = 'Speichern', onSubmit, extra = '' }) {
     const dlg = $('#dialog');
@@ -726,6 +729,21 @@
         </li>`;
       }).join('');
     },
+    // Warnungen je Zähler (kleines „!“ an der Zeile, Text beim Überfahren):
+    // rückwärts gelaufen (letzter Stand kleiner als der vorherige) und Verbrauch an einem freien Zähler
+    meterWarnings(m) {
+      const all = S.readingsOf(m.id);
+      if (all.length < 2) return [];
+      const a = all[all.length - 2], b = all[all.length - 1], u = unit(m.type), d = b.value - a.value;
+      const w = [];
+      if (d < 0) w.push(`Zähler läuft rückwärts: ${fmtNum(b.value)} ${u} am ${fmtDate(b.date)} ist kleiner als ${fmtNum(a.value)} ${u} am ${fmtDate(a.date)} (Zählertausch oder Tippfehler?)`);
+      if (d > 0 && S.isFreeMeter(m)) w.push(`Verbrauch an einem freien Zähler: +${fmtNum(d)} ${u} zwischen ${fmtDate(a.date)} und ${fmtDate(b.date)} – keinem Mieter zugeordnet`);
+      return w;
+    },
+    meterWarnHtml(m) {
+      const w = this.meterWarnings(m);
+      return w.length ? `<span class="warn-ico mw-warn" title="${h(w.join('\n'))}" aria-label="${h(w.join(' – '))}" tabindex="0">!</span>` : '';
+    },
     // Durchschnittsverbrauch je Monat zwischen den beiden letzten Ablesungen eines Zählers
     // (null = weniger als zwei Stände). Inaktive Zähler liefern 0.
     monthlyAvg(m) {
@@ -738,7 +756,7 @@
     },
     // Parzelle mit mehreren Zählern: Summe der Monatsdurchschnitte aller Zähler
     groupAvg(meters) {
-      const avgs = meters.map((m) => this.monthlyAvg(m)).filter(Boolean);
+      const avgs = meters.map((m) => this.monthlyAvg(m)).filter((a) => a && a.value >= 0);
       if (!avgs.length) return null;
       return {
         value: avgs.reduce((t, a) => t + a.value, 0), n: avgs.length,
@@ -747,7 +765,7 @@
     },
     groupAvgHtml(meters) {
       const a = this.groupAvg(meters);
-      if (!a) return `<span class="bx-avg is-none" title="Erst ab zwei Ablesungen">Ø – / Monat</span>`;
+      if (!a) return `<span class="bx-avg is-none" title="Kein Durchschnitt: weniger als zwei Ablesungen oder Zähler rückwärts gelaufen">Ø – / Monat</span>`;
       const tip = a.n > 1 ? `Summe aus ${a.n} Zählern, je zwischen den beiden letzten Ablesungen` : 'zwischen den beiden letzten Ablesungen';
       return `<span class="bx-avg" title="${h(tip)}"><span class="muted">Ø</span> <strong>${fmtNum(Math.round(a.value))} ${unit(meters[0].type)}</strong><span class="muted"> / Monat</span></span>
         <span class="bx-avg-per">${fmtDate(a.from)} – ${fmtDate(a.to)}</span>`;
@@ -767,7 +785,7 @@
       const tcls = `ws-read${opts.edit ? ' is-edit' : ''}`;
       const reads = rs.length ? `<table class="${tcls}"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${inaktiv ? inaktivTag('in-table') : prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
+        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${inaktiv ? inaktivTag('in-table') : prev ? fmtDiff(r.value - prev.value, m.type) : ''}</td>${ed(r)}</tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
       const last = all[all.length - 1];
       const body = opts.reads === false ? ''
@@ -775,10 +793,10 @@
         ? `<div class="bx-info bx-lastline">${last ? `<strong>${fmtNum(last.value)} ${unit(m.type)}</strong> <span class="muted">· ${fmtDate(last.date)}</span>` : '<span class="muted">Noch kein Zählerstand.</span>'}</div>`
         : reads + (older.length ? `<details class="bx-more"><summary>Ältere Stände (${older.length})</summary><table class="${tcls}"><tbody>${older.map((r) => {
           const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-          return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
+          return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? fmtDiff(r.value - prev.value, m.type) : ''}</td>${ed(r)}</tr>`;
         }).join('')}</tbody></table></details>` : '');
       return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}" data-mid="${m.id}">
-        <div class="bx-code">${BICO.meter}<strong class="mono">${meterCodeHtml(m, 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? inaktivTag(opts.reads !== false && n !== 0 ? 'has-tbl' : '') : ''}</div>
+        <div class="bx-code">${BICO.meter}<strong class="mono">${meterCodeHtml(m, 'ohne Nummer')}</strong>${this.meterWarnHtml(m)}${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? inaktivTag(opts.reads !== false && n !== 0 ? 'has-tbl' : '') : ''}</div>
         ${body}
       </div>`;
     },
@@ -2074,6 +2092,14 @@
     },
   };
 
+  // Nachfrage beim Speichern einer Ablesung: rückwärts gelaufene Zähler, leer gelassene (= unverändert)
+  function readingConfirm(nBack, nLeer) {
+    const t = [];
+    if (nBack) t.push(`${nBack} ${nBack === 1 ? 'Zähler ist' : 'Zähler sind'} rückwärts gelaufen (Stand kleiner als vorher – alter Zähler, Zählertausch oder Tippfehler?).`);
+    if (nLeer) t.push(`${nLeer} ${nLeer === 1 ? 'Zähler ohne Eingabe wird' : 'Zähler ohne Eingabe werden'} mit unverändertem Stand gespeichert (gilt dann als „inaktiv“).`);
+    return !t.length || confirm(`${t.join('\n\n')}\n\nSo speichern?`);
+  }
+
   /* ---------- Gespeicherten Zählerstand ändern oder löschen (mit Nachfrage) ---------- */
   const ReadingEdit = {
     open(rid) {
@@ -2125,6 +2151,13 @@
     // Mieter-Detailseite zeichnet sich nicht von selbst neu
     after() { if (location.hash.startsWith('#/parzelle/')) route(); },
   };
+  // „!“ an einem Zähler antippen/anklicken: Warnung als Meldung (iPhone kennt kein Überfahren)
+  document.addEventListener('click', (e) => {
+    const w = e.target.closest && e.target.closest('.mw-warn');
+    if (!w) return;
+    e.preventDefault(); e.stopPropagation();
+    toast(w.getAttribute('aria-label'));
+  }, true);
   // Stift in einer Stand-Zeile: nicht zur Parzelle springen, sondern Dialog öffnen (nicht während der Ablesung)
   document.addEventListener('click', (e) => {
     const b = e.target.closest && e.target.closest('[data-edit-read]');
@@ -2182,7 +2215,11 @@
       };
       const fill = () => items.forEach((el) => {
         const m = S.meter(el.dataset.mid);
-        $('input', el.querySelector('.rd-in')).value = state(m).raw;
+        const inp = $('input', el.querySelector('.rd-in'));
+        const prev = S.readingBefore(m.id, date, false);
+        inp.value = state(m).raw;
+        inp.placeholder = prev ? fmtNum(prev.value) : 'neuer Stand';
+        inp.title = prev ? `Leer lassen = unverändert (${fmtNum(prev.value)} ${unit(m.type)})` : '';
         show(el, m);
       });
       items.forEach((el) => {
@@ -2217,14 +2254,19 @@
       };
       $('[data-rd-save]', bar).onclick = () => {
         const entries = Object.entries(draft);
-        if (!entries.length) { stop(); return; }
         const bad = entries.filter(([, v]) => isNaN(parseNum(v)));
         if (bad.length) { toast(`${bad.length} Eingabe(n) sind keine gültige Zahl`); return; }
+        // leer gelassen (und für das Datum noch nichts gespeichert) = Stand unverändert → inaktiv
+        const leer = items.map((el) => S.meter(el.dataset.mid)).filter((m) => draft[m.id] === undefined && !state(m).saved)
+          .map((m) => [m.id, S.readingBefore(m.id, date, false)]).filter(([, prev]) => prev);
+        if (!entries.length && !leer.length) { stop(); return; }
         const warn = entries.filter(([id, v]) => { const prev = S.readingBefore(id, date, false); return prev && parseNum(v) < prev.value; });
-        if (warn.length && !confirm(`${warn.length} Zählerstand/-stände sind kleiner als der vorherige Stand (Zählertausch oder Tippfehler?).\nTrotzdem speichern?`)) return;
+        if (!readingConfirm(warn.length, leer.length)) return;
+        leer.forEach(([id, prev]) => S.upsertReading(id, date, prev.value));
         entries.forEach(([id, v]) => S.upsertReading(id, date, parseNum(v)));
         S.save();
-        toast(`${entries.length} ${entries.length === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert`);
+        const nAll = entries.length + leer.length;
+        toast(`${nAll} ${nAll === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert${leer.length ? ` (${leer.length} unverändert)` : ''}`);
         stop();
       };
       fill(); info();
@@ -2472,7 +2514,7 @@
         ${p ? nrBadge(p, 'nr-sm') : serviceBadge()}
         <div class="who"><strong>${p ? h(tenantName(p)) : h(S.purposeText(m))}</strong><span class="mono small">${meterCodeHtml(m, 'ohne Nr.')}</span></div>
         <div class="prev">${st.prev ? `Vorher: <strong class="mono">${fmtNum(st.prev.value)}</strong> (${fmtDate(st.prev.date)})` : 'kein vorheriger Stand'}</div>
-        <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="Neuer Stand" aria-label="Zählerstand ${p ? 'Parzelle ' + h(p.nr) : h(S.purposeText(m))}">
+        <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="${st.prev ? fmtNum(st.prev.value) : 'Neuer Stand'}"${st.prev ? ` title="Leer lassen = unverändert (${fmtNum(st.prev.value)} ${unit(m.type)})"` : ''} aria-label="Zählerstand ${p ? 'Parzelle ' + h(p.nr) : h(S.purposeText(m))}">
         <div class="diff">${this.diffHtml(m, st)}</div>
       </div>`;
     },
@@ -2495,9 +2537,14 @@
       const el = $('#a-pending');
       if (el) el.textContent = n ? `${n} neue Eingabe${n === 1 ? '' : 'n'} – noch nicht gespeichert` : 'Alle Eingaben gespeichert';
       const btn = $('#a-save');
-      if (btn) btn.disabled = !n;
+      if (btn) btn.disabled = !n && !this.leer().length;
     },
 
+    // angezeigte Zähler ohne Eingabe und ohne gespeicherten Stand für das Datum → werden als unverändert gespeichert
+    leer() {
+      return this.groups().flatMap((g) => g.meters).filter((m) => this.draft[m.id] === undefined)
+        .map((m) => ({ m, st: this.rowState(m) })).filter(({ st }) => !st.saved && st.prev).map(({ m, st }) => [m.id, st.prev]);
+    },
     save() {
       const entries = Object.entries(this.draft);
       const invalid = entries.filter(([, v]) => isNaN(parseNum(v)));
@@ -2506,11 +2553,15 @@
         const prev = S.readingBefore(id, this.date, false);
         return prev && parseNum(v) < prev.value;
       });
-      if (warnings.length && !confirm(`${warnings.length} Zählerstand/-stände sind kleiner als der vorherige Stand (Zählertausch oder Tippfehler?).\nTrotzdem speichern?`)) return;
+      const leer = this.leer();
+      if (!entries.length && !leer.length) return;
+      if (!readingConfirm(warnings.length, leer.length)) return;
+      leer.forEach(([id, prev]) => S.upsertReading(id, this.date, prev.value));
       entries.forEach(([id, v]) => S.upsertReading(id, this.date, parseNum(v)));
       this.draft = {};
       S.save();
-      toast(`${entries.length} ${entries.length === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert`);
+      const nAll = entries.length + leer.length;
+      toast(`${nAll} ${nAll === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert${leer.length ? ` (${leer.length} unverändert)` : ''}`);
       this.renderList();
     },
   };
