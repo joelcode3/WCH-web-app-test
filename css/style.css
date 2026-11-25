@@ -1488,6 +1488,7 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .bx-avg-per { font-size: .75rem; color: var(--text-leise); white-space: nowrap; }
 .bx-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0 0 8px; padding: 7px 10px;
   border: 1px solid #e0a526; border-radius: var(--radius-s); background: #fdf7e6; }
+.bx-total.is-gas { border-color: #7cc4a4; background: #edf7f1; }
 .bx-total-l { font-weight: 600; margin-right: auto; }
 .bx-avgline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--linie); }
 .bx-group.is-link:hover, .bx-group.is-link:focus-visible { border-color: #e0a526; background: #fdf7e6; outline: none; }

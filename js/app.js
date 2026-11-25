@@ -622,7 +622,7 @@
       const block = (type, label) => {
         const ms = meters.filter((m) => m.type === type);
         if (!ms.length) return '';
-        const kurz = type === 'strom';   // Strom: nur Zähler + Sicherung, dazu der Durchschnitt; alles weitere unter „Details öffnen“
+        const kurz = true;   // Strom und Gas: nur Zähler (+ Sicherung), dazu der Durchschnitt; alles weitere unter „Details öffnen“
         return `<div class="section-title ws-st ${type === 'gas' ? 'is-gas' : 'is-strom'}">${BICO.meter}${label} · ${ms.length}</div>
           <div class="bx-group bx-plain">${ms.map((m) => this.boxMeterItem(m, kurz ? { reads: false } : {})).join('')}
           ${kurz ? `<div class="bx-avgline">${this.groupAvgHtml(ms)}</div>` : ''}</div>`;
@@ -807,11 +807,11 @@
     tankPanel(t) {
       if (!t) return '';
       const parcels = S.parcelsOnTank(t.id);
-      const items = parcels.map((p) => {
-        const gm = S.metersOf(p.id).filter((m) => m.type === 'gas');
-        if (gm.length) return gm.map((m) => this.meterItem(m, 'tank')).join('');
-        return `<li class="meter-item is-link" data-goto="#/karte/parcel/${p.id}" tabindex="0">${nrBadge(p, 'nr-sm')}<div class="body"><div class="line1">${h(tenantName(p))}</div><div class="line2 warn">kein Gaszähler hinterlegt</div></div></li>`;
-      }).join('');
+      const gms = parcels.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
+      const ohne = parcels.filter((p) => !S.metersOf(p.id).some((m) => m.type === 'gas'));
+      const items = (gms.length ? `<div class="bx-total is-gas"><span class="bx-total-l">Gesamt über den Tank</span>${this.groupAvgHtml(gms)}</div>
+        <ul class="bx-meters is-compact">${this.boxMeterGroups(gms, { reads: false })}</ul>` : '')
+        + (ohne.length ? `<ul class="meter-list" style="margin-top:6px">${ohne.map((p) => `<li class="meter-item is-link" data-goto="#/karte/parcel/${p.id}" tabindex="0">${nrBadge(p, 'nr-sm')}<div class="body"><div class="line1">${h(tenantName(p))}</div><div class="line2 warn">kein Gaszähler hinterlegt</div></div></li>`).join('')}</ul>` : '');
       return `
         <div class="panel-head">
           <span class="pin pin-tank" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px">${ICON.gas}<span>${h(t.nr)}</span></span>
@@ -821,7 +821,7 @@
         <div class="panel-body">
           ${t.notes ? `<p class="notice" style="margin-top:0">${h(t.notes)}</p>` : ''}
           <div class="section-title">${parcels.length} angeschlossene Parzelle${parcels.length === 1 ? '' : 'n'}</div>
-          ${parcels.length ? `<ul class="meter-list">${items}</ul>` : '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
+          ${parcels.length ? items : '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
           ${todoSection('tank', t.id)}
         </div>
         <div class="panel-actions">
@@ -2301,7 +2301,7 @@
                 `${(() => {
                   const gm = ps.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
                   const ohne = ps.filter((p) => !S.metersOf(p.id).some((m) => m.type === 'gas'));
-                  return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm, { edit: true })}</ul>` : '')
+                  return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm, { avg: true, edit: true })}</ul>` : '')
                     + (ohne.length ? `<p class="small muted" style="margin:8px 0 0">Ohne Gaszähler: ${ohne.map((p) => h(p.nr)).join(', ')}</p>` : '')
                     || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>';
                 })()}
