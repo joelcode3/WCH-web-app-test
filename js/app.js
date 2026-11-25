@@ -714,14 +714,35 @@
       if (fr) { groups.splice(groups.indexOf(fr), 1); groups.push(fr); }
       return groups.map((g) => {
         const m0 = g.meters[0];
+        const avg = opts.avg ? this.groupAvgHtml(g.meters) : '';
         const head = g.p ? `${nrBadge(g.p, 'nr-xs')}<strong>${h(tenantName(g.p))}</strong>`
           : S.isFreeMeter(m0) ? `<span class="nr nr-xs nr-free">F</span><strong>Frei – nicht zugeordnet</strong>`
             : `<span class="nr nr-xs nr-free">B</span><strong>${h(S.purposeText(m0))} <span class="muted" style="font-weight:400">· Betrieb</span></strong>`;
         return `<li class="bx-group${g.p ? ' is-link' : ''}"${g.p ? ` data-goto="#/karte/parcel/${g.p.id}" tabindex="0"` : ''}>
-          <div class="bx-head">${head}</div>
+          <div class="bx-head">${head}${avg}</div>
           ${g.meters.map((m) => this.boxMeterItem(m, opts)).join('')}
         </li>`;
       }).join('');
+    },
+    // Durchschnittsverbrauch je Monat zwischen den beiden letzten Ablesungen eines Zählers
+    // (null = weniger als zwei Stände). Inaktive Zähler liefern 0.
+    monthlyAvg(m) {
+      const all = S.readingsOf(m.id);
+      if (all.length < 2) return null;
+      const a = all[all.length - 2], b = all[all.length - 1];
+      const days = (new Date(b.date) - new Date(a.date)) / 864e5;
+      if (!(days > 0)) return null;
+      return { value: (b.value - a.value) / (days / 30.44), from: a.date, to: b.date };
+    },
+    // Parzelle mit mehreren Zählern: Summe der Monatsdurchschnitte aller Zähler
+    groupAvgHtml(meters) {
+      const avgs = meters.map((m) => this.monthlyAvg(m)).filter(Boolean);
+      if (!avgs.length) return `<span class="bx-avg is-none" title="Erst ab zwei Ablesungen">Ø – / Monat</span>`;
+      const sum = avgs.reduce((t, a) => t + a.value, 0);
+      const u = unit(meters[0].type);
+      const tip = avgs.length > 1 ? `Summe aus ${avgs.length} Zählern, je zwischen den beiden letzten Ablesungen`
+        : `zwischen ${fmtDate(avgs[0].from)} und ${fmtDate(avgs[0].to)}`;
+      return `<span class="bx-avg" title="${h(tip)}"><span class="muted">Ø</span> <strong>${fmtNum(Math.round(sum))} ${u}</strong><span class="muted"> / Monat</span></span>`;
     },
     // opts.n: Anzahl Stände (0 = nur der letzte, ohne Tabelle);
     // opts.more: restliche Stände zum Aufklappen
@@ -2179,7 +2200,7 @@
               return fold(`box:${b.id}`, `<span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(b.nr)}</span></span>`,
                 [`Stromkasten ${h(b.nr)}`, b.location || (b.pos ? '' : 'noch nicht auf der Map')],
                 (cnt(ps, 'Parzelle', 'Parzellen') + cnt(svc.length, 'Betrieb', 'Betrieb') + cnt(free.length, 'frei', 'frei', 'is-free')) || '<span class="if-c muted">keine Zähler</span>',
-                `${ms.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(ms)}</ul>` : '<p class="muted small">Noch keine Zähler.</p>'}
+                `${ms.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(ms, { avg: true })}</ul>` : '<p class="muted small">Noch keine Zähler.</p>'}
                 <div class="card-actions">
                   ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-box="${b.id}">${ICON.edit} Bearbeiten</button>
@@ -2188,7 +2209,7 @@
             }).join('') || '<p class="muted">Noch keine Stromkästen angelegt.</p>'}
             ${fold('haus', `<span class="pin pin-box pin-house" style="transform:none">${ICON.house}</span>`, ['Zähler im Haus', 'beim Mieter, kein Kasten'],
               cnt(inHouse.length, 'Zähler', 'Zähler') || '<span class="if-c muted">keine</span>',
-              inHouse.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(inHouse)}</ul>
+              inHouse.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(inHouse, { avg: true })}</ul>
                 <div class="card-actions"><button type="button" class="btn btn-sm" data-read="haus">${ICON.edit} Ablesen</button></div>` : '<p class="muted small">–</p>')}
           </div>
 
