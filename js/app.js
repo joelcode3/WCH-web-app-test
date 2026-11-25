@@ -754,17 +754,19 @@
       const n = inaktiv ? 1 : opts.n === undefined ? 3 : opts.n;
       const rs = all.slice(-(n || 1)).reverse();
       const older = opts.more && !inaktiv ? all.slice(0, Math.max(0, all.length - n)).reverse() : [];
-      const reads = rs.length ? `<table class="ws-read"><tbody>${rs.map((r) => {
+      const ed = (r) => (opts.edit ? `<td class="rd-ed"><button type="button" class="rd-edit" data-edit-read="${r.id}" title="Zählerstand bearbeiten" aria-label="Zählerstand vom ${fmtDate(r.date)} bearbeiten">${ICON.edit}</button></td>` : '');
+      const tcls = `ws-read${opts.edit ? ' is-edit' : ''}`;
+      const reads = rs.length ? `<table class="${tcls}"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev && !inaktiv ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
+        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev && !inaktiv ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
       const last = all[all.length - 1];
       const body = opts.reads === false ? ''
         : n === 0
         ? `<div class="bx-info bx-lastline">${last ? `<strong>${fmtNum(last.value)} ${unit(m.type)}</strong> <span class="muted">· ${fmtDate(last.date)}</span>` : '<span class="muted">Noch kein Zählerstand.</span>'}</div>`
-        : reads + (older.length ? `<details class="bx-more"><summary>Ältere Stände (${older.length})</summary><table class="ws-read"><tbody>${older.map((r) => {
+        : reads + (older.length ? `<details class="bx-more"><summary>Ältere Stände (${older.length})</summary><table class="${tcls}"><tbody>${older.map((r) => {
           const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-          return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td></tr>`;
+          return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
         }).join('')}</tbody></table></details>` : '');
       return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}" data-mid="${m.id}">
         <div class="bx-code">${BICO.meter}<strong class="mono">${meterCodeHtml(m, 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? '<span class="bx-inaktiv" title="Stand seit der letzten Ablesung unverändert">inaktiv</span>' : ''}</div>
@@ -1370,7 +1372,7 @@
         const bx = S.box(bid);
         return `<a class="infra-pin" href="#/karte/box/${bx.id}" title="Auf der Map zeigen"><span>Stromkasten</span><span class="pin pin-box">${ICON.strom}<span>${h(bx.nr)}</span></span></a>`;
       }).join('');
-      const infraMeters = (list) => `<div class="bx-grid">${list.map((m) => `<div class="bx-card">${MapUI.boxMeterItem(m, { n: 3, more: true })}</div>`).join('')}</div>`;
+      const infraMeters = (list) => `<div class="bx-grid">${list.map((m) => `<div class="bx-card">${MapUI.boxMeterItem(m, { n: 3, more: true, edit: true })}</div>`).join('')}</div>`;
 
       root.innerHTML = `
         <div class="page">
@@ -2062,6 +2064,66 @@
     },
   };
 
+  /* ---------- Gespeicherten Zählerstand ändern oder löschen (mit Nachfrage) ---------- */
+  const ReadingEdit = {
+    open(rid) {
+      const r = S.data.readings.find((x) => x.id === rid);
+      const m = r && S.meter(r.meterId);
+      if (!r || !m) { toast('Zählerstand nicht gefunden'); return; }
+      const u = unit(m.type);
+      const code = S.meterCode(m) || m.number || 'ohne Nummer';
+      const line = (d, v) => `${fmtDate(d)} · ${fmtNum(v)} ${u}`;
+      formDialog({
+        title: 'Zählerstand bearbeiten',
+        fields: [
+          { name: 'date', label: 'Ablesedatum', type: 'date', value: r.date, required: true },
+          { name: 'value', label: `Zählerstand (${u})`, value: String(r.value).replace('.', ','), required: true, autocomplete: 'off' },
+        ],
+        extra: `<p class="notice small" style="margin:0">Zähler <strong>${h(code)}</strong>. Dieser Stand ist bereits gespeichert –
+          bitte nur ändern, wenn er falsch erfasst wurde.</p>
+          <button type="button" class="btn btn-danger btn-sm" data-del style="justify-self:start">${ICON.trash} Zählerstand löschen</button>`,
+        onSubmit: (v) => {
+          const date = v.date, value = parseNum(v.value);
+          if (isNaN(value)) { toast('Bitte eine gültige Zahl eingeben'); return false; }
+          if (date === r.date && value === r.value) return true;   // nichts geändert
+          if (S.data.readings.some((x) => x !== r && x.meterId === r.meterId && x.date === date)) {
+            toast(`Für den ${fmtDate(date)} gibt es bei diesem Zähler schon einen Stand`); return false;
+          }
+          const others = S.readingsOf(r.meterId).filter((x) => x !== r);
+          const prev = others.filter((x) => x.date < date).pop();
+          const next = others.find((x) => x.date > date);
+          const hints = [];
+          if (prev && value < prev.value) hints.push(`Der neue Stand ist kleiner als der vorherige (${line(prev.date, prev.value)}).`);
+          if (next && value > next.value) hints.push(`Der neue Stand ist größer als der nächste (${line(next.date, next.value)}).`);
+          if (!confirm(`Achtung: Sie ändern einen bereits gespeicherten Zählerstand.\n\nZähler ${code}\nbisher:  ${line(r.date, r.value)}\nneu:      ${line(date, value)}\n${hints.length ? '\n' + hints.join('\n') + '\n' : ''}\nWirklich ändern?`)) return false;
+          r.date = date; r.value = value;
+          S.save();
+          toast('Zählerstand geändert');
+          this.after();
+        },
+      });
+      const del = $('#dialog [data-del]');
+      if (del) del.onclick = () => {
+        if (!confirm(`Achtung: Gespeicherten Zählerstand wirklich löschen?\n\nZähler ${code}\n${line(r.date, r.value)}`)) return;
+        S.data.readings = S.data.readings.filter((x) => x !== r);
+        S.save();
+        $('#dialog').close();
+        toast('Zählerstand gelöscht');
+        this.after();
+      };
+    },
+    // Mieter-Detailseite zeichnet sich nicht von selbst neu
+    after() { if (location.hash.startsWith('#/parzelle/')) route(); },
+  };
+  // Stift in einer Stand-Zeile: nicht zur Parzelle springen, sondern Dialog öffnen (nicht während der Ablesung)
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-edit-read]');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    if (b.closest('.is-reading')) return;
+    ReadingEdit.open(b.dataset.editRead);
+  }, true);
+
   /* ======================================================================
      TECHNIK (Stromkästen & Gastanks)
      ====================================================================== */
@@ -2200,7 +2262,7 @@
               return fold(`box:${b.id}`, `<span class="pin pin-box" style="transform:none">${ICON.strom}<span>${h(b.nr)}</span></span>`,
                 [`Stromkasten ${h(b.nr)}`, b.location || (b.pos ? '' : 'noch nicht auf der Map')],
                 (cnt(ps, 'Parzelle', 'Parzellen') + cnt(svc.length, 'Betrieb', 'Betrieb') + cnt(free.length, 'frei', 'frei', 'is-free')) || '<span class="if-c muted">keine Zähler</span>',
-                `${ms.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(ms, { avg: true })}</ul>` : '<p class="muted small">Noch keine Zähler.</p>'}
+                `${ms.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(ms, { avg: true, edit: true })}</ul>` : '<p class="muted small">Noch keine Zähler.</p>'}
                 <div class="card-actions">
                   ${b.pos ? `<a class="btn btn-ghost btn-sm" href="#/karte/box/${b.id}">${ICON.map} Map</a>` : `<button class="btn btn-sm" data-place-box="${b.id}">${ICON.map} Auf Map platzieren</button>`}
                   <button class="btn btn-ghost btn-sm" data-edit-box="${b.id}">${ICON.edit} Bearbeiten</button>
@@ -2209,7 +2271,7 @@
             }).join('') || '<p class="muted">Noch keine Stromkästen angelegt.</p>'}
             ${fold('haus', `<span class="pin pin-box pin-house" style="transform:none">${ICON.house}</span>`, ['Zähler im Haus', 'beim Mieter, kein Kasten'],
               cnt(inHouse.length, 'Zähler', 'Zähler') || '<span class="if-c muted">keine</span>',
-              inHouse.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(inHouse, { avg: true })}</ul>
+              inHouse.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(inHouse, { avg: true, edit: true })}</ul>
                 <div class="card-actions"><button type="button" class="btn btn-sm" data-read="haus">${ICON.edit} Ablesen</button></div>` : '<p class="muted small">–</p>')}
           </div>
 
@@ -2229,7 +2291,7 @@
                 `${(() => {
                   const gm = ps.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
                   const ohne = ps.filter((p) => !S.metersOf(p.id).some((m) => m.type === 'gas'));
-                  return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm)}</ul>` : '')
+                  return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm, { edit: true })}</ul>` : '')
                     + (ohne.length ? `<p class="small muted" style="margin:8px 0 0">Ohne Gaszähler: ${ohne.map((p) => h(p.nr)).join(', ')}</p>` : '')
                     || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>';
                 })()}

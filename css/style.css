@@ -1319,6 +1319,11 @@ body.is-locked { padding-bottom: 0; }
 .ws-read td { padding: 3px 4px; border-bottom: 1px solid var(--linie); }
 .ws-read td.num { text-align: right; white-space: nowrap; }
 .ws-read .link-btn svg { width: 14px; height: 14px; }
+.ws-read td.rd-ed { width: 30px; padding: 0 0 0 4px; text-align: right; }
+.rd-edit { border: 0; background: none; padding: 3px; border-radius: 6px; color: var(--text-leise); cursor: pointer; line-height: 0; opacity: .55; }
+.rd-edit svg { width: 15px; height: 15px; }
+.rd-edit:hover, .rd-edit:focus-visible { opacity: 1; background: var(--linie); color: inherit; outline: none; }
+.is-reading .rd-ed { visibility: hidden; }
 .ws-sw { margin-top: 6px; padding: 8px 10px; border-radius: var(--radius-s); background: #f1f8f9; display: grid; gap: 6px; }
 .ws-sw-state { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .9rem; }
 .ws-sw-state .ok, .ws-check .ok { color: #2b8a3e; font-weight: 600; }
