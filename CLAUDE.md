@@ -3,6 +3,9 @@
 Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarbeiten kann.
 
 ## Zusammenarbeit
+- **Nur schreiben, was stimmt (Wunsch des Betreibers, 25.11.2026):** Aussagen vor dem Abschicken prüfen – besonders
+  „das geht nicht“ / „kann ich nicht“: erst nachsehen, ob es ein passendes Werkzeug gibt (z. B. neuen Chat öffnen mit
+  `create_session`), bevor etwas verneint wird. Nicht Getestetes als ungetestet kennzeichnen, Vermutungen als Vermutung.
 - **Immer auf Deutsch antworten**, einfach und Schritt für Schritt erklären (der Betreiber ist kein Entwickler).
   Klicks in GitHub/Supabase genau beschreiben (Supabase-Oberfläche ist englisch).
 - **Änderungen immer als Pull Request** auf dem vorgegebenen Arbeitszweig; der Betreiber merged selbst
