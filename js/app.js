@@ -838,6 +838,7 @@
         </div>
         <div class="panel-body">
           ${t.notes ? `<p class="notice" style="margin-top:0">${h(t.notes)}</p>` : ''}
+          ${TankLevel.html(t)}
           <div class="section-title">${parcels.length} angeschlossene Parzelle${parcels.length === 1 ? '' : 'n'}</div>
           ${parcels.length ? items : '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
           ${todoSection('tank', t.id)}
@@ -2100,6 +2101,107 @@
     return !t.length || confirm(`${t.join('\n\n')}\n\nSo speichern?`);
   }
 
+  /* ---------- Gastank-Füllstand: Eintrag mit Datum, Schätzung aus dem Verbrauch, Warnung unter 30 % ---------- */
+  const TankLevel = {
+    WARN: 30,              // Prozent
+    L_PER_M3: 3.7,         // Annahme Propan: 1 m³ Gas ≈ 3,7 l flüssig (≈ 1,9 kg/m³ ÷ 0,51 kg/l)
+    list(t) { return (t.fuell || []).slice().sort((a, b) => a.datum.localeCompare(b.datum)); },
+    last(t) { const l = this.list(t); return l[l.length - 1] || null; },
+    liters(t) { const n = parseInt(String(t.capacity || '').replace(/\./g, '').replace(/[^\d]/g, ''), 10); return n > 0 ? n : 0; },
+    days(a, b) { return (new Date(b) - new Date(a)) / 864e5; },
+    // Verbrauch in % pro Tag: 1. aus früheren Füllständen (nur Abnahmen, Nachfüllen zählt nicht),
+    // 2. sonst aus den Gaszählern der angeschlossenen Parzellen (letzte beiden Ablesungen) und der Tankgröße
+    rate(t) {
+      const l = this.list(t);
+      let drop = 0, days = 0;
+      for (let i = 1; i < l.length; i++) {
+        const d = this.days(l[i - 1].datum, l[i].datum);
+        if (d > 0 && l[i].prozent < l[i - 1].prozent) { drop += l[i - 1].prozent - l[i].prozent; days += d; }
+      }
+      if (days >= 14) return { perDay: drop / days, quelle: 'aus den bisherigen Füllständen' };
+      const cap = this.liters(t);
+      if (!cap) return null;
+      let m3 = 0, any = false;
+      S.parcelsOnTank(t.id).forEach((p) => S.metersOf(p.id).filter((m) => m.type === 'gas').forEach((m) => {
+        const a = MapUI.monthlyAvg(m);
+        if (a && a.value >= 0) { m3 += a.value / 30.44; any = true; }
+      }));
+      if (!any) return null;
+      return { perDay: (m3 * this.L_PER_M3 / cap) * 100, quelle: 'aus dem Verbrauch der Gaszähler' };
+    },
+    // Zustand: letzter Eintrag, Schätzung für heute, Warnung
+    state(t) {
+      const last = this.last(t);
+      if (!last) return { last: null };
+      const r = this.rate(t);
+      const since = Math.max(0, this.days(last.datum, today()));
+      const est = r ? Math.max(0, last.prozent - r.perDay * since) : null;
+      let warn = '';
+      if (last.prozent < this.WARN) warn = `Füllstand niedrig: ${fmtNum(last.prozent)} % am ${fmtDate(last.datum)} – Gas bestellen`;
+      else if (est !== null && since >= 1 && est <= this.WARN) warn = `Füllstand prüfen: nach dem bisherigen Verbrauch jetzt ca. ${Math.round(est)} % (zuletzt ${fmtNum(last.prozent)} % am ${fmtDate(last.datum)})`;
+      return { last, est, rate: r, since, warn };
+    },
+    warnings() {
+      return S.data ? S.tanksSorted().map((t) => ({ t, st: this.state(t) })).filter((x) => x.st.warn) : [];
+    },
+    chip(t) {
+      const st = this.state(t);
+      if (!st.last) return '<span class="if-c muted">Füllstand –</span>';
+      return `<span class="if-c${st.warn ? ' is-warn' : ''}"${st.warn ? ` title="${h(st.warn)}"` : ''}>${st.warn ? '<span class="warn-ico">!</span> ' : ''}${fmtNum(st.last.prozent)} % · ${fmtDate(st.last.datum)}</span>`;
+    },
+    // Block im Tank-Fenster (Map) und in der Infrastruktur-Zeile
+    html(t, opts = {}) {
+      const st = this.state(t);
+      const p = st.last ? Math.min(100, Math.max(0, st.last.prozent)) : 0;
+      const hist = opts.history ? this.list(t).reverse() : [];
+      return `<div class="tl-block${st.warn ? ' is-warn' : ''}">
+        <div class="tl-head"><strong>Füllstand</strong>
+          ${st.last ? `<span class="tl-val">${fmtNum(st.last.prozent)} %</span><span class="muted small">am ${fmtDate(st.last.datum)}</span>` : '<span class="muted small">noch nicht erfasst</span>'}
+          <button type="button" class="btn btn-ghost btn-sm" data-tank-level="${t.id}">${ICON.edit} Eintragen</button></div>
+        ${st.last ? `<div class="tl-bar"><i style="width:${p}%"></i><b style="left:${this.WARN}%" title="${this.WARN} %"></b></div>` : ''}
+        ${st.est !== null && st.est !== undefined && st.since >= 1 ? `<div class="small muted">Geschätzt heute: ca. ${Math.round(st.est)} % <span title="Verbrauch ${st.rate.quelle}${st.rate.quelle.includes('Zähler') ? ' – Annahme 1 m³ Gas ≈ 3,7 l Flüssiggas' : ''}">(${h(st.rate.quelle)})</span></div>` : ''}
+        ${st.warn ? `<div class="tl-warn"><span class="warn-ico">!</span> ${h(st.warn)}</div>` : ''}
+        ${hist.length > 1 ? `<details class="bx-more"><summary>Frühere Füllstände (${hist.length - 1})</summary><table class="ws-read"><tbody>${hist.slice(1).map((x) => `<tr><td>${fmtDate(x.datum)}</td><td class="num">${fmtNum(x.prozent)} %</td></tr>`).join('')}</tbody></table></details>` : ''}
+      </div>`;
+    },
+    open(tid) {
+      const t = S.tank(tid);
+      if (!t) return;
+      const last = this.last(t);
+      formDialog({
+        title: `Füllstand Gastank ${t.nr}`,
+        fields: [
+          { name: 'datum', label: 'Datum', type: 'date', value: today(), required: true },
+          { name: 'prozent', label: 'Füllstand in %', value: '', placeholder: last ? `zuletzt ${fmtNum(last.prozent)} %` : 'z. B. 65', required: true, autocomplete: 'off' },
+        ],
+        extra: `<p class="small muted" style="margin:0">Wert von der Anzeige am Tank ablesen. Unter ${this.WARN} % erscheint eine Warnung.${last ? ` Ein Eintrag für ein schon erfasstes Datum ersetzt den alten Wert.` : ''}</p>
+          ${last ? `<button type="button" class="btn btn-danger btn-sm" data-del style="justify-self:start">${ICON.trash} Letzten Eintrag löschen (${fmtNum(last.prozent)} % am ${fmtDate(last.datum)})</button>` : ''}`,
+        onSubmit: (v) => {
+          const pz = parseNum(v.prozent);
+          if (isNaN(pz) || pz < 0 || pz > 100) { toast('Bitte einen Füllstand zwischen 0 und 100 eingeben'); return false; }
+          const old = (t.fuell || []).find((x) => x.datum === v.datum);
+          if (old && !confirm(`Für den ${fmtDate(v.datum)} ist schon ${fmtNum(old.prozent)} % eingetragen. Durch ${fmtNum(pz)} % ersetzen?`)) return false;
+          t.fuell = (t.fuell || []).filter((x) => x.datum !== v.datum).concat([{ datum: v.datum, prozent: pz }]);
+          S.save();
+          toast(`Gastank ${t.nr}: ${fmtNum(pz)} % eingetragen`);
+          renderAlarms();
+        },
+      });
+      const del = $('#dialog [data-del]');
+      if (del) del.onclick = () => {
+        if (!confirm(`Füllstand ${fmtNum(last.prozent)} % vom ${fmtDate(last.datum)} wirklich löschen?`)) return;
+        t.fuell = (t.fuell || []).filter((x) => x !== last && !(x.datum === last.datum && x.prozent === last.prozent));
+        S.save(); $('#dialog').close(); toast('Eintrag gelöscht'); renderAlarms();
+      };
+    },
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-tank-level]');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    TankLevel.open(b.dataset.tankLevel);
+  }, true);
+
   /* ---------- Gespeicherten Zählerstand ändern oder löschen (mit Nachfrage) ---------- */
   const ReadingEdit = {
     open(rid) {
@@ -2339,8 +2441,8 @@
               const info = [t.capacity, t.notes].filter(Boolean).map((x) => `<span class="if-inl">· ${h(x)}</span>`).join('');
               return fold(`tank:${t.id}`, `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span>`,
                 [`Gastank ${h(t.nr)}${info}`, t.pos ? '' : 'noch nicht auf der Map'],
-                cnt(ps.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine Parzellen</span>',
-                `${(() => {
+                TankLevel.chip(t) + (cnt(ps.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine Parzellen</span>'),
+                `${TankLevel.html(t, { history: true })}${(() => {
                   const gm = ps.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
                   const ohne = ps.filter((p) => !S.metersOf(p.id).some((m) => m.type === 'gas'));
                   return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm, { avg: true, edit: true })}</ul>` : '')
@@ -4552,6 +4654,8 @@
       list.push({ id: offen[0].id, key: `frost:${frost.date}`, level: 'warn', name: `Frost am ${fmtDate(frost.date)} (${Math.round(frost.min)} °C)`, href: '#/technik/wasser',
         text: `Sommerwasser abdrehen – noch offen: ${offen.map((o) => `${Wasser.title(o)} (${Wasser.frostOpen(o).map((x) => S.hahnLabel(o, x)).join(', ')})`).join('; ')}` });
     }
+    TankLevel.warnings().forEach(({ t, st }) => list.push({ id: t.id, key: `tank:${t.id}:${st.last.datum}`, level: 'warn',
+      name: `Gastank ${t.nr}`, href: '#/technik/gas', text: st.warn }));
     bar.hidden = !list.length;
     bar.className = `wd-alarm${list.some((a) => a.level === 'alarm') ? ' is-alarm' : ''}`;
     bar.innerHTML = list.map((a) => `<a href="${a.href || `#/karte/place/${a.id}`}"><strong>${h(a.name)}:</strong> ${h(a.text)}</a>`).join('');
@@ -4611,6 +4715,7 @@
       if (!$('#view-page').hidden && location.hash.startsWith('#/todos')) Todos.renderList();
       if (!$('#view-page').hidden && location.hash.startsWith('#/kalender') && !$('#dialog').open) Kalender.render($('#view-page'));
       renderTodoBadge();
+      renderAlarms();
     });
     renderTodoBadge();
 

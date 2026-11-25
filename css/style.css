@@ -1490,6 +1490,18 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
   border: 1px solid #e0a526; border-radius: var(--radius-s); background: #fdf7e6; }
 .mw-warn { cursor: help; flex: none; width: 17px; height: 17px; font-size: .75rem; }
 .rd-in input::placeholder, .reading-row input::placeholder { color: #a8aca6; }
+/* Gastank-Füllstand */
+.tl-block { display: grid; gap: 6px; padding: 8px 10px; margin: 0 0 10px; border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier); }
+.tl-block.is-warn { border-color: #e0a526; background: #fdf7e6; }
+.tl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.tl-head .btn { margin-left: auto; }
+.tl-val { font-size: 1.15rem; font-weight: 700; }
+.tl-bar { position: relative; height: 10px; border-radius: 999px; background: #e6e8e3; overflow: hidden; }
+.tl-bar i { position: absolute; inset: 0 auto 0 0; background: #2f9e74; border-radius: 999px; }
+.tl-block.is-warn .tl-bar i { background: #e0a526; }
+.tl-bar b { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--gefahr); opacity: .6; }
+.tl-warn { font-size: .9rem; font-weight: 600; }
+.if-c.is-warn { background: #fdf0d2; color: #8a5a00; }
 .bx-total.is-gas { border-color: #7cc4a4; background: #edf7f1; }
 .bx-total-l { font-weight: 600; margin-right: auto; }
 .bx-avgline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--linie); }
