@@ -69,7 +69,7 @@
               toast(r && r.neu ? `${r.neu} neue Aufgabe${r.neu === 1 ? '' : 'n'} übernommen` : 'Abgeglichen');
             }
             if (b.dataset.ms === 'disconnect') {
-              if (!confirm('Verbindung zu Microsoft To Do trennen? Bereits übernommene Aufgaben bleiben in der App.')) return;
+              if (!await Ask.confirm('Verbindung zu Microsoft To Do trennen? Bereits übernommene Aufgaben bleiben in der App.')) return;
               await this._call({ action: 'disconnect' });
               toast('Microsoft To Do getrennt');
             }

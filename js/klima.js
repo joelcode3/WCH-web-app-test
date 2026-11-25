@@ -114,7 +114,7 @@
           const r = this.get(o.id);
           if (!r) return;
           if (act === 'temps') { this.editTemps(o, toast); return; }
-          if (['power', 'plus', 'minus'].includes(act) && !this.confirmBusy(o, act, r)) return;
+          if (['power', 'plus', 'minus'].includes(act) && !await this.confirmBusy(o, act, r)) return;
           if (window.Store.mode !== 'cloud') {
             // Testmodus: nur in der Anzeige ändern
             if (act === 'power') r.an = !r.an;
@@ -156,13 +156,13 @@
 
     // Bus gerade belegt oder geblockt? Dann vor dem Schalten nachfragen (je Bus höchstens alle 5 Minuten)
     asked: {},
-    confirmBusy(o, act, r) {
+    async confirmBusy(o, act, r) {
       const st = window.Airbnb && Airbnb.nowStatus(o);
       if (!st || (st.cls !== 'busy' && st.cls !== 'blk')) return true;
       if (this.asked[o.id] && Date.now() - this.asked[o.id] < 5 * 60000) return true;
       const what = act === 'power' ? (r.an ? 'ausschalten' : 'einschalten') : 'die Temperatur ändern';
       const why = st.cls === 'busy' ? 'ist gerade belegt – Gäste sind im Bus' : 'ist gerade geblockt';
-      if (!confirm(`${o.name} ${why}.\n\nHeizung trotzdem ${what}?`)) return false;
+      if (!await Ask.confirm(`${o.name} ${why}.\n\nHeizung trotzdem ${what}?`)) return false;
       this.asked[o.id] = Date.now();
       return true;
     },
@@ -170,9 +170,9 @@
     // Spar- und Wohlfühltemperatur ändern (im Bearbeiten-Modus der Map)
     async editTemps(o, toast) {
       const r = this.get(o.id);
-      const spar = prompt(`Sparbetrieb nach der Abreise für „${o.name}“ (°C, 16–30):`, String(r.temp_spar).replace('.', ','));
+      const spar = await Ask.prompt(`Sparbetrieb nach der Abreise für „${o.name}“ (°C, 16–30):`, String(r.temp_spar).replace('.', ','));
       if (spar === null) return;
-      const komfort = prompt(`Wohlfühltemperatur am Anreisetag ab 15 Uhr (°C, 16–30):\nGemessen wird oben am Gerät – unten ist es etwas kühler.`, String(r.temp_komfort).replace('.', ','));
+      const komfort = await Ask.prompt(`Wohlfühltemperatur am Anreisetag ab 15 Uhr (°C, 16–30):\nGemessen wird oben am Gerät – unten ist es etwas kühler.`, String(r.temp_komfort).replace('.', ','));
       if (komfort === null) return;
       const n = (v) => Math.min(30, Math.max(16, Math.round(parseFloat(String(v).replace(',', '.')) * 2) / 2));
       const vals = { temp_spar: n(spar), temp_komfort: n(komfort) };

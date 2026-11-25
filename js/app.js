@@ -143,7 +143,10 @@
       const values = Object.fromEntries(new FormData(form).entries());
       const missing = fields.find((f) => f.required && !String(values[f.name] || '').trim());
       if (missing) { toast(`Bitte „${missing.label}“ ausfüllen`); return; }
-      if (onSubmit(values) !== false) dlg.close();
+      const res = onSubmit(values);
+      // onSubmit darf auch async sein (Rückfrage mit Ask.confirm) – dann erst nach der Antwort schließen
+      if (res && typeof res.then === 'function') res.then((r) => { if (r !== false && dlg.open) dlg.close(); });
+      else if (res !== false) dlg.close();
     };
     dlg.showModal();
     const first = $('input, select, textarea', form);
@@ -990,9 +993,9 @@
         },
       });
       const del = $('#dialog [data-del]');
-      if (del) del.onclick = () => {
+      if (del) del.onclick = async () => {
         const n = S.metersInBox(b.id).length;
-        if (!confirm(`Stromkasten ${b.nr} wirklich löschen?${n ? `\n${n} Zähler verlieren damit ihre Kasten-Zuordnung.` : ''}`)) return;
+        if (!await Ask.confirm(`Stromkasten ${b.nr} wirklich löschen?${n ? `\n${n} Zähler verlieren damit ihre Kasten-Zuordnung.` : ''}`)) return;
         S.deleteBox(b.id); S.save(); $('#dialog').close(); toast('Kasten gelöscht');
         if (location.hash.startsWith('#/karte')) location.hash = '#/karte';
       };
@@ -1016,9 +1019,9 @@
         },
       });
       const del = $('#dialog [data-del]');
-      if (del) del.onclick = () => {
+      if (del) del.onclick = async () => {
         const n = S.parcelsOnTank(t.id).length;
-        if (!confirm(`Gastank ${t.nr} wirklich löschen?${n ? `\n${n} Parzellen verlieren die Tank-Zuordnung.` : ''}`)) return;
+        if (!await Ask.confirm(`Gastank ${t.nr} wirklich löschen?${n ? `\n${n} Parzellen verlieren die Tank-Zuordnung.` : ''}`)) return;
         S.deleteTank(t.id); S.save(); $('#dialog').close(); toast('Tank gelöscht');
         if (location.hash.startsWith('#/karte')) location.hash = '#/karte';
       };
@@ -1114,9 +1117,9 @@
         kind.addEventListener('change', () => { if (!name.value || name.value === auto) { auto = suggest(); name.value = auto; } });
       }
       const del = $('[data-del]', dlg);
-      if (del) del.onclick = () => {
+      if (del) del.onclick = async () => {
         const n = S.todosOf('place', o.id, true).length;
-        if (!confirm(`${o.name || 'Ort'} wirklich löschen?${n ? `\n${n} To-Do(s) bleiben erhalten (als allgemeine To-Dos).` : ''}`)) return;
+        if (!await Ask.confirm(`${o.name || 'Ort'} wirklich löschen?${n ? `\n${n} To-Do(s) bleiben erhalten (als allgemeine To-Dos).` : ''}`)) return;
         S.deletePlace(o.id); S.save(); dlg.close(); toast('Ort gelöscht');
         if (location.hash.startsWith('#/karte')) location.hash = '#/karte';
       };
@@ -1188,13 +1191,13 @@
       if (!p || !hasShape(p)) return;
       setTimeout(() => {
         MapUI.hidePanel();
-        MapView.startPick((otherId) => {
+        MapView.startPick(async (otherId) => {
           const o = S.parcel(otherId);
           if (!o || o.id === p.id) { toast('Bitte eine andere Parzelle wählen'); go(`#/karte/parcel/${p.id}`); return; }
           const g = hasShape(o) ? Geo.merge(p.geometry, o.geometry) : null;
           if (!g) { toast(`Parzelle ${o.nr} grenzt nicht direkt an ${p.nr}`); go(`#/karte/parcel/${p.id}`); return; }
           const hasData = o.tenant.name || S.metersOf(o.id).length;
-          if (!confirm(`Parzelle ${o.nr} mit ${p.nr} verbinden?\n\n${o.nr} wird aufgelöst${hasData ? `; ihre Zähler gehen auf ${p.nr} über, Mieterangaben von ${o.nr} entfallen` : ''}.`)) {
+          if (!await Ask.confirm(`Parzelle ${o.nr} mit ${p.nr} verbinden?\n\n${o.nr} wird aufgelöst${hasData ? `; ihre Zähler gehen auf ${p.nr} über, Mieterangaben von ${o.nr} entfallen` : ''}.`)) {
             go(`#/karte/parcel/${p.id}`); return;
           }
           const size = (Number(p.size) && Number(o.size)) ? Number(p.size) + Number(o.size) : '';
@@ -1601,11 +1604,11 @@
     return dups;
   }
 
-  function confirmMeterDuplicates(list, removedIds) {
+  async function confirmMeterDuplicates(list, removedIds) {
     const dups = meterDuplicates(list, removedIds);
     if (!dups.size) return true;
     const lines = [...dups.entries()].map(([i, msg]) => `• ${list[i].number}: ${msg}`).join('\n');
-    return confirm(`Achtung, doppelte Nummer:\n${lines}\n\nTrotzdem speichern?`);
+    return await Ask.confirm(`Achtung, doppelte Nummer:\n${lines}\n\nTrotzdem speichern?`);
   }
 
   const Edit = {
@@ -1691,8 +1694,8 @@
 
       // Mieter entfernen: Mieterfelder leeren und Parzelle auf "frei" setzen (wirksam mit "Speichern")
       const clearBtn = $('[data-clear-tenant]', root);
-      if (clearBtn) clearBtn.onclick = () => {
-        if (!confirm(`Alle Mieterangaben von Parzelle ${p.nr} leeren und die Parzelle auf „frei“ setzen?\n\nDie Parzelle, Zähler und Zählerstände bleiben erhalten. Wirksam erst nach „Speichern“.`)) return;
+      if (clearBtn) clearBtn.onclick = async () => {
+        if (!await Ask.confirm(`Alle Mieterangaben von Parzelle ${p.nr} leeren und die Parzelle auf „frei“ setzen?\n\nDie Parzelle, Zähler und Zählerstände bleiben erhalten. Wirksam erst nach „Speichern“.`)) return;
         ['name', 'phone', 'email', 'address', 'leaseStart', 'freeFrom'].forEach((k) => { f[k].value = ''; });
         f.residents.value = '0';
         f.dogs.value = '0';
@@ -1819,9 +1822,9 @@
           }
           if (inp.dataset.k === 'number') showMeterWarnings(root, meters, removed);
         }));
-        $$('[data-remove]', root).forEach((b) => b.onclick = () => {
+        $$('[data-remove]', root).forEach((b) => b.onclick = async () => {
           const m = meters[+b.dataset.remove];
-          if (m.id && S.readingsOf(m.id).length && !confirm('Für diesen Zähler gibt es bereits Ablesungen. Zähler samt Ablesungen entfernen?')) return;
+          if (m.id && S.readingsOf(m.id).length && !await Ask.confirm('Für diesen Zähler gibt es bereits Ablesungen. Zähler samt Ablesungen entfernen?')) return;
           if (m.id) removed.push(m.id);
           meters.splice(+b.dataset.remove, 1);
           renderMeters();
@@ -1852,16 +1855,16 @@
       syncGas();
 
       const del = $('[data-delete]', root);
-      if (del) del.onclick = () => {
+      if (del) del.onclick = async () => {
         // Löschen nur mit Eingabe der Nummer – für "Mieter weg" gibt es "Mieter entfernen"
-        const answer = prompt(`Parzelle ${p.nr} ENDGÜLTIG löschen – die Fläche verschwindet von der Karte, mit allen Zählern und Ablesungen.\n\nNur die Mieterangaben entfernen? Dann abbrechen und oben bei „Mieter“ auf „Mieter entfernen“ tippen.\n\nZum Löschen die Parzellennummer ${p.nr} eingeben:`);
+        const answer = await Ask.prompt(`Parzelle ${p.nr} ENDGÜLTIG löschen – die Fläche verschwindet von der Karte, mit allen Zählern und Ablesungen.\n\nNur die Mieterangaben entfernen? Dann abbrechen und oben bei „Mieter“ auf „Mieter entfernen“ tippen.\n\nZum Löschen die Parzellennummer ${p.nr} eingeben:`);
         if (answer === null) return;
         if (answer.trim() !== String(p.nr)) { alert('Die Nummer stimmt nicht – es wurde nichts gelöscht.'); return; }
         S.deleteParcel(p.id); S.save(); toast(`Parzelle ${p.nr} gelöscht`);
         location.hash = '#/kartei';
       };
 
-      form.onsubmit = (e) => {
+      form.onsubmit = async (e) => {
         e.preventDefault();
         const nr = f.nr.value.trim();
         if (!nr) { toast('Bitte eine Parzellen-Nr. angeben'); f.nr.focus(); return; }
@@ -1871,7 +1874,7 @@
           f.nr.focus();
           return;
         }
-        if (!confirmMeterDuplicates(meters, removed)) return;
+        if (!await confirmMeterDuplicates(meters, removed)) return;
         const size = parseNum(f.size.value);
         if (mieteShown) {
           if (MoneyLock.isOpen()) readMiete();
@@ -2041,9 +2044,9 @@
           ul.addEventListener('mousedown', (e) => { const li = e.target.closest('[data-v]'); if (li) { e.preventDefault(); pick(li.dataset.v); } });
           inp.addEventListener('blur', () => setTimeout(() => { ul.hidden = true; if (inp.isConnected) inp.value = choiceLabel(assignOf(m)); }, 120));
         });
-        $$('[data-remove]', list).forEach((btn) => btn.onclick = () => {
+        $$('[data-remove]', list).forEach((btn) => btn.onclick = async () => {
           const m = meters[+btn.dataset.remove];
-          if (m.id && S.readingsOf(m.id).length && !confirm('Für diesen Zähler gibt es bereits Ablesungen. Zähler samt Ablesungen entfernen?')) return;
+          if (m.id && S.readingsOf(m.id).length && !await Ask.confirm('Für diesen Zähler gibt es bereits Ablesungen. Zähler samt Ablesungen entfernen?')) return;
           if (m.id) removed.push(m.id);
           meters.splice(+btn.dataset.remove, 1);
           renderRows();
@@ -2059,23 +2062,23 @@
         inputs[inputs.length - 1].focus();
       };
 
-      $('#box-delete', root).onclick = () => {
+      $('#box-delete', root).onclick = async () => {
         const n = S.metersInBox(b.id).length;
-        if (!confirm(`Stromkasten ${b.nr} wirklich löschen?${n ? `\n${n} Zähler verlieren damit ihre Kasten-Zuordnung (die Zähler selbst bleiben erhalten).` : ''}`)) return;
+        if (!await Ask.confirm(`Stromkasten ${b.nr} wirklich löschen?${n ? `\n${n} Zähler verlieren damit ihre Kasten-Zuordnung (die Zähler selbst bleiben erhalten).` : ''}`)) return;
         S.deleteBox(b.id); S.save(); toast('Kasten gelöscht');
         location.hash = '#/technik';
       };
 
       attachSuggest(form.elements.nr, suggestSimpleNr(S.data.boxes), (v) => S.data.boxes.some((x) => x.nr === v.trim() && x.id !== b.id));
 
-      form.onsubmit = (e) => {
+      form.onsubmit = async (e) => {
         e.preventDefault();
         const nr = form.elements.nr.value.trim();
         if (!nr) { toast('Bitte eine Kasten-Nr. angeben'); return; }
         if (S.data.boxes.some((x) => x.nr === nr && x.id !== b.id)) { alert(`Kasten ${nr} gibt es schon. Bitte eine andere Nummer wählen.`); return; }
         const missing = meters.findIndex((m) => (m.number.trim() || m.id) && !assignOf(m));
         if (missing >= 0) { alert('Bitte bei jedem Zähler eine Zuordnung wählen (Parzelle, Betriebsstrom oder frei).'); return; }
-        if (!confirmMeterDuplicates(meters, removed)) return;
+        if (!await confirmMeterDuplicates(meters, removed)) return;
 
         b.nr = nr;
         b.location = form.elements.location.value.trim();
@@ -2100,11 +2103,11 @@
   };
 
   // Nachfrage beim Speichern einer Ablesung: rückwärts gelaufene Zähler, leer gelassene (= unverändert)
-  function readingConfirm(nBack, nLeer) {
+  async function readingConfirm(nBack, nLeer) {
     const t = [];
     if (nBack) t.push(`${nBack} ${nBack === 1 ? 'Zähler ist' : 'Zähler sind'} rückwärts gelaufen (Stand kleiner als vorher – alter Zähler, Zählertausch oder Tippfehler?).`);
     if (nLeer) t.push(`${nLeer} ${nLeer === 1 ? 'Zähler ohne Eingabe wird' : 'Zähler ohne Eingabe werden'} mit unverändertem Stand gespeichert (gilt dann als „inaktiv“).`);
-    return !t.length || confirm(`${t.join('\n\n')}\n\nSo speichern?`);
+    return !t.length || await Ask.confirm(`${t.join('\n\n')}\n\nSo speichern?`, { ok: 'Ja, speichern' });
   }
 
   /* ---------- Gastank-Füllstand: Eintrag mit Datum, Schätzung aus dem Verbrauch, Warnung unter 30 % ---------- */
@@ -2182,11 +2185,11 @@
         ],
         extra: `<p class="small muted" style="margin:0">Wert von der Anzeige am Tank ablesen. Unter ${this.WARN} % erscheint eine Warnung.${last ? ` Ein Eintrag für ein schon erfasstes Datum ersetzt den alten Wert.` : ''}</p>
           ${last ? `<button type="button" class="btn btn-danger btn-sm" data-del style="justify-self:start">${ICON.trash} Letzten Eintrag löschen (${fmtNum(last.prozent)} % am ${fmtDate(last.datum)})</button>` : ''}`,
-        onSubmit: (v) => {
+        onSubmit: async (v) => {
           const pz = parseNum(v.prozent);
           if (isNaN(pz) || pz < 0 || pz > 100) { toast('Bitte einen Füllstand zwischen 0 und 100 eingeben'); return false; }
           const old = (t.fuell || []).find((x) => x.datum === v.datum);
-          if (old && !confirm(`Für den ${fmtDate(v.datum)} ist schon ${fmtNum(old.prozent)} % eingetragen. Durch ${fmtNum(pz)} % ersetzen?`)) return false;
+          if (old && !await Ask.confirm(`Für den ${fmtDate(v.datum)} ist schon ${fmtNum(old.prozent)} % eingetragen. Durch ${fmtNum(pz)} % ersetzen?`)) return false;
           t.fuell = (t.fuell || []).filter((x) => x.datum !== v.datum).concat([{ datum: v.datum, prozent: pz }]);
           S.save();
           toast(`Gastank ${t.nr}: ${fmtNum(pz)} % eingetragen`);
@@ -2194,8 +2197,8 @@
         },
       });
       const del = $('#dialog [data-del]');
-      if (del) del.onclick = () => {
-        if (!confirm(`Füllstand ${fmtNum(last.prozent)} % vom ${fmtDate(last.datum)} wirklich löschen?`)) return;
+      if (del) del.onclick = async () => {
+        if (!await Ask.confirm(`Füllstand ${fmtNum(last.prozent)} % vom ${fmtDate(last.datum)} wirklich löschen?`)) return;
         t.fuell = (t.fuell || []).filter((x) => x !== last && !(x.datum === last.datum && x.prozent === last.prozent));
         S.save(); $('#dialog').close(); toast('Eintrag gelöscht'); renderAlarms();
       };
@@ -2315,18 +2318,27 @@
      TECHNIK (Stromkästen & Gastanks)
      ====================================================================== */
 
+  // Entwurf einer laufenden Ablesung im Gerät sichern – übersteht Neuzeichnen, Tab-Wechsel und Neuladen der Seite
+  const ReadBackup = {
+    KEY: 'wch-ablesung-entwurf',
+    get() { try { return JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { return null; } },
+    set(v) { try { localStorage.setItem(this.KEY, JSON.stringify(v)); } catch (e) { /* egal */ } },
+    clear() { try { localStorage.removeItem(this.KEY); } catch (e) { /* egal */ } },
+  };
+
   const Technik = {
     openIds: new Set(),   // aufgeklappte Kästen/Tanks (bleiben beim Neuzeichnen offen)
 
     // Ablesen direkt in den Zeilen: rechts neben jedem Zähler ein Eingabefeld, oben Datum + Speichern
-    startReading(fold, type, root) {
+    startReading(fold, type, root, restore) {
       if (!fold || fold.classList.contains('is-reading')) return;
       const others = $$('.infra-fold.is-reading', root);
       if (others.length) { toast('Bitte erst die andere Ablesung speichern oder abbrechen'); return; }
       const items = $$('.bx-meter[data-mid]', fold).filter((el) => { const m = S.meter(el.dataset.mid); return m && m.type === type; });
       if (!items.length) { toast('Keine Zähler zum Ablesen'); return; }
-      let date = today();
-      const draft = {};
+      let date = restore && restore.date ? restore.date : today();
+      const draft = restore && restore.draft ? { ...restore.draft } : {};
+      const backup = () => { if (Object.keys(draft).length) ReadBackup.set({ fold: fold.dataset.fold, type, date, draft }); else ReadBackup.clear(); };
       fold.classList.add('is-reading');
       const body = $('.if-body', fold);
       const bar = document.createElement('div');
@@ -2377,7 +2389,7 @@
         ['click', 'keydown'].forEach((ev) => box.addEventListener(ev, (e) => e.stopPropagation()));
         inp.addEventListener('input', () => {
           if (inp.value.trim() === '') delete draft[m.id]; else draft[m.id] = inp.value;
-          show(el, m); info();
+          show(el, m); info(); backup();
         });
         inp.addEventListener('keydown', (e) => {
           if (e.key !== 'Enter') return;
@@ -2386,17 +2398,17 @@
           if (next) next.focus(); else inp.blur();
         });
       });
-      const stop = () => this.render(root, type === 'gas' ? 'gas' : 'strom');
-      $('input[type=date]', bar).onchange = (e) => {
-        if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) { e.target.value = date; return; }
+      const stop = () => { ReadBackup.clear(); this.render(root, type === 'gas' ? 'gas' : 'strom'); };
+      $('input[type=date]', bar).onchange = async (e) => {
+        if (Object.keys(draft).length && !await Ask.confirm('Nicht gespeicherte Eingaben verwerfen?')) { e.target.value = date; return; }
         Object.keys(draft).forEach((k) => delete draft[k]);
-        date = e.target.value || today(); fill(); info();
+        date = e.target.value || today(); fill(); info(); backup();
       };
-      $('[data-rd-cancel]', bar).onclick = () => {
-        if (Object.keys(draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) return;
+      $('[data-rd-cancel]', bar).onclick = async () => {
+        if (Object.keys(draft).length && !await Ask.confirm('Nicht gespeicherte Eingaben verwerfen?')) return;
         stop();
       };
-      $('[data-rd-save]', bar).onclick = () => {
+      $('[data-rd-save]', bar).onclick = async () => {
         const entries = Object.entries(draft);
         const bad = entries.filter(([, v]) => isNaN(parseNum(v)));
         if (bad.length) { toast(`${bad.length} Eingabe(n) sind keine gültige Zahl`); return; }
@@ -2405,7 +2417,7 @@
           .map((m) => [m.id, S.readingBefore(m.id, date, false)]).filter(([, prev]) => prev);
         if (!entries.length && !leer.length) { stop(); return; }
         const warn = entries.filter(([id, v]) => { const prev = S.readingBefore(id, date, false); return prev && parseNum(v) < prev.value; });
-        if (!readingConfirm(warn.length, leer.length)) return;
+        if (!await readingConfirm(warn.length, leer.length)) return;
         leer.forEach(([id, prev]) => S.upsertReading(id, date, prev.value));
         entries.forEach(([id, v]) => S.upsertReading(id, date, parseNum(v)));
         S.save();
@@ -2414,6 +2426,7 @@
         stop();
       };
       fill(); info();
+      if (restore) toast('Nicht gespeicherte Ablesung wiederhergestellt');
       const first = $('.rd-in input', fold);
       if (first && window.matchMedia('(min-width: 861px)').matches) first.focus();
     },
@@ -2528,6 +2541,11 @@
       if (allBtn) allBtn.onclick = () => { const open = !folds.every((d) => d.open); folds.forEach((d) => { d.open = open; }); };
       syncAll();
       this._rerender = rerender;
+      const bk = ReadBackup.get();
+      if (bk && bk.draft && !$('.infra-fold.is-reading', root)) {
+        const fold = $$('.infra-fold', root).find((d) => d.dataset.fold === bk.fold);
+        if (fold) { fold.open = true; this.openIds.add(bk.fold); this.startReading(fold, bk.type, root, bk); }
+      }
     },
   };
 
@@ -2539,8 +2557,22 @@
     type: 'strom', date: today(), group: 'alle', onlyOpen: false,
     draft: {}, // meterId -> string (Eingabe)
 
+    BK: 'wch-ablesung-seite',
+    backup() {
+      try {
+        if (Object.keys(this.draft).length) localStorage.setItem(this.BK, JSON.stringify({ type: this.type, date: this.date, draft: this.draft }));
+        else localStorage.removeItem(this.BK);
+      } catch (e) { /* egal */ }
+    },
     render(root, params) {
-      if (params.get('typ')) this.type = params.get('typ') === 'gas' ? 'gas' : 'strom';
+      // nach Neuladen der Seite: nicht gespeicherte Eingaben zurückholen
+      if (!Object.keys(this.draft).length) {
+        try {
+          const bk = JSON.parse(localStorage.getItem(this.BK) || 'null');
+          if (bk && bk.draft && Object.keys(bk.draft).length) { this.type = bk.type; this.date = bk.date; this.draft = bk.draft; setTimeout(() => toast('Nicht gespeicherte Eingaben wiederhergestellt'), 300); }
+        } catch (e) { /* egal */ }
+      }
+      if (params.get('typ') && !Object.keys(this.draft).length) this.type = params.get('typ') === 'gas' ? 'gas' : 'strom';
       if (params.get('gruppe')) this.group = params.get('gruppe');
 
       const groupOpts = this.type === 'strom'
@@ -2571,13 +2603,13 @@
           </div>
         </div>`;
 
-      $$('[data-type]', root).forEach((b) => b.onclick = () => {
-        if (Object.keys(this.draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) return;
+      $$('[data-type]', root).forEach((b) => b.onclick = async () => {
+        if (Object.keys(this.draft).length && !await Ask.confirm('Nicht gespeicherte Eingaben verwerfen?')) return;
         this.draft = {}; this.type = b.dataset.type; this.group = 'alle';
         this.render(root, new URLSearchParams());
       });
-      $('#a-date', root).onchange = (e) => {
-        if (Object.keys(this.draft).length && !confirm('Nicht gespeicherte Eingaben verwerfen?')) { e.target.value = this.date; return; }
+      $('#a-date', root).onchange = async (e) => {
+        if (Object.keys(this.draft).length && !await Ask.confirm('Nicht gespeicherte Eingaben verwerfen?')) { e.target.value = this.date; return; }
         this.draft = {}; this.date = e.target.value || today(); this.renderList();
       };
       $('#a-group', root).onchange = (e) => { this.group = e.target.value; this.renderList(); };
@@ -2677,6 +2709,7 @@
     },
 
     updatePending() {
+      this.backup();
       const n = Object.keys(this.draft).length;
       const el = $('#a-pending');
       if (el) el.textContent = n ? `${n} neue Eingabe${n === 1 ? '' : 'n'} – noch nicht gespeichert` : 'Alle Eingaben gespeichert';
@@ -2689,7 +2722,7 @@
       return this.groups().flatMap((g) => g.meters).filter((m) => this.draft[m.id] === undefined)
         .map((m) => ({ m, st: this.rowState(m) })).filter(({ st }) => !st.saved && st.prev).map(({ m, st }) => [m.id, st.prev]);
     },
-    save() {
+    async save() {
       const entries = Object.entries(this.draft);
       const invalid = entries.filter(([, v]) => isNaN(parseNum(v)));
       if (invalid.length) { toast(`${invalid.length} Eingabe(n) sind keine gültige Zahl`); return; }
@@ -2699,7 +2732,7 @@
       });
       const leer = this.leer();
       if (!entries.length && !leer.length) return;
-      if (!readingConfirm(warnings.length, leer.length)) return;
+      if (!await readingConfirm(warnings.length, leer.length)) return;
       leer.forEach(([id, prev]) => S.upsertReading(id, this.date, prev.value));
       entries.forEach(([id, v]) => S.upsertReading(id, this.date, parseNum(v)));
       this.draft = {};
@@ -3027,10 +3060,10 @@
       if (window.Waechter) Waechter.bind(root, {}, toast);
       if (window.MsTodo) MsTodo.bind(root, toast, () => this.render(root));
       const rn = $('#d-rename', root);
-      if (rn) rn.onclick = () => {
+      if (rn) rn.onclick = async () => {
         if (blockIfMissing()) return;
         const plan = this._rename.filter((r) => !r.conflict);
-        if (!confirm(`${plan.length} Namen jetzt ändern?\n\n${plan.slice(0, 15).map((r) => `${r.from} → ${r.to}`).join('\n')}${plan.length > 15 ? '\n…' : ''}`)) return;
+        if (!await Ask.confirm(`${plan.length} Namen jetzt ändern?\n\n${plan.slice(0, 15).map((r) => `${r.from} → ${r.to}`).join('\n')}${plan.length > 15 ? '\n…' : ''}`)) return;
         S.applyRename(this._rename);
         toast(`${plan.length} Namen geändert`);
         this.render(root);
@@ -3040,10 +3073,10 @@
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
           try {
             const obj = JSON.parse(reader.result);
-            if (!reallyOverwrite(`Sicherung mit ${obj.parcels?.length ?? 0} Parzellen importieren und den aktuellen Stand ersetzen`)) return;
+            if (!await reallyOverwrite(`Sicherung mit ${obj.parcels?.length ?? 0} Parzellen importieren und den aktuellen Stand ersetzen`)) return;
             S.importJSON(obj); toast('Sicherung importiert'); this.render(root);
           } catch (err) { alert('Import fehlgeschlagen: ' + err.message); }
         };
@@ -3076,16 +3109,16 @@
         download(`parzellen-${today()}.csv`, csv(rows), 'text/csv;charset=utf-8');
       };
       // In der Datenbank nur nach ausdrücklicher Bestätigung überschreiben
-      const reallyOverwrite = (what) => S.mode !== 'cloud'
-        ? confirm(`${what}?`)
-        : (prompt(`${what}?\n\nDas betrifft die zentrale Datenbank für alle Benutzer. Zum Bestätigen LÖSCHEN eingeben:`) || '').trim().toUpperCase() === 'LÖSCHEN';
-      $('#d-demo', root).onclick = () => { if (reallyOverwrite('Aktuellen Stand durch Demo-Daten ersetzen')) { S.reset(); toast('Demo-Daten geladen'); this.render(root); } };
+      const reallyOverwrite = async (what) => S.mode !== 'cloud'
+        ? await Ask.confirm(`${what}?`)
+        : ((await Ask.prompt(`${what}?\n\nDas betrifft die zentrale Datenbank für alle Benutzer. Zum Bestätigen LÖSCHEN eingeben:`)) || '').trim().toUpperCase() === 'LÖSCHEN';
+      $('#d-demo', root).onclick = async () => { if (await reallyOverwrite('Aktuellen Stand durch Demo-Daten ersetzen')) { S.reset(); toast('Demo-Daten geladen'); this.render(root); } };
       const syncBtn = $('#d-sync', root);
-      if (syncBtn) syncBtn.onclick = () => {
+      if (syncBtn) syncBtn.onclick = async () => {
         const sync = this._sync;
         const what = [sync.changes.length ? `${sync.changes.length} Parzellen neu nummerieren` : '', sync.added.length ? `${sync.added.length} neue ergänzen` : '',
           sync.shapes.length ? `${sync.shapes.length} Umrisse aktualisieren` : ''].filter(Boolean).join(', ');
-        if (!confirm(`${what}?\n\nAlle Einträge (Mieter, Zähler, Zählerstände, To-Dos) bleiben erhalten.`)) return;
+        if (!await Ask.confirm(`${what}?\n\nAlle Einträge (Mieter, Zähler, Zählerstände, To-Dos) bleiben erhalten.`)) return;
         S.applyPlanSync(sync);
         if (window.MapView && MapView.render) MapView.render();
         toast('Aus dem Lageplan übernommen');
@@ -3098,12 +3131,12 @@
       };
       const logout = $('#d-logout', root);
       if (logout) logout.onclick = async () => {
-        if (S.hasPending && !confirm('Es werden noch Änderungen gespeichert. Trotzdem abmelden?')) return;
+        if (S.hasPending && !await Ask.confirm('Es werden noch Änderungen gespeichert. Trotzdem abmelden?')) return;
         await Cloud.signOut();
         location.reload();
       };
-      $('#d-clear', root).onclick = () => {
-        if (!reallyOverwrite('Wirklich ALLE Daten löschen und mit einem leeren Bestand starten')) return;
+      $('#d-clear', root).onclick = async () => {
+        if (!await reallyOverwrite('Wirklich ALLE Daten löschen und mit einem leeren Bestand starten')) return;
         S.clearAll(); toast('Leerer Bestand angelegt'); this.render(root);
       };
     },
@@ -3328,11 +3361,11 @@
         </select></li>`;
       }).join('') : `<li class="muted" style="padding:20px;text-align:center">${S.data.todos.length ? 'Keine passenden To-Dos.' : 'Noch keine To-Dos – oben rechts eines anlegen.'}</li>`;
       // Status direkt in der Liste ändern bzw. löschen
-      $$('[data-todo-act]').forEach((sel) => sel.addEventListener('change', () => {
+      $$('[data-todo-act]').forEach((sel) => sel.addEventListener('change', async () => {
         const t = S.todo(sel.dataset.todoAct);
         if (!t) return;
         if (sel.value === '__del') {
-          if (!confirm(`Aufgabe „${t.title || '(ohne Titel)'}“ wirklich löschen?`)) { sel.value = t.status; return; }
+          if (!await Ask.confirm(`Aufgabe „${t.title || '(ohne Titel)'}“ wirklich löschen?`)) { sel.value = t.status; return; }
           Photos.remove(t.photos);
           S.deleteTodo(t.id); S.save(); toast('To-Do gelöscht');
         } else {
@@ -3475,13 +3508,16 @@
       });
 
       // Abbrechen: neu hochgeladene Fotos wieder entfernen
-      const discard = () => { if (!saved && added.length) { Photos.remove(added.splice(0)); } };
+      const discard = () => {
+        if (PageKeep.kept('#/todo/')) { window.addEventListener('hashchange', discard, { once: true }); return; }   // nur beiseitegelegt
+        if (!saved && added.length) { Photos.remove(added.splice(0)); }
+      };
       $$('[data-cancel]', root).forEach((a) => a.addEventListener('click', discard));
       window.addEventListener('hashchange', discard, { once: true });
 
       const del = $('[data-delete]', root);
-      if (del) del.onclick = () => {
-        if (!confirm(`To-Do „${orig.title}“ wirklich löschen?`)) return;
+      if (del) del.onclick = async () => {
+        if (!await Ask.confirm(`To-Do „${orig.title}“ wirklich löschen?`)) return;
         saved = true;
         Photos.remove([...orig.photos, ...added]);
         S.deleteTodo(orig.id); S.save(); toast('To-Do gelöscht');
@@ -3734,25 +3770,25 @@
         const x = this.hahn(o, li.dataset.hahn);
         if (MapView.selHahn && x && !x.area) toast('Für diesen Hahn ist noch kein Bereich eingezeichnet');
       }));
-      $$('[data-hahn-act]', panel).forEach((sel) => sel.addEventListener('change', () => {
+      $$('[data-hahn-act]', panel).forEach((sel) => sel.addEventListener('change', async () => {
         const act = sel.value, hid = sel.dataset.hahnAct;
         sel.value = '';
         if (act === 'edit') this.editHahn(o, hid);
         if (act === 'area') this.drawArea(o, hid);
-        if (act === 'noarea') { if (confirm('Eingezeichneten Bereich dieses Hahns entfernen?')) { this.hahn(o, hid).area = null; S.save(); } }
+        if (act === 'noarea') { if (await Ask.confirm('Eingezeichneten Bereich dieses Hahns entfernen?')) { this.hahn(o, hid).area = null; S.save(); } }
         if (act === 'foto') this.markPhoto(o, hid);
         if (act === 'del') {
           const x = this.hahn(o, hid);
-          if (!confirm(`Absperrhahn ${S.hahnLabel(o, x)} löschen?`)) return;
+          if (!await Ask.confirm(`Absperrhahn ${S.hahnLabel(o, x)} löschen?`)) return;
           o.wasser.haehne = o.wasser.haehne.filter((y) => y.id !== hid);
           if (MapView.selHahn === hid) MapView.selHahn = null;
           S.save();
         }
       }));
-      $$('[data-ws-delread]', panel).forEach((b) => b.onclick = () => {
+      $$('[data-ws-delread]', panel).forEach((b) => b.onclick = async () => {
         const [zid, idx] = b.dataset.wsDelread.split(':');
         const z = this.meter(o, zid), r = z && z.ablesungen[+idx];
-        if (!r || !confirm(`Zählerstand vom ${fmtDate(r.datum)} (${fmtNum(r.stand)} m³) löschen?`)) return;
+        if (!r || !await Ask.confirm(`Zählerstand vom ${fmtDate(r.datum)} (${fmtNum(r.stand)} m³) löschen?`)) return;
         z.ablesungen.splice(+idx, 1);
         S.save();
       });
@@ -3762,14 +3798,14 @@
         MapView.selHahn = MapView.selHahn === row.dataset.meter ? null : row.dataset.meter;
         reshow();
       }));
-      $$('[data-meter-act]', panel).forEach((sel) => sel.addEventListener('change', () => {
+      $$('[data-meter-act]', panel).forEach((sel) => sel.addEventListener('change', async () => {
         const act = sel.value, zid = sel.dataset.meterAct;
         sel.value = '';
         if (act === 'edit') this.editMeter(o, zid);
         if (act === 'foto') this.markPhoto(o, zid);
         if (act === 'del') {
           const z = this.meter(o, zid);
-          if (!confirm(`Wasserzähler ${z.nr || ''} mit ${z.ablesungen.length} Zählerständen entfernen?`)) return;
+          if (!await Ask.confirm(`Wasserzähler ${z.nr || ''} mit ${z.ablesungen.length} Zählerständen entfernen?`)) return;
           o.wasser.zaehler = o.wasser.zaehler.filter((y) => y.id !== zid);
           if (MapView.selHahn === zid) MapView.selHahn = null;
           S.save(); toast('Zähler entfernt');
@@ -3837,9 +3873,9 @@
       nameIn.addEventListener('input', check);
       check();
       const del = $('[data-del]', dlg);
-      if (del) del.onclick = () => {
+      if (del) del.onclick = async () => {
         const n = S.todosOf('place', o.id, true).length;
-        if (!confirm(`${o.name} mit allen Absperrhähnen und Zählerständen löschen?${n ? `\n${n} To-Do(s) bleiben erhalten (als allgemeine To-Dos).` : ''}`)) return;
+        if (!await Ask.confirm(`${o.name} mit allen Absperrhähnen und Zählerständen löschen?${n ? `\n${n} To-Do(s) bleiben erhalten (als allgemeine To-Dos).` : ''}`)) return;
         if (o.photo) Photos.remove([o.photo]);
         S.deletePlace(o.id); S.save(); dlg.close(); toast('Schacht gelöscht');
         if (location.hash.startsWith('#/karte')) location.hash = '#/karte';
@@ -3865,7 +3901,7 @@
           o.wasser.haehne.push(neu);
           MapView.selHahn = neu.id;
           S.save();
-          setTimeout(() => { if (confirm(`Bereich für Absperrhahn ${S.hahnCode(o, neu)} jetzt auf der Map zeichnen?`)) this.drawArea(o, neu.id); }, 200);
+          setTimeout(async () => { if (await Ask.confirm(`Bereich für Absperrhahn ${S.hahnCode(o, neu)} jetzt auf der Map zeichnen?`)) this.drawArea(o, neu.id); }, 200);
         },
       });
     },
@@ -3974,10 +4010,10 @@
           { name: 'datum', label: 'Datum', type: 'date', value: today(), required: true },
           { name: 'stand', label: `Stand (m³)${last ? ` – zuletzt ${fmtNum(last.stand)} am ${fmtDate(last.datum)}` : ''}`, type: 'number', value: '', required: true },
         ],
-        onSubmit: (v) => {
+        onSubmit: async (v) => {
           const stand = parseNum(v.stand);
           if (isNaN(stand)) { toast('Bitte einen Zählerstand eingeben'); return false; }
-          if (last && stand < last.stand && v.datum >= last.datum && !confirm(`Der Stand ist kleiner als der letzte (${fmtNum(last.stand)} m³). Trotzdem speichern?`)) return false;
+          if (last && stand < last.stand && v.datum >= last.datum && !await Ask.confirm(`Der Stand ist kleiner als der letzte (${fmtNum(last.stand)} m³). Trotzdem speichern?`)) return false;
           z.ablesungen = z.ablesungen.filter((a) => a.datum !== v.datum).concat([{ datum: v.datum, stand }]).sort((a, b) => a.datum.localeCompare(b.datum));
           S.save();
           toast('Zählerstand gespeichert');
@@ -4508,8 +4544,8 @@
       const addTodo = $('[data-k-addtodo]', dlg);
       if (addTodo) addTodo.onclick = () => { dlg.close(); location.hash = `#/todo/neu?ziel=termin:${o.id}&${backParam('#/kalender')}`; };
       const del = $('[data-k-del]', dlg);
-      if (del) del.onclick = () => {
-        if (!confirm(`„${terminTitle(o)}“ wirklich löschen?${S.todosOf('termin', o.id, true).length ? '\nDie To-Dos bleiben erhalten (als allgemeine To-Dos).' : ''}`)) return;
+      if (del) del.onclick = async () => {
+        if (!await Ask.confirm(`„${terminTitle(o)}“ wirklich löschen?${S.todosOf('termin', o.id, true).length ? '\nDie To-Dos bleiben erhalten (als allgemeine To-Dos).' : ''}`)) return;
         S.deleteTermin(o.id); S.save(); dlg.close(); toast('Eintrag gelöscht');
         if (location.hash.startsWith('#/kalender')) this.render($('#view-page'));
       };
@@ -4565,6 +4601,30 @@
     },
   };
 
+  // Angefangene Bearbeitung (Parzelle/Kasten/To-Do bearbeiten, laufende Ablesung) bleibt erhalten,
+  // wenn man über die Reiter unten/oben woanders hingeht: die Seite wird samt Eingaben beiseitegelegt
+  // und beim nächsten Tippen auf denselben Reiter genau so wieder gezeigt.
+  const PageKeep = {
+    store: {},          // Reiter → { hash, frag, scroll }
+    cur: null,          // { hash, nav } der gerade gezeigten Seite
+    leaving: false,     // Reiter-Wechsel angestoßen
+    editRe: /^#\/(neu|todo\/|parzelle\/[^/]+\/bearbeiten|kasten\/)/,
+    dirty(hash) {
+      const vp = $('#view-page');
+      if (!vp || vp.hidden) return false;
+      return this.editRe.test(hash) || !!$('.is-reading', vp) || (/^#\/ablesung/.test(hash) && Object.keys(Ablesung.draft).length > 0);
+    },
+    kept(prefix) { return Object.values(this.store).some((c) => c.hash.startsWith(prefix)); },
+  };
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('.tabbar a[data-nav]');
+    if (!a) return;
+    const nav = a.dataset.nav;
+    if (PageKeep.cur && PageKeep.cur.nav !== nav && PageKeep.dirty(PageKeep.cur.hash)) PageKeep.leaving = true;
+    const c = PageKeep.store[nav];
+    if (c && location.hash !== c.hash) { e.preventDefault(); location.hash = c.hash; }
+  }, true);
+
   function route() {
     const raw = location.hash.replace(/^#\/?/, '') || 'karte';
     const [path, query] = raw.split('?');
@@ -4574,6 +4634,29 @@
     const viewPage = $('#view-page');
     const nav = { karte: 'karte', kalender: 'kalender', kartei: 'kartei', parzelle: 'kartei', neu: 'kartei', todos: 'todos', todo: 'todos', airbnb: 'airbnb', technik: 'technik', kasten: 'technik', ablesung: 'technik', verbrauch: 'technik', auslastung: 'technik', daten: 'daten' }[parts[0]] || 'karte';
     $$('.tabbar a').forEach((a) => a.classList.toggle('is-active', a.dataset.nav === nav));
+    // Seite mit angefangener Bearbeitung beiseitelegen bzw. zurückholen (siehe PageKeep)
+    const hashNow = location.hash || '#/karte';
+    if (PageKeep.leaving && PageKeep.cur) {
+      const frag = document.createDocumentFragment();
+      const sc = viewPage.scrollTop;
+      while (viewPage.firstChild) frag.appendChild(viewPage.firstChild);
+      PageKeep.store[PageKeep.cur.nav] = { hash: PageKeep.cur.hash, frag, scroll: sc };
+    }
+    PageKeep.leaving = false;
+    const kept = PageKeep.store[nav];
+    if (kept) {
+      delete PageKeep.store[nav];
+      if (kept.hash === hashNow && nav !== 'karte') {
+        if (MapView.mode) MapView.cancelMode();
+        viewMap.hidden = true;
+        viewPage.hidden = false;
+        viewPage.replaceChildren(kept.frag);
+        viewPage.scrollTop = kept.scroll;
+        PageKeep.cur = { hash: hashNow, nav };
+        return;
+      }
+    }
+    PageKeep.cur = { hash: hashNow, nav };
 
     if (nav === 'karte') {
       viewPage.hidden = true;
@@ -4661,7 +4744,8 @@
     if (S.mode !== 'cloud' || S.hasPending || S.sync.state === 'error') return;
     if (Date.now() - S.lastFetch < 30000) return;
     if (/^#\/(neu|todo\/|parzelle\/[^/]+\/bearbeiten)/.test(location.hash)) return;
-    if (Object.keys(Ablesung.draft).length || MapView.mode || $('#dialog').open) return;
+    if (Object.keys(Ablesung.draft).length || MapView.mode || $('#dialog').open || ($('#ask') && $('#ask').open)) return;
+    if ($('#view-page .is-reading') || /^#\/kasten\//.test(location.hash)) return;
     try {
       if (!(await S.refresh())) return;
       MapView.render();
@@ -4733,7 +4817,7 @@
       for (;;) {
         try { await S.init(); break; } catch (e) {
           console.error(e);
-          if (!confirm(`Daten konnten nicht geladen werden:\n${e.message || e}\n\nErneut versuchen?`)) return;
+          if (!await Ask.confirm(`Daten konnten nicht geladen werden:\n${e.message || e}\n\nErneut versuchen?`)) return;
         }
       }
       Auth.hide();
@@ -4753,7 +4837,7 @@
       const sel = MapView.selected;
       if (!$('#view-karte').hidden && sel) MapUI.showPanel(sel.type, sel.id);
       if (!$('#view-page').hidden && location.hash.startsWith('#/technik/wasser')) { if (!$('#dialog').open) Wasser.renderTech($('#view-page')); }
-      else if (!$('#view-page').hidden && location.hash.startsWith('#/technik')) Technik.render($('#view-page'), location.hash.startsWith('#/technik/gas') ? 'gas' : 'strom');
+      else if (!$('#view-page').hidden && location.hash.startsWith('#/technik') && !$('#view-page .is-reading')) Technik.render($('#view-page'), location.hash.startsWith('#/technik/gas') ? 'gas' : 'strom');
       if (!$('#view-page').hidden && location.hash.startsWith('#/todos')) Todos.renderList();
       if (!$('#view-page').hidden && location.hash.startsWith('#/kalender') && !$('#dialog').open) Kalender.render($('#view-page'));
       renderTodoBadge();
@@ -4822,7 +4906,7 @@
     window.addEventListener('online', () => S.retry());
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { refreshIfIdle(); Airbnb.load(); } });
     window.addEventListener('beforeunload', (e) => {
-      if (Object.keys(Ablesung.draft).length || S.hasPending) { e.preventDefault(); e.returnValue = ''; }
+      if (S.hasPending) { e.preventDefault(); e.returnValue = ''; }   // Ablese-Entwürfe sind im Gerät gesichert
     });
     route();
     if (Daten.planDiff() && !sessionStorage.getItem('wch-plan-hint')) {

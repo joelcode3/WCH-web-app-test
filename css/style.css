@@ -1690,3 +1690,8 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 /* Zuordnung als Suchfeld (type=search gegen Safari-Kontaktvorschläge): Safari-Optik und Löschkreuz aus */
 .mx-assign input[type=search] { -webkit-appearance: none; appearance: none; }
 .mx-assign input[type=search]::-webkit-search-cancel-button, .mx-assign input[type=search]::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+
+/* Eigene Rückfragen (js/ask.js) statt Browser-Fenster */
+.ask-dialog { width: min(420px, calc(100vw - 32px)); }
+.ask-text { font-size: 1rem; line-height: 1.45; }
+.ask-dialog input[name=v] { width: 100%; }

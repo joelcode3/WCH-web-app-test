@@ -60,6 +60,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Parzellennummern: Platz 1 = 1.01–1.30 (unten), Platz 2 = 2.01–2.71 (oben, inkl. Reihe über dem Hauptweg).
 
 ## Technik
+- **Keine Browser-Fenster** (`confirm`/`prompt`/`alert`): beim Betreiber (Safari) erschienen sie nicht, „Speichern“ tat dann nichts (25.11.2026). Stattdessen `Ask.confirm/prompt/alert` aus `js/ask.js` (eigenes `<dialog id="ask">`, Promise; `window.alert` ist darauf umgelenkt). Aufrufende Funktionen sind dafür `async`; `formDialog` akzeptiert ein async `onSubmit` (schließt nach der Antwort). Neue Rückfragen immer mit `await Ask.confirm(...)`.
+- **Eingaben bleiben erhalten** (25.11.2026): laufende Ablesung in Infrastruktur (`ReadBackup`, localStorage `wch-ablesung-entwurf`) und im Reiter Ablesen (`wch-ablesung-seite`) werden im Gerät gesichert und nach Neuladen/Neuzeichnen wiederhergestellt; Bearbeitungsseiten (Parzelle/Kasten/To-Do, laufende Ablesung) werden beim Reiter-Wechsel beiseitegelegt und beim Tippen auf denselben Reiter unverändert zurückgeholt (`PageKeep` in app.js). Hintergrund-Aktualisierung (`refreshIfIdle`) und Neuzeichnen bei Datenänderung pausieren während einer Ablesung/Bearbeitung.
 - Statische Web-App (Vanilla JS, Hash-Router), gehostet auf **GitHub Pages**:
   https://joelcode3.github.io/WCH-web-app-test/
 - **Supabase** (Login + Datenbank + Speicher „todo-fotos“ + Edge Functions `airbnb-kalender`, `hue-waechter`, `klima`, `ms-todo`).
@@ -132,8 +134,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.
 
 ## Übergabe (Stand 25.11.2026, neuer Chat)
-- Alle PRs bis #57 sind gemergt; #58 (Zählerstand bearbeiten: Rückfrage im Fenster) offen. update-17 (Füllstand) muss der Betreiber noch ausführen (hat vor dem Update gemergt). Arbeitszweig `claude/plan-extras`; vor neuer Arbeit auf `origin/main` setzen.
-- Letzte Version: `?v=20261128-13` (nächste: `-14` oder neues Datum).
+- Alle PRs bis #58 sind gemergt; #59 (keine Browser-Fenster mehr, Eingaben bleiben erhalten) offen. update-17 (Füllstand) muss der Betreiber noch ausführen (hat vor dem Update gemergt). Arbeitszweig `claude/plan-extras`; vor neuer Arbeit auf `origin/main` setzen.
+- Letzte Version: `?v=20261128-14` (nächste: `-15` oder neues Datum).
 - Vom Betreiber noch zu prüfen (Rückmeldung abwarten): Safari schlägt im Zuordnungsfeld (Stromkasten bearbeiten) keine Mac-Kontakte mehr vor;
   W-11 unter W-12 auf der Map jetzt anklickbar (Schildchen kommt beim Überfahren nach vorne).
 - Offene Frage an den Betreiber: Sollen Zähler mit nur einem Stand (oder bei der letzten Ablesung gar nicht abgelesen) auch als „inaktiv“ gelten?
