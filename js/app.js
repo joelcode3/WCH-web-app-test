@@ -80,6 +80,12 @@
 
   function toast(msg) {
     const el = $('#toast');
+    // offenes Fenster (<dialog>) liegt ganz oben – Meldung dort hinein, sonst wäre sie verdeckt
+    const dlg = $('#dialog');
+    const host = dlg && dlg.open ? dlg : document.body;
+    if (el.parentNode !== host) host.appendChild(el);
+    // schließt sich das Fenster gleich danach (z. B. „gespeichert“), Meldung wieder nach draußen holen
+    if (host === dlg) dlg.addEventListener('close', () => { if (el.parentNode === dlg) document.body.appendChild(el); }, { once: true });
     el.textContent = msg;
     el.hidden = false;
     clearTimeout(toast._t);
@@ -2204,6 +2210,7 @@
 
   /* ---------- Gespeicherten Zählerstand ändern oder löschen (mit Nachfrage) ---------- */
   const ReadingEdit = {
+    // Rückfrage und Fehlermeldungen direkt im Fenster (kein Browser-confirm: Safari zeigte darüber nichts an)
     open(rid) {
       const r = S.data.readings.find((x) => x.id === rid);
       const m = r && S.meter(r.meterId);
@@ -2211,6 +2218,8 @@
       const u = unit(m.type);
       const code = S.meterCode(m) || m.number || 'ohne Nummer';
       const line = (d, v) => `${fmtDate(d)} · ${fmtNum(v)} ${u}`;
+      let pending = null;   // bestätigte Eingabe {date, value}
+      let delArmed = false;
       formDialog({
         title: 'Zählerstand bearbeiten',
         fields: [
@@ -2219,36 +2228,69 @@
         ],
         extra: `<p class="notice small" style="margin:0">Zähler <strong>${h(code)}</strong>. Dieser Stand ist bereits gespeichert –
           bitte nur ändern, wenn er falsch erfasst wurde.</p>
+          <div class="re-msg" hidden></div>
           <button type="button" class="btn btn-danger btn-sm" data-del style="justify-self:start">${ICON.trash} Zählerstand löschen</button>`,
         onSubmit: (v) => {
           const date = v.date, value = parseNum(v.value);
-          if (isNaN(value)) { toast('Bitte eine gültige Zahl eingeben'); return false; }
+          if (!date) return this.msg('Bitte ein Ablesedatum wählen.');
+          if (isNaN(value)) return this.msg('Bitte eine gültige Zahl eingeben (z. B. 15535 oder 15535,5).');
           if (date === r.date && value === r.value) return true;   // nichts geändert
           if (S.data.readings.some((x) => x !== r && x.meterId === r.meterId && x.date === date)) {
-            toast(`Für den ${fmtDate(date)} gibt es bei diesem Zähler schon einen Stand`); return false;
+            return this.msg(`Für den ${fmtDate(date)} gibt es bei diesem Zähler schon einen Stand.`);
           }
-          const others = S.readingsOf(r.meterId).filter((x) => x !== r);
-          const prev = others.filter((x) => x.date < date).pop();
-          const next = others.find((x) => x.date > date);
-          const hints = [];
-          if (prev && value < prev.value) hints.push(`Der neue Stand ist kleiner als der vorherige (${line(prev.date, prev.value)}).`);
-          if (next && value > next.value) hints.push(`Der neue Stand ist größer als der nächste (${line(next.date, next.value)}).`);
-          if (!confirm(`Achtung: Sie ändern einen bereits gespeicherten Zählerstand.\n\nZähler ${code}\nbisher:  ${line(r.date, r.value)}\nneu:      ${line(date, value)}\n${hints.length ? '\n' + hints.join('\n') + '\n' : ''}\nWirklich ändern?`)) return false;
+          if (!pending || pending.date !== date || pending.value !== value) {
+            const others = S.readingsOf(r.meterId).filter((x) => x !== r);
+            const prev = others.filter((x) => x.date < date).pop();
+            const next = others.find((x) => x.date > date);
+            const hints = [];
+            if (prev && value < prev.value) hints.push(`Der neue Stand ist kleiner als der vorherige (${line(prev.date, prev.value)}).`);
+            if (next && value > next.value) hints.push(`Der neue Stand ist größer als der nächste (${line(next.date, next.value)}).`);
+            pending = { date, value };
+            this.msg(`<strong>Achtung: Sie ändern einen bereits gespeicherten Zählerstand.</strong>
+              <table class="re-cmp"><tr><td>bisher</td><td>${line(r.date, r.value)}</td></tr><tr><td>neu</td><td><strong>${line(date, value)}</strong></td></tr></table>
+              ${hints.map((x) => `<div class="warn">${h(x)}</div>`).join('')}
+              <div>Zum Bestätigen noch einmal auf <strong>„Ja, ändern“</strong> tippen.</div>`, true);
+            $('#dialog button[type=submit]').textContent = 'Ja, ändern';
+            return false;
+          }
           r.date = date; r.value = value;
           S.save();
           toast('Zählerstand geändert');
           this.after();
         },
       });
-      const del = $('#dialog [data-del]');
+      const dlg = $('#dialog');
+      // Eingabe geändert → Bestätigung zurücksetzen
+      $$('input', dlg).forEach((inp) => inp.addEventListener('input', () => {
+        if (!pending) return;
+        pending = null;
+        $('button[type=submit]', dlg).textContent = 'Speichern';
+        $('.re-msg', dlg).hidden = true;
+      }));
+      const del = $('[data-del]', dlg);
       if (del) del.onclick = () => {
-        if (!confirm(`Achtung: Gespeicherten Zählerstand wirklich löschen?\n\nZähler ${code}\n${line(r.date, r.value)}`)) return;
+        if (!delArmed) {
+          delArmed = true;
+          del.innerHTML = `${ICON.trash} Ja, wirklich löschen`;
+          this.msg(`<strong>Achtung: Gespeicherten Zählerstand löschen?</strong><div>${line(r.date, r.value)}</div><div>Zum Löschen noch einmal auf <strong>„Ja, wirklich löschen“</strong> tippen.</div>`, true);
+          return;
+        }
         S.data.readings = S.data.readings.filter((x) => x !== r);
         S.save();
-        $('#dialog').close();
+        dlg.close();
         toast('Zählerstand gelöscht');
         this.after();
       };
+    },
+    // Meldung im Fenster; false zurück, damit das Fenster offen bleibt
+    msg(html, isConfirm) {
+      const el = $('#dialog .re-msg');
+      if (!el) return false;
+      el.innerHTML = isConfirm ? html : `<span class="warn">${h(html)}</span>`;
+      el.classList.toggle('is-confirm', !!isConfirm);
+      el.hidden = false;
+      el.scrollIntoView({ block: 'nearest' });
+      return false;
     },
     // Mieter-Detailseite zeichnet sich nicht von selbst neu
     after() { if (location.hash.startsWith('#/parzelle/')) route(); },
