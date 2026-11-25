@@ -1923,7 +1923,7 @@
             <input type="text" class="mx-nr" data-k="number" value="${h(m.number)}" autocomplete="off" placeholder="Nr." aria-label="Zählernummer">
             <input type="text" class="mx-fuse" data-fuse value="${h(fuseText(m))}" autocomplete="off" placeholder="Sich." title="Sicherung, mehrere mit Komma (z. B. F3, F4)" aria-label="Sicherung" ${fusesMissing() ? 'disabled title="erst nach Datenbank-Update"' : ''}>
             <div class="mx-assign">
-              <input type="text" data-assign value="${h(choiceLabel(a))}" placeholder="Name oder Parzelle suchen …" autocomplete="off" aria-label="Zuordnung">
+              <input type="search" data-assign name="mx-zuo-${i}" value="${h(choiceLabel(a))}" placeholder="Mieter oder Parzelle suchen …" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-label="Zuordnung" data-1p-ignore data-lpignore="true">
               <ul class="mx-list" hidden></ul>
             </div>
             <button type="button" class="close meter-remove" data-remove="${i}" aria-label="Zähler entfernen" title="Zähler entfernen">${ICON.trash}</button>

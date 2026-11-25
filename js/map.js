@@ -53,6 +53,16 @@
     },
   });
 
+  // Überlappende Schildchen: das unter der Maus/dem Finger kommt ganz nach vorne,
+  // damit ein halb verdecktes (z. B. W-11 unter W-12) vollständig sichtbar und anklickbar wird
+  function raiseOnHover(m) {
+    const base = m.options.zIndexOffset || 0;
+    const up = () => m.setZIndexOffset(base + 5000);
+    const down = () => m.setZIndexOffset(base);
+    m.on('mouseover', up); m.on('mouseout', down);
+    m.on('add', () => { const el = m.getElement(); if (el) el.addEventListener('touchstart', up, { passive: true }); });
+  }
+
   const MapView = {
     map: null,
     colorMode: 'status',   // 'status' | 'supply'
@@ -286,6 +296,7 @@
           });
           m.on('click', (e) => { if (this.mode) return; L.DomEvent.stopPropagation(e); this.handlers.onSelect('box', b.id); });
           m.on('dragend', () => { b.pos = fromLL(m.getLatLng()); Store.save(); });
+          raiseOnHover(m);
           m.addTo(L_.boxes);
           // Versorgung: alle Verbindungen zeigen (ausgewählter Kasten kräftiger)
           if (isSel || this.colorMode === 'supply') this._drawLinks(b.pos, Store.metersInBox(b.id).map((mt) => Store.parcel(mt.parcelId)), '#e0a526', !isSel);
@@ -309,6 +320,7 @@
           });
           m.on('click', (e) => { if (this.mode) return; L.DomEvent.stopPropagation(e); this.handlers.onSelect('tank', t.id); });
           m.on('dragend', () => { t.pos = fromLL(m.getLatLng()); Store.save(); });
+          raiseOnHover(m);
           m.addTo(L_.tanks);
           if (isSel || this.colorMode === 'supply') this._drawLinks(t.pos, Store.parcelsOnTank(t.id), '#2f9e74', !isSel);
         });
@@ -354,6 +366,7 @@
           }
           m.on('click', (e) => { if (this.mode) return; L.DomEvent.stopPropagation(e); this.handlers.onSelect('place', o.id); });
           m.on('dragend', () => { const rot = o.pos && o.pos[2]; o.pos = fromLL(m.getLatLng()); if (rot) o.pos.push(rot); Store.save(); });
+          raiseOnHover(m);
           m.addTo(L_.places);
         });
       }

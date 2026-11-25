@@ -1632,3 +1632,6 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
   .mx-row { grid-template-columns: minmax(0, 1fr) 90px 36px; }
   .mx-row .mx-label { grid-column: 1 / -1; }
 }
+/* Zuordnung als Suchfeld (type=search gegen Safari-Kontaktvorschläge): Safari-Optik und Löschkreuz aus */
+.mx-assign input[type=search] { -webkit-appearance: none; appearance: none; }
+.mx-assign input[type=search]::-webkit-search-cancel-button, .mx-assign input[type=search]::-webkit-search-decoration { -webkit-appearance: none; display: none; }
