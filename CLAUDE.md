@@ -131,8 +131,8 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.
 
 ## Übergabe (Stand 25.11.2026, neuer Chat)
-- Alle PRs bis #55 sind gemergt; #56 (Durchschnitt, Stände bearbeiten) offen. Arbeitszweig `claude/plan-extras`; vor neuer Arbeit auf `origin/main` setzen.
-- Letzte Version: `?v=20261128-11` (nächste: `-12` oder neues Datum).
+- Alle PRs bis #56 sind gemergt; #57 (Gas wie Strom, Ablesen-Vorschlag, Warnungen) offen. Arbeitszweig `claude/plan-extras`; vor neuer Arbeit auf `origin/main` setzen.
+- Letzte Version: `?v=20261128-12` (nächste: `-13` oder neues Datum).
 - Vom Betreiber noch zu prüfen (Rückmeldung abwarten): Safari schlägt im Zuordnungsfeld (Stromkasten bearbeiten) keine Mac-Kontakte mehr vor;
   W-11 unter W-12 auf der Map jetzt anklickbar (Schildchen kommt beim Überfahren nach vorne).
 - Offene Frage an den Betreiber: Sollen Zähler mit nur einem Stand (oder bei der letzten Ablesung gar nicht abgelesen) auch als „inaktiv“ gelten?
