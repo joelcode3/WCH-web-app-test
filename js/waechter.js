@@ -225,7 +225,7 @@
             }
             if (act === 'test') { await this._call({ action: 'test-sms' }); toast('Test-SMS verschickt'); }
             if (act === 'disconnect') {
-              if (!confirm(`Stromwächter für „${o.name}“ wirklich trennen? Es gibt dann keine Warnungen mehr.`)) return;
+              if (!await Ask.confirm(`Stromwächter für „${o.name}“ wirklich trennen? Es gibt dann keine Warnungen mehr.`)) return;
               await this._call({ action: 'disconnect', place_id: o.id });
               toast('Stromwächter getrennt');
               await this.load();
