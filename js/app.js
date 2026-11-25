@@ -113,6 +113,9 @@
     return `<span class="mc-nr">${h(code)}</span>`;
   }
 
+  // Verbrauch mit Vorzeichen: +1.234 kWh bzw. −50 kWh (rückwärts gelaufen, rot)
+  const fmtDiff = (d, type) => (d < 0 ? `<span class="warn">−${fmtNum(-d)} ${unit(type)}</span>` : `+${fmtNum(d)} ${unit(type)}`);
+
   /* Formular-Dialog: fields = [{name,label,type,value,options,required,full}] */
   function formDialog({ title, fields, submitLabel = 'Speichern', onSubmit, extra = '' }) {
     const dlg = $('#dialog');
@@ -622,7 +625,7 @@
       const block = (type, label) => {
         const ms = meters.filter((m) => m.type === type);
         if (!ms.length) return '';
-        const kurz = type === 'strom';   // Strom: nur Zähler + Sicherung, dazu der Durchschnitt; alles weitere unter „Details öffnen“
+        const kurz = true;   // Strom und Gas: nur Zähler (+ Sicherung), dazu der Durchschnitt; alles weitere unter „Details öffnen“
         return `<div class="section-title ws-st ${type === 'gas' ? 'is-gas' : 'is-strom'}">${BICO.meter}${label} · ${ms.length}</div>
           <div class="bx-group bx-plain">${ms.map((m) => this.boxMeterItem(m, kurz ? { reads: false } : {})).join('')}
           ${kurz ? `<div class="bx-avgline">${this.groupAvgHtml(ms)}</div>` : ''}</div>`;
@@ -726,6 +729,21 @@
         </li>`;
       }).join('');
     },
+    // Warnungen je Zähler (kleines „!“ an der Zeile, Text beim Überfahren):
+    // rückwärts gelaufen (letzter Stand kleiner als der vorherige) und Verbrauch an einem freien Zähler
+    meterWarnings(m) {
+      const all = S.readingsOf(m.id);
+      if (all.length < 2) return [];
+      const a = all[all.length - 2], b = all[all.length - 1], u = unit(m.type), d = b.value - a.value;
+      const w = [];
+      if (d < 0) w.push(`Zähler läuft rückwärts: ${fmtNum(b.value)} ${u} am ${fmtDate(b.date)} ist kleiner als ${fmtNum(a.value)} ${u} am ${fmtDate(a.date)} (Zählertausch oder Tippfehler?)`);
+      if (d > 0 && S.isFreeMeter(m)) w.push(`Verbrauch an einem freien Zähler: +${fmtNum(d)} ${u} zwischen ${fmtDate(a.date)} und ${fmtDate(b.date)} – keinem Mieter zugeordnet`);
+      return w;
+    },
+    meterWarnHtml(m) {
+      const w = this.meterWarnings(m);
+      return w.length ? `<span class="warn-ico mw-warn" title="${h(w.join('\n'))}" aria-label="${h(w.join(' – '))}" tabindex="0">!</span>` : '';
+    },
     // Durchschnittsverbrauch je Monat zwischen den beiden letzten Ablesungen eines Zählers
     // (null = weniger als zwei Stände). Inaktive Zähler liefern 0.
     monthlyAvg(m) {
@@ -738,7 +756,7 @@
     },
     // Parzelle mit mehreren Zählern: Summe der Monatsdurchschnitte aller Zähler
     groupAvg(meters) {
-      const avgs = meters.map((m) => this.monthlyAvg(m)).filter(Boolean);
+      const avgs = meters.map((m) => this.monthlyAvg(m)).filter((a) => a && a.value >= 0);
       if (!avgs.length) return null;
       return {
         value: avgs.reduce((t, a) => t + a.value, 0), n: avgs.length,
@@ -747,7 +765,7 @@
     },
     groupAvgHtml(meters) {
       const a = this.groupAvg(meters);
-      if (!a) return `<span class="bx-avg is-none" title="Erst ab zwei Ablesungen">Ø – / Monat</span>`;
+      if (!a) return `<span class="bx-avg is-none" title="Kein Durchschnitt: weniger als zwei Ablesungen oder Zähler rückwärts gelaufen">Ø – / Monat</span>`;
       const tip = a.n > 1 ? `Summe aus ${a.n} Zählern, je zwischen den beiden letzten Ablesungen` : 'zwischen den beiden letzten Ablesungen';
       return `<span class="bx-avg" title="${h(tip)}"><span class="muted">Ø</span> <strong>${fmtNum(Math.round(a.value))} ${unit(meters[0].type)}</strong><span class="muted"> / Monat</span></span>
         <span class="bx-avg-per">${fmtDate(a.from)} – ${fmtDate(a.to)}</span>`;
@@ -767,7 +785,7 @@
       const tcls = `ws-read${opts.edit ? ' is-edit' : ''}`;
       const reads = rs.length ? `<table class="${tcls}"><tbody>${rs.map((r) => {
         const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${inaktiv ? inaktivTag('in-table') : prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
+        return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${inaktiv ? inaktivTag('in-table') : prev ? fmtDiff(r.value - prev.value, m.type) : ''}</td>${ed(r)}</tr>`;
       }).join('')}</tbody></table>` : '<p class="muted small" style="margin:4px 0 0">Noch kein Zählerstand.</p>';
       const last = all[all.length - 1];
       const body = opts.reads === false ? ''
@@ -775,10 +793,10 @@
         ? `<div class="bx-info bx-lastline">${last ? `<strong>${fmtNum(last.value)} ${unit(m.type)}</strong> <span class="muted">· ${fmtDate(last.date)}</span>` : '<span class="muted">Noch kein Zählerstand.</span>'}</div>`
         : reads + (older.length ? `<details class="bx-more"><summary>Ältere Stände (${older.length})</summary><table class="${tcls}"><tbody>${older.map((r) => {
           const i = all.indexOf(r), prev = i > 0 ? all[i - 1] : null;
-          return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? `+${fmtNum(r.value - prev.value)} ${unit(m.type)}` : ''}</td>${ed(r)}</tr>`;
+          return `<tr><td>${fmtDate(r.date)}</td><td class="num">${fmtNum(r.value)} ${unit(m.type)}</td><td class="num muted">${prev ? fmtDiff(r.value - prev.value, m.type) : ''}</td>${ed(r)}</tr>`;
         }).join('')}</tbody></table></details>` : '');
       return `<div class="bx-meter${m.type === 'gas' ? ' is-gas' : ''}${inaktiv ? ' is-inaktiv' : ''}" data-mid="${m.id}">
-        <div class="bx-code">${BICO.meter}<strong class="mono">${meterCodeHtml(m, 'ohne Nummer')}</strong>${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? inaktivTag(opts.reads !== false && n !== 0 ? 'has-tbl' : '') : ''}</div>
+        <div class="bx-code">${BICO.meter}<strong class="mono">${meterCodeHtml(m, 'ohne Nummer')}</strong>${this.meterWarnHtml(m)}${fuse ? `<span class="bx-fuse">${BICO.fuse}${h(fuse)}</span>` : ''}${inaktiv ? inaktivTag(opts.reads !== false && n !== 0 ? 'has-tbl' : '') : ''}</div>
         ${body}
       </div>`;
     },
@@ -807,11 +825,11 @@
     tankPanel(t) {
       if (!t) return '';
       const parcels = S.parcelsOnTank(t.id);
-      const items = parcels.map((p) => {
-        const gm = S.metersOf(p.id).filter((m) => m.type === 'gas');
-        if (gm.length) return gm.map((m) => this.meterItem(m, 'tank')).join('');
-        return `<li class="meter-item is-link" data-goto="#/karte/parcel/${p.id}" tabindex="0">${nrBadge(p, 'nr-sm')}<div class="body"><div class="line1">${h(tenantName(p))}</div><div class="line2 warn">kein Gaszähler hinterlegt</div></div></li>`;
-      }).join('');
+      const gms = parcels.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
+      const ohne = parcels.filter((p) => !S.metersOf(p.id).some((m) => m.type === 'gas'));
+      const items = (gms.length ? `<div class="bx-total is-gas"><span class="bx-total-l">Gesamt über den Tank</span>${this.groupAvgHtml(gms)}</div>
+        <ul class="bx-meters is-compact">${this.boxMeterGroups(gms, { reads: false })}</ul>` : '')
+        + (ohne.length ? `<ul class="meter-list" style="margin-top:6px">${ohne.map((p) => `<li class="meter-item is-link" data-goto="#/karte/parcel/${p.id}" tabindex="0">${nrBadge(p, 'nr-sm')}<div class="body"><div class="line1">${h(tenantName(p))}</div><div class="line2 warn">kein Gaszähler hinterlegt</div></div></li>`).join('')}</ul>` : '');
       return `
         <div class="panel-head">
           <span class="pin pin-tank" style="transform:none;height:42px;font-size:16px;padding:0 12px 0 8px">${ICON.gas}<span>${h(t.nr)}</span></span>
@@ -820,8 +838,9 @@
         </div>
         <div class="panel-body">
           ${t.notes ? `<p class="notice" style="margin-top:0">${h(t.notes)}</p>` : ''}
+          ${TankLevel.html(t)}
           <div class="section-title">${parcels.length} angeschlossene Parzelle${parcels.length === 1 ? '' : 'n'}</div>
-          ${parcels.length ? `<ul class="meter-list">${items}</ul>` : '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
+          ${parcels.length ? items : '<p class="muted small">Noch keine Parzellen angeschlossen.</p>'}
           ${todoSection('tank', t.id)}
         </div>
         <div class="panel-actions">
@@ -2074,6 +2093,115 @@
     },
   };
 
+  // Nachfrage beim Speichern einer Ablesung: rückwärts gelaufene Zähler, leer gelassene (= unverändert)
+  function readingConfirm(nBack, nLeer) {
+    const t = [];
+    if (nBack) t.push(`${nBack} ${nBack === 1 ? 'Zähler ist' : 'Zähler sind'} rückwärts gelaufen (Stand kleiner als vorher – alter Zähler, Zählertausch oder Tippfehler?).`);
+    if (nLeer) t.push(`${nLeer} ${nLeer === 1 ? 'Zähler ohne Eingabe wird' : 'Zähler ohne Eingabe werden'} mit unverändertem Stand gespeichert (gilt dann als „inaktiv“).`);
+    return !t.length || confirm(`${t.join('\n\n')}\n\nSo speichern?`);
+  }
+
+  /* ---------- Gastank-Füllstand: Eintrag mit Datum, Schätzung aus dem Verbrauch, Warnung unter 30 % ---------- */
+  const TankLevel = {
+    WARN: 30,              // Prozent
+    L_PER_M3: 3.7,         // Annahme Propan: 1 m³ Gas ≈ 3,7 l flüssig (≈ 1,9 kg/m³ ÷ 0,51 kg/l)
+    list(t) { return (t.fuell || []).slice().sort((a, b) => a.datum.localeCompare(b.datum)); },
+    last(t) { const l = this.list(t); return l[l.length - 1] || null; },
+    liters(t) { const n = parseInt(String(t.capacity || '').replace(/\./g, '').replace(/[^\d]/g, ''), 10); return n > 0 ? n : 0; },
+    days(a, b) { return (new Date(b) - new Date(a)) / 864e5; },
+    // Verbrauch in % pro Tag: 1. aus früheren Füllständen (nur Abnahmen, Nachfüllen zählt nicht),
+    // 2. sonst aus den Gaszählern der angeschlossenen Parzellen (letzte beiden Ablesungen) und der Tankgröße
+    rate(t) {
+      const l = this.list(t);
+      let drop = 0, days = 0;
+      for (let i = 1; i < l.length; i++) {
+        const d = this.days(l[i - 1].datum, l[i].datum);
+        if (d > 0 && l[i].prozent < l[i - 1].prozent) { drop += l[i - 1].prozent - l[i].prozent; days += d; }
+      }
+      if (days >= 14) return { perDay: drop / days, quelle: 'aus den bisherigen Füllständen' };
+      const cap = this.liters(t);
+      if (!cap) return null;
+      let m3 = 0, any = false;
+      S.parcelsOnTank(t.id).forEach((p) => S.metersOf(p.id).filter((m) => m.type === 'gas').forEach((m) => {
+        const a = MapUI.monthlyAvg(m);
+        if (a && a.value >= 0) { m3 += a.value / 30.44; any = true; }
+      }));
+      if (!any) return null;
+      return { perDay: (m3 * this.L_PER_M3 / cap) * 100, quelle: 'aus dem Verbrauch der Gaszähler' };
+    },
+    // Zustand: letzter Eintrag, Schätzung für heute, Warnung
+    state(t) {
+      const last = this.last(t);
+      if (!last) return { last: null };
+      const r = this.rate(t);
+      const since = Math.max(0, this.days(last.datum, today()));
+      const est = r ? Math.max(0, last.prozent - r.perDay * since) : null;
+      let warn = '';
+      if (last.prozent < this.WARN) warn = `Füllstand niedrig: ${fmtNum(last.prozent)} % am ${fmtDate(last.datum)} – Gas bestellen`;
+      else if (est !== null && since >= 1 && est <= this.WARN) warn = `Füllstand prüfen: nach dem bisherigen Verbrauch jetzt ca. ${Math.round(est)} % (zuletzt ${fmtNum(last.prozent)} % am ${fmtDate(last.datum)})`;
+      return { last, est, rate: r, since, warn };
+    },
+    warnings() {
+      return S.data ? S.tanksSorted().map((t) => ({ t, st: this.state(t) })).filter((x) => x.st.warn) : [];
+    },
+    chip(t) {
+      const st = this.state(t);
+      if (!st.last) return '<span class="if-c muted">Füllstand –</span>';
+      return `<span class="if-c${st.warn ? ' is-warn' : ''}"${st.warn ? ` title="${h(st.warn)}"` : ''}>${st.warn ? '<span class="warn-ico">!</span> ' : ''}${fmtNum(st.last.prozent)} % · ${fmtDate(st.last.datum)}</span>`;
+    },
+    // Block im Tank-Fenster (Map) und in der Infrastruktur-Zeile
+    html(t, opts = {}) {
+      const st = this.state(t);
+      const p = st.last ? Math.min(100, Math.max(0, st.last.prozent)) : 0;
+      const hist = opts.history ? this.list(t).reverse() : [];
+      return `<div class="tl-block${st.warn ? ' is-warn' : ''}">
+        <div class="tl-head"><strong>Füllstand</strong>
+          ${st.last ? `<span class="tl-val">${fmtNum(st.last.prozent)} %</span><span class="muted small">am ${fmtDate(st.last.datum)}</span>` : '<span class="muted small">noch nicht erfasst</span>'}
+          <button type="button" class="btn btn-ghost btn-sm" data-tank-level="${t.id}">${ICON.edit} Eintragen</button></div>
+        ${st.last ? `<div class="tl-bar"><i style="width:${p}%"></i><b style="left:${this.WARN}%" title="${this.WARN} %"></b></div>` : ''}
+        ${st.est !== null && st.est !== undefined && st.since >= 1 ? `<div class="small muted">Geschätzt heute: ca. ${Math.round(st.est)} % <span title="Verbrauch ${st.rate.quelle}${st.rate.quelle.includes('Zähler') ? ' – Annahme 1 m³ Gas ≈ 3,7 l Flüssiggas' : ''}">(${h(st.rate.quelle)})</span></div>` : ''}
+        ${st.warn ? `<div class="tl-warn"><span class="warn-ico">!</span> ${h(st.warn)}</div>` : ''}
+        ${hist.length > 1 ? `<details class="bx-more"><summary>Frühere Füllstände (${hist.length - 1})</summary><table class="ws-read"><tbody>${hist.slice(1).map((x) => `<tr><td>${fmtDate(x.datum)}</td><td class="num">${fmtNum(x.prozent)} %</td></tr>`).join('')}</tbody></table></details>` : ''}
+      </div>`;
+    },
+    open(tid) {
+      const t = S.tank(tid);
+      if (!t) return;
+      const last = this.last(t);
+      formDialog({
+        title: `Füllstand Gastank ${t.nr}`,
+        fields: [
+          { name: 'datum', label: 'Datum', type: 'date', value: today(), required: true },
+          { name: 'prozent', label: 'Füllstand in %', value: '', placeholder: last ? `zuletzt ${fmtNum(last.prozent)} %` : 'z. B. 65', required: true, autocomplete: 'off' },
+        ],
+        extra: `<p class="small muted" style="margin:0">Wert von der Anzeige am Tank ablesen. Unter ${this.WARN} % erscheint eine Warnung.${last ? ` Ein Eintrag für ein schon erfasstes Datum ersetzt den alten Wert.` : ''}</p>
+          ${last ? `<button type="button" class="btn btn-danger btn-sm" data-del style="justify-self:start">${ICON.trash} Letzten Eintrag löschen (${fmtNum(last.prozent)} % am ${fmtDate(last.datum)})</button>` : ''}`,
+        onSubmit: (v) => {
+          const pz = parseNum(v.prozent);
+          if (isNaN(pz) || pz < 0 || pz > 100) { toast('Bitte einen Füllstand zwischen 0 und 100 eingeben'); return false; }
+          const old = (t.fuell || []).find((x) => x.datum === v.datum);
+          if (old && !confirm(`Für den ${fmtDate(v.datum)} ist schon ${fmtNum(old.prozent)} % eingetragen. Durch ${fmtNum(pz)} % ersetzen?`)) return false;
+          t.fuell = (t.fuell || []).filter((x) => x.datum !== v.datum).concat([{ datum: v.datum, prozent: pz }]);
+          S.save();
+          toast(`Gastank ${t.nr}: ${fmtNum(pz)} % eingetragen`);
+          renderAlarms();
+        },
+      });
+      const del = $('#dialog [data-del]');
+      if (del) del.onclick = () => {
+        if (!confirm(`Füllstand ${fmtNum(last.prozent)} % vom ${fmtDate(last.datum)} wirklich löschen?`)) return;
+        t.fuell = (t.fuell || []).filter((x) => x !== last && !(x.datum === last.datum && x.prozent === last.prozent));
+        S.save(); $('#dialog').close(); toast('Eintrag gelöscht'); renderAlarms();
+      };
+    },
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-tank-level]');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    TankLevel.open(b.dataset.tankLevel);
+  }, true);
+
   /* ---------- Gespeicherten Zählerstand ändern oder löschen (mit Nachfrage) ---------- */
   const ReadingEdit = {
     open(rid) {
@@ -2125,6 +2253,13 @@
     // Mieter-Detailseite zeichnet sich nicht von selbst neu
     after() { if (location.hash.startsWith('#/parzelle/')) route(); },
   };
+  // „!“ an einem Zähler antippen/anklicken: Warnung als Meldung (iPhone kennt kein Überfahren)
+  document.addEventListener('click', (e) => {
+    const w = e.target.closest && e.target.closest('.mw-warn');
+    if (!w) return;
+    e.preventDefault(); e.stopPropagation();
+    toast(w.getAttribute('aria-label'));
+  }, true);
   // Stift in einer Stand-Zeile: nicht zur Parzelle springen, sondern Dialog öffnen (nicht während der Ablesung)
   document.addEventListener('click', (e) => {
     const b = e.target.closest && e.target.closest('[data-edit-read]');
@@ -2182,7 +2317,11 @@
       };
       const fill = () => items.forEach((el) => {
         const m = S.meter(el.dataset.mid);
-        $('input', el.querySelector('.rd-in')).value = state(m).raw;
+        const inp = $('input', el.querySelector('.rd-in'));
+        const prev = S.readingBefore(m.id, date, false);
+        inp.value = state(m).raw;
+        inp.placeholder = prev ? fmtNum(prev.value) : 'neuer Stand';
+        inp.title = prev ? `Leer lassen = unverändert (${fmtNum(prev.value)} ${unit(m.type)})` : '';
         show(el, m);
       });
       items.forEach((el) => {
@@ -2217,14 +2356,19 @@
       };
       $('[data-rd-save]', bar).onclick = () => {
         const entries = Object.entries(draft);
-        if (!entries.length) { stop(); return; }
         const bad = entries.filter(([, v]) => isNaN(parseNum(v)));
         if (bad.length) { toast(`${bad.length} Eingabe(n) sind keine gültige Zahl`); return; }
+        // leer gelassen (und für das Datum noch nichts gespeichert) = Stand unverändert → inaktiv
+        const leer = items.map((el) => S.meter(el.dataset.mid)).filter((m) => draft[m.id] === undefined && !state(m).saved)
+          .map((m) => [m.id, S.readingBefore(m.id, date, false)]).filter(([, prev]) => prev);
+        if (!entries.length && !leer.length) { stop(); return; }
         const warn = entries.filter(([id, v]) => { const prev = S.readingBefore(id, date, false); return prev && parseNum(v) < prev.value; });
-        if (warn.length && !confirm(`${warn.length} Zählerstand/-stände sind kleiner als der vorherige Stand (Zählertausch oder Tippfehler?).\nTrotzdem speichern?`)) return;
+        if (!readingConfirm(warn.length, leer.length)) return;
+        leer.forEach(([id, prev]) => S.upsertReading(id, date, prev.value));
         entries.forEach(([id, v]) => S.upsertReading(id, date, parseNum(v)));
         S.save();
-        toast(`${entries.length} ${entries.length === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert`);
+        const nAll = entries.length + leer.length;
+        toast(`${nAll} ${nAll === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert${leer.length ? ` (${leer.length} unverändert)` : ''}`);
         stop();
       };
       fill(); info();
@@ -2297,11 +2441,11 @@
               const info = [t.capacity, t.notes].filter(Boolean).map((x) => `<span class="if-inl">· ${h(x)}</span>`).join('');
               return fold(`tank:${t.id}`, `<span class="pin pin-tank" style="transform:none">${ICON.gas}<span>${h(t.nr)}</span></span>`,
                 [`Gastank ${h(t.nr)}${info}`, t.pos ? '' : 'noch nicht auf der Map'],
-                cnt(ps.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine Parzellen</span>',
-                `${(() => {
+                TankLevel.chip(t) + (cnt(ps.length, 'Parzelle', 'Parzellen') || '<span class="if-c muted">keine Parzellen</span>'),
+                `${TankLevel.html(t, { history: true })}${(() => {
                   const gm = ps.flatMap((p) => S.metersOf(p.id).filter((m) => m.type === 'gas'));
                   const ohne = ps.filter((p) => !S.metersOf(p.id).some((m) => m.type === 'gas'));
-                  return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm, { edit: true })}</ul>` : '')
+                  return (gm.length ? `<ul class="bx-meters">${MapUI.boxMeterGroups(gm, { avg: true, edit: true })}</ul>` : '')
                     + (ohne.length ? `<p class="small muted" style="margin:8px 0 0">Ohne Gaszähler: ${ohne.map((p) => h(p.nr)).join(', ')}</p>` : '')
                     || '<p class="muted small">Noch keine Parzellen angeschlossen.</p>';
                 })()}
@@ -2472,7 +2616,7 @@
         ${p ? nrBadge(p, 'nr-sm') : serviceBadge()}
         <div class="who"><strong>${p ? h(tenantName(p)) : h(S.purposeText(m))}</strong><span class="mono small">${meterCodeHtml(m, 'ohne Nr.')}</span></div>
         <div class="prev">${st.prev ? `Vorher: <strong class="mono">${fmtNum(st.prev.value)}</strong> (${fmtDate(st.prev.date)})` : 'kein vorheriger Stand'}</div>
-        <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="Neuer Stand" aria-label="Zählerstand ${p ? 'Parzelle ' + h(p.nr) : h(S.purposeText(m))}">
+        <input type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" data-meter="${m.id}" value="${h(st.raw)}" placeholder="${st.prev ? fmtNum(st.prev.value) : 'Neuer Stand'}"${st.prev ? ` title="Leer lassen = unverändert (${fmtNum(st.prev.value)} ${unit(m.type)})"` : ''} aria-label="Zählerstand ${p ? 'Parzelle ' + h(p.nr) : h(S.purposeText(m))}">
         <div class="diff">${this.diffHtml(m, st)}</div>
       </div>`;
     },
@@ -2495,9 +2639,14 @@
       const el = $('#a-pending');
       if (el) el.textContent = n ? `${n} neue Eingabe${n === 1 ? '' : 'n'} – noch nicht gespeichert` : 'Alle Eingaben gespeichert';
       const btn = $('#a-save');
-      if (btn) btn.disabled = !n;
+      if (btn) btn.disabled = !n && !this.leer().length;
     },
 
+    // angezeigte Zähler ohne Eingabe und ohne gespeicherten Stand für das Datum → werden als unverändert gespeichert
+    leer() {
+      return this.groups().flatMap((g) => g.meters).filter((m) => this.draft[m.id] === undefined)
+        .map((m) => ({ m, st: this.rowState(m) })).filter(({ st }) => !st.saved && st.prev).map(({ m, st }) => [m.id, st.prev]);
+    },
     save() {
       const entries = Object.entries(this.draft);
       const invalid = entries.filter(([, v]) => isNaN(parseNum(v)));
@@ -2506,11 +2655,15 @@
         const prev = S.readingBefore(id, this.date, false);
         return prev && parseNum(v) < prev.value;
       });
-      if (warnings.length && !confirm(`${warnings.length} Zählerstand/-stände sind kleiner als der vorherige Stand (Zählertausch oder Tippfehler?).\nTrotzdem speichern?`)) return;
+      const leer = this.leer();
+      if (!entries.length && !leer.length) return;
+      if (!readingConfirm(warnings.length, leer.length)) return;
+      leer.forEach(([id, prev]) => S.upsertReading(id, this.date, prev.value));
       entries.forEach(([id, v]) => S.upsertReading(id, this.date, parseNum(v)));
       this.draft = {};
       S.save();
-      toast(`${entries.length} ${entries.length === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert`);
+      const nAll = entries.length + leer.length;
+      toast(`${nAll} ${nAll === 1 ? 'Zählerstand' : 'Zählerstände'} gespeichert${leer.length ? ` (${leer.length} unverändert)` : ''}`);
       this.renderList();
     },
   };
@@ -4501,6 +4654,8 @@
       list.push({ id: offen[0].id, key: `frost:${frost.date}`, level: 'warn', name: `Frost am ${fmtDate(frost.date)} (${Math.round(frost.min)} °C)`, href: '#/technik/wasser',
         text: `Sommerwasser abdrehen – noch offen: ${offen.map((o) => `${Wasser.title(o)} (${Wasser.frostOpen(o).map((x) => S.hahnLabel(o, x)).join(', ')})`).join('; ')}` });
     }
+    TankLevel.warnings().forEach(({ t, st }) => list.push({ id: t.id, key: `tank:${t.id}:${st.last.datum}`, level: 'warn',
+      name: `Gastank ${t.nr}`, href: '#/technik/gas', text: st.warn }));
     bar.hidden = !list.length;
     bar.className = `wd-alarm${list.some((a) => a.level === 'alarm') ? ' is-alarm' : ''}`;
     bar.innerHTML = list.map((a) => `<a href="${a.href || `#/karte/place/${a.id}`}"><strong>${h(a.name)}:</strong> ${h(a.text)}</a>`).join('');
@@ -4560,6 +4715,7 @@
       if (!$('#view-page').hidden && location.hash.startsWith('#/todos')) Todos.renderList();
       if (!$('#view-page').hidden && location.hash.startsWith('#/kalender') && !$('#dialog').open) Kalender.render($('#view-page'));
       renderTodoBadge();
+      renderAlarms();
     });
     renderTodoBadge();
 

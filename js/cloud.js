@@ -24,8 +24,8 @@
     },
     {
       key: 'tanks',
-      toRow: (t) => ({ id: t.id, nr: String(t.nr), pos: t.pos || null, capacity: t.capacity || '', notes: t.notes || '' }),
-      fromRow: (r) => ({ id: r.id, nr: r.nr, pos: r.pos, capacity: r.capacity || '', notes: r.notes || '' }),
+      toRow: (t) => ({ id: t.id, nr: String(t.nr), pos: t.pos || null, capacity: t.capacity || '', notes: t.notes || '', fuellstand: t.fuell || [] }),
+      fromRow: (r) => ({ id: r.id, nr: r.nr, pos: r.pos, capacity: r.capacity || '', notes: r.notes || '', fuell: r.fuellstand || [] }),
     },
     {
       key: 'parcels',
@@ -116,7 +116,7 @@
   ];
 
   // Spalten aus späteren Updates: fehlen sie noch, werden sie beim Speichern weggelassen
-  const OPTIONAL_COLS = { parcels: ['miete'], meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo', 'wasser'], termine: ['anzahl'], todos: ['kalender'] };
+  const OPTIONAL_COLS = { tanks: ['fuellstand'], parcels: ['miete'], meters: ['fuses', 'fuse_box_id'], places: ['ical_url', 'photo', 'wasser'], termine: ['anzahl'], todos: ['kalender'] };
 
   const PAGE = 1000;
   const BUCKET = 'todo-fotos';
