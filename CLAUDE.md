@@ -42,6 +42,9 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
 - Mieter-Detailseite, Block Infrastruktur: Überschriften „Strom“ (ohne Zähleranzahl) mit Blitz, „Gas“ mit Flamme (jeweils auf farbigem Kreis wie die Map-Schildchen: gelb bzw. grün, `.h-ico`); darunter der Ort, anklickbar → Map: „Stromkasten“ bzw. „Gastank“ mit Map-Schildchen dahinter (S-05, G-2) (sonst „Gasflaschen“/„im Haus“); keine Heizungsart; Zähler als Karten untereinander wie im Stromkasten-Fenster
   (Kennung, Sicherung, letzte 3 Stände, ältere aufklappbar, „inaktiv“), ohne Standortzeile (steckt in der Kennung). Blitz/Flamme im Fenster-Kopf (Stromkasten/Gastank) größer.
 - Map-Schnellansicht Stromkasten: nur Zähler + Sicherung unter den Mietern, keine Zählerstände (`boxMeterGroups(meters, { reads: false })`). Freie Zähler einmal als Gruppe „Frei – nicht zugeordnet“ (am Ende), Betriebszähler je Zweck; unveränderte Zähler auch hier ausgegraut.
+- Durchschnittsverbrauch (25.11.2026): je Zähler zwischen den beiden letzten Ablesungen auf 30,44 Tage umgerechnet (`MapUI.monthlyAvg`), je Parzelle Summe aller Zähler (`groupAvg/groupAvgHtml`, mit Zeitraum). Infrastruktur → Strom: `boxMeterGroups(…, { avg: true })` – breit eigene Spalte rechts (`.bx-avgcol`), schmal oben rechts neben dem Namen. Stromkasten-Fenster (Map): oben „Gesamt über den Kasten“ (alle Zähler inkl. Betrieb). Parzellen-Fenster (Map): Strom nur Zähler + Sicherung + Durchschnitt (alles Weitere unter „Details öffnen“); Gas dort noch vollständig.
+- Zählerstände nachträglich ändern/löschen (25.11.2026): Stift je Stand (`opts.edit`: Infrastruktur Strom/Gas, Mieter-Seite; nicht auf der Map, nicht während der Ablesung) → `ReadingEdit` mit Hinweis im Fenster und Nachfrage (alt/neu, Warnung bei kleiner als vorheriger/größer als nächster Stand); Löschen ebenfalls mit Nachfrage.
+- „inaktiv“ immer rechtsbündig: in der Kennungszeile ganz rechts; breit (Stände daneben) in der Verbrauchsspalte (`.bx-inaktiv.in-table` / `.has-tbl`).
 - Zähler-Einträge (`boxMeterItem`): bei genug Breite (Container ab 500 px) Kennung links, Stände rechts in derselben Zeile; schmal (Map-Fenster, iPhone) untereinander.
 - Infrastruktur: Seiten mit Unterreitern immer mit Scrollleiste (`.view-page { overflow-y: scroll }` – gescrollt wird in .view-page, nicht im html), damit der Inhalt nicht seitlich springt; Gastank-Zeilen einzeilig („Gastank G-01 · 2.900 l · Notiz“); Wasser-Zeilen mit Map-Schildchen (Tropfen + Name), „Wasserschacht W-01 · Info“ einzeilig; Knöpfe (Map, Bearbeiten, Ablesen) im aufgeklappten Eintrag rechts; Sommerwasser-Checkliste zum Aufklappen (Kopf zeigt „x von y abgedreht“, bei Frost und offenen Hähnen automatisch offen).
 - Infrastruktur-Reiter Strom/Gas/Wasser: Kästen, Tanks, Schächte als breite Zeilen untereinander (`.infra-list.is-rows`); aufgeklappt Parzellen mit ihren Zählern wie im Stromkasten-Fenster (`MapUI.boxMeterGroups`); Knopf „Ablesen“ je Kasten/Tank (und „Zähler im Haus“): kein Fenster, sondern in den Zeilen rechts neben jedem Zähler ein Eingabefeld, oben Leiste mit Datum, Fortschritt, Abbrechen/Speichern (`Technik.startReading`; Verbrauch live, rot bei kleinerem Stand); Sommerwasser-Checkliste untereinander.
@@ -126,12 +129,13 @@ Diese Datei hält die Absprachen fest, damit jede neue Sitzung nahtlos weiterarb
   `config.js` läuft die App im lokalen Testmodus mit Demo-Daten.
 
 ## Übergabe (Stand 25.11.2026, neuer Chat)
-- Alle PRs bis #53 sind gemergt. Arbeitszweig `claude/plan-extras`; vor neuer Arbeit auf `origin/main` setzen.
-- Letzte Version: `?v=20261128-10` (nächste: `-11` oder neues Datum).
+- Alle PRs bis #55 sind gemergt; #56 (Durchschnitt, Stände bearbeiten) offen. Arbeitszweig `claude/plan-extras`; vor neuer Arbeit auf `origin/main` setzen.
+- Letzte Version: `?v=20261128-11` (nächste: `-12` oder neues Datum).
 - Vom Betreiber noch zu prüfen (Rückmeldung abwarten): Safari schlägt im Zuordnungsfeld (Stromkasten bearbeiten) keine Mac-Kontakte mehr vor;
   W-11 unter W-12 auf der Map jetzt anklickbar (Schildchen kommt beim Überfahren nach vorne).
 - Offene Frage an den Betreiber: Sollen Zähler mit nur einem Stand (oder bei der letzten Ablesung gar nicht abgelesen) auch als „inaktiv“ gelten?
   Bisher nur: letzte zwei Stände gleich.
+- Offene Fragen (25.11.2026): „15.000“ mit Punkt wird als 15 gelesen (`parseNum`: Punkt = Komma, wenn kein Komma) – als Tausenderpunkt werten? Gaszähler im Parzellen-Fenster auch kürzen?
 - Erinnern: Tuya-IoT-Core-Probezeit vor dem 11.12.2026 verlängern (sonst fällt die Heizungssteuerung aus). PV-Ertragsdaten: wartet auf Infos zum Wechselrichter.
 - Arbeitsweise: Vorschau (Screenshot) vor dem Bau, wenn der Betreiber „vorschau“ schreibt; Bilder per SendUserFile schicken.
   Tests mit Playwright gegen `python3 -m http.server 8000` (config.js per Route auf Testmodus umbiegen, https abbrechen);
