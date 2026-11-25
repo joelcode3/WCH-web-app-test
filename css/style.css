@@ -1319,6 +1319,11 @@ body.is-locked { padding-bottom: 0; }
 .ws-read td { padding: 3px 4px; border-bottom: 1px solid var(--linie); }
 .ws-read td.num { text-align: right; white-space: nowrap; }
 .ws-read .link-btn svg { width: 14px; height: 14px; }
+.ws-read td.rd-ed { width: 30px; padding: 0 0 0 4px; text-align: right; }
+.rd-edit { border: 0; background: none; padding: 3px; border-radius: 6px; color: var(--text-leise); cursor: pointer; line-height: 0; opacity: .55; }
+.rd-edit svg { width: 15px; height: 15px; }
+.rd-edit:hover, .rd-edit:focus-visible { opacity: 1; background: var(--linie); color: inherit; outline: none; }
+.is-reading .rd-ed { visibility: hidden; }
 .ws-sw { margin-top: 6px; padding: 8px 10px; border-radius: var(--radius-s); background: #f1f8f9; display: grid; gap: 6px; }
 .ws-sw-state { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .9rem; }
 .ws-sw-state .ok, .ws-check .ok { color: #2b8a3e; font-weight: 600; }
@@ -1472,6 +1477,19 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 /* Stromkasten Variante A: Parzelle als Karte, Zähler darunter, inaktive Zähler ausgegraut */
 .bx-group { padding: 8px 10px; border: 1px solid var(--linie); border-radius: var(--radius-s); background: var(--papier); list-style: none; }
 .bx-group.is-link { cursor: pointer; }
+/* Durchschnitt je Parzelle: schmal oben rechts neben dem Kopf, breit eigene Spalte rechts neben den Ständen */
+.bx-group.has-avg { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.bx-group.has-avg > .bx-meter { grid-column: 1 / -1; }
+.bx-group.has-avg > .bx-head { grid-column: 1; grid-row: 1; }
+.bx-avgcol { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: flex-end; padding: 0 0 6px 10px;
+  border-bottom: 1px dashed var(--linie); text-align: right; }
+.bx-avg { white-space: nowrap; font-size: .9rem; }
+.bx-avg.is-none { color: var(--text-leise); font-size: .85rem; }
+.bx-avg-per { font-size: .75rem; color: var(--text-leise); white-space: nowrap; }
+.bx-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0 0 8px; padding: 7px 10px;
+  border: 1px solid #e0a526; border-radius: var(--radius-s); background: #fdf7e6; }
+.bx-total-l { font-weight: 600; margin-right: auto; }
+.bx-avgline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--linie); }
 .bx-group.is-link:hover, .bx-group.is-link:focus-visible { border-color: #e0a526; background: #fdf7e6; outline: none; }
 .bx-head { display: flex; align-items: center; gap: 7px; font-size: .95rem; padding-bottom: 6px; border-bottom: 1px dashed var(--linie); }
 .bx-group .bx-meter { border: 0; padding: 6px 0 0 14px; background: none; border-radius: 0; }
@@ -1479,7 +1497,8 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .bx-fuse { display: inline-flex; align-items: center; gap: 3px; }
 .bx-fuse svg { width: 15px; height: 15px; fill: none; stroke: #8a918b; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .bx-meter.is-inaktiv { opacity: .5; }
-.bx-inaktiv { margin-left: 8px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-leise);
+.bx-inaktiv.in-table { display: none; }
+.bx-inaktiv { margin-left: auto; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-leise);
   border: 1px solid #c9ccc6; border-radius: 999px; padding: 1px 7px; }
 
 /* Parzellen-Fenster: Zähler wie im Stromkasten; Gaszähler grün */
@@ -1536,6 +1555,7 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 /* Infrastruktur → Strom: Kästen als breite Zeilen untereinander */
 .infra-list.is-rows { grid-template-columns: 1fr; }
 .infra-list.is-rows .bx-meters { max-width: 760px; }
+.infra-list.is-rows .bx-meters:has(.has-avg) { max-width: 980px; }
 
 /* Wasser: Sommerwasser-Checkliste ebenfalls untereinander */
 .ws-check { grid-template-columns: 1fr; max-width: 760px; }
@@ -1548,6 +1568,15 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
   .bx-meter > .ws-read, .bx-meter > .bx-more, .bx-meter > p, .bx-meter > .bx-lastline { grid-column: 2; margin: 0; width: 100%; }
   .bx-meter > .bx-more { margin-top: 2px; }
   .bx-meter > .bx-lastline { justify-self: end; }
+  /* „inaktiv“ steht dann rechts in der Verbrauchsspalte */
+  .bx-code .bx-inaktiv.has-tbl { display: none; }
+  .bx-inaktiv.in-table { display: inline-block; margin: 0; }
+}
+@container (min-width: 700px) {
+  .bx-group.has-avg { grid-template-columns: minmax(0, 1fr) 190px; column-gap: 0; }
+  .bx-group.has-avg > .bx-meter { grid-column: 1; }
+  .bx-group.has-avg > .bx-avgcol { grid-row: 1 / span 20; justify-content: flex-start; border-bottom: 0;
+    border-left: 1px dashed var(--linie); margin-left: 18px; padding: 2px 0 0 14px; align-self: stretch; }
 }
 
 /* Ablesen direkt in den Zeilen (Infrastruktur) */
@@ -1591,6 +1620,14 @@ input.is-invalid { border-color: var(--gefahr) !important; box-shadow: 0 0 0 2px
 .bx-meter .ws-read { table-layout: fixed; }
 .bx-meter .ws-read td:nth-child(1) { width: 32%; }
 .bx-meter .ws-read td:nth-child(2) { width: 36%; }
+/* mit Bearbeiten-Stift: Stift schmal, Stand etwas schmaler, damit der Verbrauch daneben passt */
+.bx-meter .ws-read.is-edit td:nth-child(2) { width: 33%; }
+.ws-read.is-edit td.rd-ed { width: 24px; padding-left: 2px; }
+@container (max-width: 499px) {
+  .bx-meter .ws-read.is-edit { table-layout: auto; }
+  .bx-meter .ws-read.is-edit td { width: auto; padding-left: 2px; padding-right: 2px; white-space: nowrap; }
+  .bx-meter .ws-read.is-edit td:nth-child(3) { font-size: .85rem; }
+}
 /* Wasser: Sommerwasser-Checkliste zum Aufklappen */
 .sw-fold { margin-top: 18px; }
 .sw-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
